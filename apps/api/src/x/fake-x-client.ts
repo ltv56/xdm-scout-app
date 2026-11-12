@@ -11,7 +11,7 @@ import {
   XUncertainError,
 } from './x-client'
 
-export type FakeSendOutcome = 'ok' | 'not-accepting' | 'rate-limit' | 'timeout-delivered' | 'timeout-undelivered'
+export type FakeSendOutcome = 'ok' | 'not-accepting' | 'rejected' | 'rate-limit' | 'timeout-delivered' | 'timeout-undelivered'
 
 export class FakeXClient implements XClient {
   nextSend: FakeSendOutcome = 'ok'
@@ -24,6 +24,7 @@ export class FakeXClient implements XClient {
   private readonly messages: (DmMessage & { recipientId: string; seq: number })[] = []
   private readonly profiles = new Map<string, XProfile>()
   private readonly posts = new Map<string, XPost[]>()
+  private readonly following = new Map<string, string[]>()
   private counter = 0
 
   async sendDm(recipientId: string, text: string): Promise<SendDmResult> {
@@ -31,6 +32,8 @@ export class FakeXClient implements XClient {
     switch (this.nextSend) {
       case 'not-accepting':
         throw new XNotAcceptingDmError()
+      case 'rejected':
+        throw new Error('X returned 400: Bad Request')
       case 'rate-limit':
         throw new XRateLimitError(this.retryAt)
       case 'timeout-undelivered':
@@ -63,6 +66,8 @@ export class FakeXClient implements XClient {
     for (const [userId, list] of Object.entries(posts)) {
       client.addPosts(userId, list.map((p) => ({ ...p, userId, createdAt: new Date(p.createdAt) })))
     }
+    const following = JSON.parse(readFileSync(join(dir, 'following.json'), 'utf8')) as Record<string, string[]>
+    for (const [userId, handles] of Object.entries(following)) client.addFollowing(userId, handles)
     return client
   }
 
@@ -80,6 +85,15 @@ export class FakeXClient implements XClient {
 
   addPosts(userId: string, posts: XPost[]) {
     this.posts.set(userId, posts)
+  }
+
+  addFollowing(userId: string, handles: string[]) {
+    this.following.set(userId, handles)
+  }
+
+  async getFollowing(userId: string, max: number): Promise<XProfile[]> {
+    const handles = (this.following.get(userId) ?? []).slice(0, max)
+    return handles.flatMap((h) => this.profiles.get(h.toLowerCase()) ?? [])
   }
 
   async getRecentPosts(userId: string, max: number): Promise<XPost[]> {

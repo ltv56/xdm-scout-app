@@ -88,8 +88,57 @@ docker exec xdm-scout-db-1 mysql -uxdm -pxdm xdm -e "SELECT campaignId, kind, co
 - `budgetUsd` on the campaign (default 1) caps the spend. Discovery stops when the next profile reads or a full 15-post read does not fit, keeps what it has, and the skipped handles get reason `budget`.
 - Prospects: `mina_builds`, `tomas_agents`, `lena_embodied`.
 - Skipped: `robotco` (organization), `private_dev` (protected), `pasta_daily` (bio has no keyword), `nobody_here` (not found).
-- A body without `name`, `keywords` or `handles`: `400`.
+- A body without `name` or `keywords`, or with neither `handles` nor `seeds`: `400`.
+
+From seed accounts (fake mode, `fixtures/following.json`):
+
+```
+curl -XPOST localhost:3001/api/campaigns -H 'content-type: application/json' \
+  -d '{"name":"seeds demo","keywords":["robotics","llm","embodied"],"seeds":["sea_robotics_lab","ai_builders_sg"]}'
+curl localhost:3001/api/campaigns/<id>/estimate
+curl -XPOST localhost:3001/api/campaigns/<id>/discover
+curl localhost:3001/api/campaigns/<id>/prospects
+```
+
+- Prospects are the people the seeds follow, `relationship` `adjacent`, with `seedCount`: `mina_builds` and `tomas_agents` 2, `lena_embodied` 1. Seeds themselves are not prospects.
+- `pasta_daily` and `robotco` are skipped (bio, organization).
+- Following reads cost about $0.01 per user returned and stop at 200 per seed or at the budget. The estimate gives the upper bound (`maxFollowing`); posts of people found through seeds are not in the estimate and are capped by the budget.
 - Profiles fetched less than 7 days ago are not fetched again.
+
+## 7. Fit scoring (fake mode)
+
+Needs a campaign with prospects from section 6 and the worker running. Without `LLM_API_KEY` and `LLM_MODEL` in `.env` a canned stand-in answers: every Fit is `possible`, the opening is the latest stored post.
+
+```
+curl -XPOST localhost:3001/api/campaigns/1/score
+curl localhost:3001/api/campaigns/1/prospects
+```
+
+- `score` returns `{"queued":N}` for prospects without a score; a second call returns `{"queued":0}`.
+- Each prospect has `fit`, `role`, `areas`, `opening` (`type`, `summary`, `freshness` fresh/stale/expired, `url`) and `claims` with `status` verified/inferred and evidence links.
+- Order: Fit (strong, possible, weak, not a fit, not scored), then newest opening.
+- The web app shows the same list: `npm run dev -w apps/web`, campaign number in the box.
+
+With a real model, set in `.env`:
+
+```
+LLM_PROVIDER=openai        # or anthropic
+LLM_BASE_URL=https://...   # OpenAI-compatible base URL, ignored for anthropic
+LLM_MODEL=...
+LLM_API_KEY=...
+```
+
+## 8. Retention of X data
+
+The worker sweeps on start and every hour:
+
+- Post text in `x_posts` is cleared once every prospect of that person is scored; id and date stay. Discovery reads the posts again if needed.
+- Post evidence that no claim or opening cites is deleted.
+- After 7 days, `x_users` name, bio and followers and `evidence` excerpts are cleared unless the person has a `pending` or `approved` draft; ids, handle and links stay.
+
+```
+docker exec xdm-scout-db-1 mysql -uxdm -pxdm xdm -e "SELECT xUserId, LEFT(text, 20) FROM x_posts; SELECT id, LEFT(excerpt, 20) FROM evidence"
+```
 
 ## Automated tests
 
