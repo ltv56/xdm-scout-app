@@ -12,6 +12,17 @@ export class SenderAccount {
   @Column({ type: 'varchar', length: 64 })
   handle!: string
 
+  @Column({ type: 'text', nullable: true })
+  accessTokenEnc!: string | null
+
+  @Column({ type: 'text', nullable: true })
+  refreshTokenEnc!: string | null
+
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  tokenExpiresAt!: Date | null
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  scope!: string | null
 }
 
 @Entity('x_users')
@@ -21,6 +32,27 @@ export class XUser {
 
   @Column({ type: 'varchar', length: 64 })
   handle!: string
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  name!: string | null
+
+  @Column({ type: 'text', nullable: true })
+  bio!: string | null
+
+  @Column({ type: 'int', nullable: true })
+  followers!: number | null
+
+  @Column({ type: 'boolean', default: false })
+  isProtected!: boolean
+
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  orgType!: string | null
+
+  @Column({ type: 'boolean', default: false })
+  receivesYourDm!: boolean
+
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  fetchedAt!: Date | null
 }
 
 export type RelationshipContext = 'messaged_us' | 'follower' | 'engaged' | 'adjacent' | 'cold'
@@ -43,6 +75,13 @@ export class Contact {
 
   @Column({ type: 'varchar', length: 16, default: 'none' })
   recipientPermission!: RecipientPermission
+
+  // The inbound DM the operator confirmed as an invitation; API sending depends on it.
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  invitationEventId!: string | null
+
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  invitationAt!: Date | null
 
   @Column({ type: 'int', nullable: true })
   activeAttemptId!: number | null
@@ -106,6 +145,12 @@ export class SendAttempt {
 
   @Column({ type: 'varchar', length: 32, nullable: true })
   xEventId!: string | null
+
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  runAt!: Date | null
+
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  unknownAt!: Date | null
 
   @Column({ type: 'text', nullable: true })
   error!: string | null

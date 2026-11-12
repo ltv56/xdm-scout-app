@@ -1,13 +1,12 @@
 import 'reflect-metadata'
-import { createHash } from 'node:crypto'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { JobsService } from '../jobs/jobs.service'
 import { createTestDataSource } from '../test/db'
+import { seedDraft as seed, sha } from '../test/seed'
 import { FakeXClient } from '../x/fake-x-client'
-import { Contact, Draft, DoNotContact, SendAttempt, SenderAccount, XUser } from './entities'
+import { Contact, DoNotContact, Draft, SendAttempt } from './entities'
 import { SendingService } from './sending.service'
-
-const sha = (s: string) => createHash('sha256').update(s).digest('hex')
 
 let ds: DataSource
 let x: FakeXClient
@@ -16,23 +15,14 @@ let service: SendingService
 beforeEach(async () => {
   ds = await createTestDataSource()
   x = new FakeXClient()
-  service = new SendingService(ds, x)
+  service = new SendingService(ds, x, new JobsService(ds))
 })
 
 afterAll(async () => {
   if (ds?.isInitialized) await ds.destroy()
 })
 
-async function seedDraft(xUserId = '200', content = 'Hi there') {
-  await ds.getRepository(SenderAccount).save({ id: 1, xUserId: '100', handle: 'a' })
-  await ds.getRepository(XUser).save({ xUserId, handle: `u${xUserId}` })
-  const contact = await ds.getRepository(Contact).save({
-    senderAccountId: 1,
-    xUserId,
-    recipientPermission: 'requested_dm',
-  })
-  return ds.getRepository(Draft).save({ contactId: contact.id, content })
-}
+const seedDraft = (xUserId = '200', content = 'Hi there') => seed(ds, xUserId, content)
 
 describe('approveAndSend', () => {
   it('creates one queued attempt and holds the send right', async () => {
@@ -80,6 +70,24 @@ describe('approveAndSend', () => {
     await ds.getRepository(DoNotContact).save({ xUserId: '200', reason: 'asked to stop', source: 'test' })
     await expect(service.approveAndSend(draft.id, sha(draft.content))).rejects.toThrow('Do not contact')
   })
+
+  it('test 18: a person who never messaged first cannot be sent by API', async () => {
+    const draft = await seed(ds, '200', 'Hi there', { recipientPermission: 'none', invitationEventId: null, invitationAt: null })
+    await expect(service.approveAndSend(draft.id, sha(draft.content))).rejects.toThrow('messaged you first')
+    expect(await ds.getRepository(SendAttempt).count()).toBe(0)
+  })
+
+  it('requested_dm without the invitation DM on record is not enough', async () => {
+    const draft = await seed(ds, '200', 'Hi there', { invitationEventId: null })
+    await expect(service.approveAndSend(draft.id, sha(draft.content))).rejects.toThrow('messaged you first')
+    expect(await ds.getRepository(SendAttempt).count()).toBe(0)
+  })
+
+  it('an invitation older than 30 days moves the person to sending by hand', async () => {
+    const draft = await seed(ds, '200', 'Hi there', { invitationAt: new Date(Date.now() - 31 * 86_400_000) })
+    await expect(service.approveAndSend(draft.id, sha(draft.content))).rejects.toThrow('older than 30 days')
+    expect(await ds.getRepository(SendAttempt).count()).toBe(0)
+  })
 })
 
 describe('processAttempt', () => {
@@ -100,7 +108,7 @@ describe('processAttempt', () => {
     await service.processAttempt(attemptId)
     const attempt = await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })
     expect(attempt.status).toBe('failed')
-    expect(attempt.error).toContain('not accepting')
+    expect(attempt.error).toContain("doesn't accept DMs from this account")
     const contact = await ds.getRepository(Contact).findOneByOrFail({ id: draft.contactId })
     expect(contact.activeAttemptId).toBeNull()
   })
