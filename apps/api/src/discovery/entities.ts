@@ -21,6 +21,13 @@ export class Campaign {
   @Column({ type: 'json', nullable: true })
   queries!: string[] | null
 
+  // The fund's own lines, e.g. "Based in or building for Southeast Asia".
+  @Column({ type: 'json', nullable: true })
+  criteria!: string[] | null
+
+  @Column({ type: 'json', nullable: true })
+  lastDiscovery!: DiscoveryRun | null
+
   @Column({ type: 'int', default: 1_000_000 })
   budgetMicros!: number
 }
@@ -113,4 +120,18 @@ export class Prospect {
 
   @Column({ type: 'datetime', precision: 3, nullable: true })
   scoredAt!: Date | null
+
+  @Column({ type: 'json', nullable: true })
+  criteria!: CriterionResult[] | null
 }
+
+export type DiscoveryRun = {
+  at: string
+  added: number
+  skipped: { handle: string; reason: string }[]
+  spentMicros: number
+  stoppedByBudget: boolean
+  postsPending: number
+}
+
+export type CriterionResult = { text: string; status: 'met' | 'not_met' | 'unknown'; evidenceIds: string[] }

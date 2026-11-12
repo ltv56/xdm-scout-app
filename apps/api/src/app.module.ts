@@ -14,6 +14,8 @@ import { cannedHandler, FakeLlmClient } from './llm/fake-llm-client'
 import { AnthropicLlmClient, OpenAiCompatibleLlmClient } from './llm/http-llm-clients'
 import { LLM_CLIENT, LlmClient } from './llm/llm-client'
 import { RetentionService } from './retention/retention.service'
+import { ReviewStubController } from './review/review-stub.controller'
+import { SenderProfileController } from './review/sender-profile.controller'
 import { DraftsController } from './sending/drafts.controller'
 import { SendingService } from './sending/sending.service'
 import { Worker } from './sending/worker'
@@ -26,7 +28,13 @@ import { X_CLIENT, XClient } from './x/x-client'
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
     TypeOrmModule.forRoot({ ...dataSourceOptions, migrations: [] }),
   ],
-  controllers: [HealthController, DraftsController, AuthController, CampaignsController],
+  // REVIEW_STUB=1 serves fixed review data (see review/contract.ts) instead of the real draft routes.
+  controllers: [
+    HealthController,
+    ...(process.env.REVIEW_STUB === '1' ? [ReviewStubController] : [DraftsController, SenderProfileController]),
+    AuthController,
+    CampaignsController,
+  ],
   providers: [
     JobsService,
     DiscoveryService,

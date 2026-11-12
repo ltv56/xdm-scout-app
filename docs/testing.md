@@ -74,8 +74,14 @@ Start the API and the worker with `X_MODE=fake`. Profiles come from `fixtures/pr
 curl -XPOST localhost:3001/api/campaigns -H 'content-type: application/json' \
   -d '{"name":"robotics demo","keywords":["robotics","llm","embodied"],"handles":["mina_builds","@tomas_agents","lena_embodied","robotco","private_dev","pasta_daily","nobody_here"]}'
 curl -XPOST localhost:3001/api/campaigns/1/discover
+# the worker picks the job up within a few seconds; wait until lastDiscovery is set
+curl localhost:3001/api/campaigns/1
 curl localhost:3001/api/campaigns/1/prospects
 ```
+
+- `GET /api/campaigns/1` returns the campaign with `lastDiscovery`: time, `added`, `skipped` (handle and reason), `spentMicros`, `stoppedByBudget`, `postsPending`.
+- A second `discover` while one is pending or running: `{"queued":false,"reason":"Discovery is already running for this campaign"}`.
+- An unknown campaign id: `404`.
 
 Cost estimate before running, and spend after:
 
@@ -128,7 +134,9 @@ curl localhost:3001/api/campaigns/1/prospects
 
 - `score` returns `{"queued":N}` for prospects without a score; a second call returns `{"queued":0}`.
 - Each prospect has `fit`, `role`, `areas`, `opening` (`type`, `summary`, `freshness` fresh/stale/expired, `url`) and `claims` with `status` verified/inferred and evidence links.
-- Order: Fit (strong, possible, weak, not a fit, not scored), then newest opening.
+- Each prospect also has `lastPostAt` (latest stored post) and `criteria`: the campaign's own lines, each `met`, `not_met` or `unknown`. Met and not met need cited evidence that passes the second check; the canned stand-in leaves every line `unknown`.
+- Campaign criteria are set at creation, up to 5 lines: `"criteria":["Based in or building for Southeast Asia","Ships code or papers"]`.
+- Order: Fit (strong, possible, weak, not a fit, not scored), then how many seeds follow them, then newest opening.
 - The web app shows the same list: `npm run dev -w apps/web`, campaign number in the box.
 
 With a real model, set in `.env`:
@@ -150,6 +158,22 @@ The worker sweeps on start and every hour:
 
 ```
 docker exec xdm-scout-db-1 mysql -uxdm -pxdm xdm -e "SELECT xUserId, LEFT(text, 20) FROM x_posts; SELECT id, LEFT(excerpt, 20) FROM evidence"
+```
+
+## Review screens with fixed data
+
+Set `REVIEW_STUB=1` in `.env` and restart the API. The review routes then return six fixed drafts (one per screen state) kept in memory; a restart resets them. The real `POST /api/drafts/:id/approve` is off in this mode. Shapes: `apps/api/src/review/contract.ts`.
+
+```
+B=http://localhost:3001/api
+curl -s $B/campaigns
+curl -s "$B/review-queue?campaignId=1"
+H=$(curl -s "$B/review-queue?campaignId=1" | node -e "console.log(JSON.parse(require('fs').readFileSync(0)).items[0].contentHash)")
+curl -s -XPOST $B/drafts/101/approve -H 'content-type: application/json' -d "{\"contentHash\":\"$H\"}"
+curl -s -XPOST $B/drafts/101/manual -H 'content-type: application/json' -d '{"outcome":"sent"}'
+curl -s -XPATCH $B/drafts/105 -H 'content-type: application/json' -d '{"text":"Saw your GPU post. We are a small fund. No worries if not."}'
+curl -s -XPOST $B/drafts/102/skip -H 'content-type: application/json' -d '{"reason":"bored"}'   # 400, reason not in the list
+curl -s $B/sender-profile
 ```
 
 ## Automated tests
