@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { Prospect, XPost } from '../discovery/entities'
 import { Evidence } from '../fit/entities'
-import { Contact, Draft, SenderAccount, XUser } from '../sending/entities'
+import { Contact, Draft, SendAttempt, SenderAccount, XUser } from '../sending/entities'
 import { apiSendBlock, hashContent } from '../sending/sending.service'
 import { Setting } from '../setting.entity'
 import { runChecks, StoredSentence } from './checks'
@@ -21,6 +21,7 @@ type Context = {
   evidence: Map<string, Evidence>
   posts: Map<string, XPost[]>
   texts: Map<number, string>
+  manualSent: Set<number>
 }
 
 export const composeUrl = (xUserId: string, text: string) => `https://x.com/messages/compose?recipient_id=${xUserId}&text=${encodeURIComponent(text)}`
@@ -30,12 +31,30 @@ export class ReviewService {
   constructor(private readonly ds: DataSource) {}
 
   async queue(campaignId: number, now = new Date()): Promise<ReviewQueue> {
+    const { prospects, live } = await this.liveDrafts(campaignId)
+    return { campaignId, sessionSize: SESSION_SIZE, items: await this.render(live.slice(0, SESSION_SIZE), live, prospects, now) }
+  }
+
+  // One draft as the queue shows it, whatever its status; similar-draft checks still look at the live ones.
+  async one(draftId: number, now = new Date()): Promise<ReviewItem> {
+    const draft = await this.ds.getRepository(Draft).findOneBy({ id: draftId })
+    const prospect = draft?.prospectId ? await this.ds.getRepository(Prospect).findOneBy({ id: draft.prospectId }) : null
+    if (!draft || !prospect) throw new NotFoundException('Draft not found')
+    const { prospects, live } = await this.liveDrafts(prospect.campaignId)
+    return (await this.render([draft], live.some((d) => d.id === draft.id) ? live : [...live, draft], prospects, now))[0]
+  }
+
+  private async liveDrafts(campaignId: number) {
     const prospects = await this.ds.getRepository(Prospect).findBy({ campaignId })
-    const drafts = prospects.length
-      ? await this.ds.getRepository(Draft).find({ where: { prospectId: In(prospects.map((p) => p.id)), status: In(['pending', 'approved']) }, order: { id: 'ASC' }, take: SESSION_SIZE })
+    const live = prospects.length
+      ? await this.ds.getRepository(Draft).find({ where: { prospectId: In(prospects.map((p) => p.id)), status: In(['pending', 'approved']) }, order: { id: 'ASC' } })
       : []
-    const ctx = await this.context(prospects, drafts)
-    return { campaignId, sessionSize: SESSION_SIZE, items: drafts.map((d) => this.item(d, ctx, now)) }
+    return { prospects, live }
+  }
+
+  private async render(shown: Draft[], live: Draft[], prospects: Prospect[], now: Date) {
+    const ctx = await this.context(prospects, shown, live)
+    return shown.map((d) => this.item(d, ctx, now))
   }
 
   private item(draft: Draft, ctx: Context, now: Date): ReviewItem {
@@ -60,7 +79,7 @@ export class ReviewService {
     return {
       draftId: draft.id,
       contentHash: hashContent(draft.content),
-      status: draft.status === 'approved' ? 'approved' : 'pending',
+      status: draft.status === 'approved' && ctx.manualSent.has(draft.id) ? 'sent_manually' : draft.status,
       sendPath: draft.sendPath,
       kind: draft.kind,
       editedByReviewer: draft.editedByReviewer,
@@ -71,11 +90,16 @@ export class ReviewService {
         fit: prospect.fit === 'strong' || prospect.fit === 'possible' || prospect.fit === 'weak' ? prospect.fit : 'no_basis',
         relationship: prospect.relationship,
         permissionNote: permissionNote(contact, now),
+        history: null,
+        bio: user?.bio ?? null,
+        mainLanguage: null,
         daysSinceActive: posts.length ? Math.floor((now.getTime() - Math.max(...posts.map((p) => p.postedAt.getTime()))) / DAY) : null,
         snapshot: snapshot(prospect, user, posts, now),
-        criteria: (prospect.criteria ?? []).map((c) => ({ text: c.text, status: c.status })),
+        criteria: (prospect.criteria ?? []).map((c) => ({ text: c.text, status: c.status, evidence: [], fact: null })),
       },
       text: draft.content,
+      language: 'en',
+      englishText: null,
       sentences: sentences.map((s) => ({
         text: s.text,
         source: !s.source ? null : s.source.type === 'evidence' ? (idOf.has(s.source.evidenceId) ? { type: 'evidence', evidenceId: idOf.get(s.source.evidenceId)! } : null) : s.source,
@@ -107,7 +131,7 @@ export class ReviewService {
     return out
   }
 
-  private async context(prospects: Prospect[], drafts: Draft[]): Promise<Context> {
+  private async context(prospects: Prospect[], drafts: Draft[], live: Draft[]): Promise<Context> {
     const xUserIds = prospects.map((p) => p.xUserId)
     const evidenceIds = [...prospects.map((p) => p.openingEvidenceId), ...drafts.flatMap((d) => (d.sentences ?? []).map((s) => (s.source?.type === 'evidence' ? s.source.evidenceId : null)))].filter((x): x is string => !!x)
     const row = await this.ds.getRepository(Setting).findOneBy({ key: 'sender_profile' })
@@ -116,14 +140,15 @@ export class ReviewService {
     const postsBy = new Map<string, XPost[]>()
     for (const p of posts) postsBy.set(p.xUserId, [...(postsBy.get(p.xUserId) ?? []), p])
     return {
-      profile: parsed.success ? parsed.data : { intro: '', offers: [], signer: '', sampleMessages: [] },
+      profile: parsed.success ? parsed.data : { intro: '', programs: [], signer: '', sampleMessages: [] },
       sender: (await this.ds.getRepository(SenderAccount).find({ order: { id: 'ASC' }, take: 1 }))[0] ?? null,
       prospects: new Map(prospects.map((p) => [p.id, p])),
       users: new Map((xUserIds.length ? await this.ds.getRepository(XUser).findBy({ xUserId: In(xUserIds) }) : []).map((u) => [u.xUserId, u])),
       contacts: new Map((drafts.length ? await this.ds.getRepository(Contact).findBy({ id: In(drafts.map((d) => d.contactId)) }) : []).map((c) => [c.id, c])),
       evidence: new Map((evidenceIds.length ? await this.ds.getRepository(Evidence).findBy({ id: In(evidenceIds) }) : []).map((e) => [e.id, e])),
       posts: postsBy,
-      texts: new Map(drafts.map((d) => [d.id, (d.sentences ?? []).map((s) => s.text).join(' ') || d.content])),
+      manualSent: new Set((drafts.length ? await this.ds.getRepository(SendAttempt).findBy({ draftId: In(drafts.map((d) => d.id)), route: 'manual', status: In(['manual_unverified', 'sent']) }) : []).map((a) => a.draftId)),
+      texts: new Map(live.map((d) => [d.id, (d.sentences ?? []).map((s) => s.text).join(' ') || d.content])),
     }
   }
 }
@@ -158,7 +183,7 @@ function weakestPoint(sentences: StoredSentence[], evidence: { item: EvidenceIte
   const parts: string[] = []
   if (dates.length) {
     const days = Math.floor((now.getTime() - Math.min(...dates)) / DAY)
-    parts.push(`Rests on ${posts.length === 1 ? 'one post' : `${posts.length} posts`} from ${days} days ago`)
+    parts.push(`Rests on ${posts.length === 1 ? 'one post' : `${posts.length} posts`} from ${days} ${days === 1 ? 'day' : 'days'} ago`)
   }
   if (unknown) parts.push(`${unknown} ${unknown === 1 ? 'criterion' : 'criteria'} unknown`)
   return parts.length ? `${parts.join('; ')}.` : 'Nothing backs this draft except the profile.'
