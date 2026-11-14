@@ -9,6 +9,8 @@ import { DoNotContactService } from './dnc/do-not-contact.service'
 import { AttentionController } from './attention/attention.controller'
 import { AttentionService } from './attention/attention.service'
 import { HealthDetailsController, PreflightController, TopBarController } from './preflight/preflight.controller'
+import { OutboxController } from './outbox/outbox.controller'
+import { OutboxService } from './outbox/outbox.service'
 import { PreflightService } from './preflight/preflight.service'
 import { AuthController } from './auth/auth.controller'
 import { AuthService, X_AUTH_CONFIG, XAuthConfig } from './auth/auth.service'
@@ -64,6 +66,7 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     AttentionController,
     DoNotContactController,
     KnownListController,
+    OutboxController,
   ],
   providers: [
     JobsService,
@@ -92,6 +95,7 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     AttentionService,
     DoNotContactService,
     KnownListService,
+    OutboxService,
     {
       provide: PreflightService,
       inject: [DataSource, AuthService, ConfigService],

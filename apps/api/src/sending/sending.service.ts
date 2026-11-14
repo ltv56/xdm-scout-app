@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { DataSource, EntityManager, LessThan } from 'typeorm'
 import { JobsService } from '../jobs/jobs.service'
 import { DmMessage, SendDmResult, X_CLIENT, XClient, XRateLimitError, XUncertainError } from '../x/x-client'
+import { dailyCap, usedToday } from './daily-cap'
 import { Contact, DoNotContact, Draft, SendAttempt } from './entities'
 
 export const hashContent = (content: string) => createHash('sha256').update(content).digest('hex')
@@ -72,6 +73,7 @@ export class SendingService {
       const contact = await em.findOneOrFail(Contact, { where: { id: draft.contactId } })
       if (contact.activeAttemptId !== attempt.id) throw new ConflictException('This draft no longer holds the send right. Approve it again.')
       await this.assertSendable(em, contact, 'api')
+      if ((await usedToday(em, new Date())) >= (await dailyCap(em))) throw new ConflictException('Daily send limit reached. Try again tomorrow (UTC).')
 
       const moved = await em.update(SendAttempt, { id: attempt.id, status: 'approved' }, { status: 'queued' })
       if (moved.affected !== 1) throw new ConflictException('Already queued')

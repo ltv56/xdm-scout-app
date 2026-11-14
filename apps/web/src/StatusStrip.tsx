@@ -18,7 +18,10 @@ export default function StatusStrip({ campaignId }: { campaignId: number | null 
     <div aria-label="Status" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
       <span className={`${chip} ${b.mode === 'live' ? tone.stop.chip : tone.done.chip}`}>{b.mode === 'live' ? 'LIVE' : 'SANDBOX'}</span>
       <span>
-        Sent today <span className="font-semibold text-ink">{b.sentToday}</span>
+        Sent today{' '}
+        <span className="font-semibold text-ink">
+          {b.sentToday} / {b.dailyCap}
+        </span>
       </span>
       {b.campaignCostMicros !== null && (
         <span title="Estimated from the calls made for this campaign. Exact figures are in the X Developer Console.">

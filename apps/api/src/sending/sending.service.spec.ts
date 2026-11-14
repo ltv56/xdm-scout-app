@@ -3,6 +3,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { Job } from '../jobs/job.entity'
+import { Setting } from '../setting.entity'
 import { JobsService } from '../jobs/jobs.service'
 import { createTestDataSource } from '../test/db'
 import { seedDraft as seed, sha } from '../test/seed'
@@ -211,5 +212,26 @@ describe('processAttempt', () => {
     expect(attempt.error).toContain("doesn't accept DMs from this account")
     const contact = await ds.getRepository(Contact).findOneByOrFail({ id: draft.contactId })
     expect(contact.activeAttemptId).toBeNull()
+  })
+})
+
+describe('daily cap', () => {
+  const capAt = (n: number) => ds.getRepository(Setting).save({ key: 'send.dailyCap', value: String(n) })
+
+  it('refuses a send once today is full and enqueues nothing more', async () => {
+    await capAt(1)
+    await queued(await seedDraft('201', 'First'))
+    const second = await seedDraft('202', 'Second')
+    await service.approve(second.id, sha(second.content))
+    await expect(service.send(second.id, sha(second.content))).rejects.toThrow('Daily send limit reached')
+    expect(await sendJobs()).toBe(1)
+    expect((await ds.getRepository(SendAttempt).findOneByOrFail({ draftId: second.id })).status).toBe('approved')
+  })
+
+  it('does not count yesterday', async () => {
+    await capAt(1)
+    const first = await queued(await seedDraft('201', 'First'))
+    await ds.getRepository(SendAttempt).update(first.attemptId, { status: 'sent', updatedAt: new Date(Date.now() - 2 * 86_400_000) })
+    await expect(queued(await seedDraft('202', 'Second'))).resolves.toBeDefined()
   })
 })

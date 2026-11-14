@@ -11,6 +11,7 @@ export type PreflightRow = {
 export type TopBar = {
   mode: 'fake' | 'live'
   sentToday: number
+  dailyCap: number
   workerRunning: boolean
   campaignCostMicros: number | null
 }
