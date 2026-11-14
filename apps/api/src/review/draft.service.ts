@@ -5,6 +5,7 @@ import { Campaign, Prospect } from '../discovery/entities'
 import { Claim, Evidence } from '../fit/entities'
 import { JobsService } from '../jobs/jobs.service'
 import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
+import { KnownUser } from '../known/known-user.entity'
 import { Contact, DoNotContact, Draft, SenderAccount, XUser } from '../sending/entities'
 import { apiSendBlock } from '../sending/sending.service'
 import { Setting } from '../setting.entity'
@@ -104,7 +105,11 @@ export class DraftService {
 
   private async openProspects(campaignId: number) {
     const prospects = await this.ds.getRepository(Prospect).findBy({ campaignId })
-    const blocked = new Set((await this.ds.getRepository(DoNotContact).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((d) => d.xUserId))
+    const ids = In(prospects.map((p) => p.xUserId))
+    const blocked = new Set([
+      ...(await this.ds.getRepository(DoNotContact).findBy({ xUserId: ids })).map((d) => d.xUserId),
+      ...(await this.ds.getRepository(KnownUser).findBy({ xUserId: ids })).map((k) => k.xUserId),
+    ])
     return prospects.filter((p) => p.status !== 'dismissed' && !blocked.has(p.xUserId))
   }
 

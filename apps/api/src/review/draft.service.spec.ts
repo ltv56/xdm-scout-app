@@ -7,6 +7,7 @@ import { Claim, Evidence } from '../fit/entities'
 import { Job } from '../jobs/job.entity'
 import { JobsService } from '../jobs/jobs.service'
 import { cannedHandler, FakeLlmClient } from '../llm/fake-llm-client'
+import { KnownUser } from '../known/known-user.entity'
 import { Contact, DoNotContact, Draft, SenderAccount, XUser } from '../sending/entities'
 import { Setting } from '../setting.entity'
 import { createTestDataSource } from '../test/db'
@@ -203,10 +204,12 @@ describe('writing drafts for a campaign', () => {
     await seed({ handle: 'noopen', opening: false })
     await seed({ handle: 'dnc' })
     await ds.getRepository(DoNotContact).save({ xUserId: 'u-dnc', reason: 'asked', source: 'manual' })
+    await seed({ handle: 'known' })
+    await ds.getRepository(KnownUser).save({ xUserId: 'u-known', handle: 'known', listName: 'Portfolio' })
     return ok
   }
 
-  it('counts only people who are ready: Strong or Possible, with an opening, no live draft, not on the do-not-contact list', async () => {
+  it('counts only people who are ready: Strong or Possible, with an opening, no live draft, not on the do-not-contact or known list', async () => {
     await field()
     expect(await service().ready(1, now)).toHaveLength(1)
   })

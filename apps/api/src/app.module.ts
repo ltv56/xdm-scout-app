@@ -1,6 +1,15 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
+import { DataSource } from 'typeorm'
+import { KnownListController } from './known/known-list.controller'
+import { KnownListService } from './known/known-list.service'
+import { DoNotContactController } from './dnc/do-not-contact.controller'
+import { DoNotContactService } from './dnc/do-not-contact.service'
+import { AttentionController } from './attention/attention.controller'
+import { AttentionService } from './attention/attention.service'
+import { HealthDetailsController, PreflightController, TopBarController } from './preflight/preflight.controller'
+import { PreflightService } from './preflight/preflight.service'
 import { AuthController } from './auth/auth.controller'
 import { AuthService, X_AUTH_CONFIG, XAuthConfig } from './auth/auth.service'
 import { dataSourceOptions } from './data-source'
@@ -49,6 +58,12 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     AuthController,
     CampaignsController,
     InboxController,
+    PreflightController,
+    HealthDetailsController,
+    TopBarController,
+    AttentionController,
+    DoNotContactController,
+    KnownListController,
   ],
   providers: [
     JobsService,
@@ -74,6 +89,14 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     RetentionService,
     InboxService,
     RepliesService,
+    AttentionService,
+    DoNotContactService,
+    KnownListService,
+    {
+      provide: PreflightService,
+      inject: [DataSource, AuthService, ConfigService],
+      useFactory: (ds: DataSource, auth: AuthService, config: ConfigService) => new PreflightService(ds, auth, config),
+    },
     {
       provide: LLM_CLIENT,
       inject: [ConfigService],

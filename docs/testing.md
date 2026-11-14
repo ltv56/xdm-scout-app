@@ -167,6 +167,16 @@ Start the API and the worker with `X_MODE=fake`. Without `LLM_MODEL` the draft t
 
 ```
 B=http://localhost:3001/api; J='content-type: application/json'
+curl $B/auth/x/status                                             # {"mode","connected","handle","tokenExpiresAt","missingScopes"}
+curl $B/preflight                                                 # what Settings shows: X account, Send DM, Chat passcode (id, label, status ok|warn|fail|info, detail, fix); no call to X or an LLM
+curl "$B/top-bar?campaignId=1"                                    # {"mode","sentToday","workerRunning","campaignCostMicros"}: sends since midnight UTC (sent or marked sent by hand), worker heartbeat under 60 s, X calls and DM reads counted for the campaign (null without campaignId)
+curl "$B/needs-attention?campaignId=1"                            # items sorted by priority then longest wait: X not connected, worker stopped, replies still to handle (Interested first), sends to check in X, failed sends, discovery stopped at the budget; [] when nothing waits; 404 unknown campaign, 400 bad id
+curl $B/do-not-contact                                            # [{"xUserId","handle","reason","source","since"}], newest first
+curl -XPOST $B/do-not-contact/<xUserId>/remove -H "$J" -d '{"reason":"They asked to hear from us again"}'   # {"ok":true}; the reason (3+ characters) goes to activity_log; 400 without it, 404 if the person is not on the list
+curl $B/known-users                                               # [{"xUserId","handle","listName","since"}]
+curl -XPOST $B/known-users/import -H "$J" -d '{"listName":"Portfolio","handles":"handle\n@alice\nbob"}'   # one handle per line or a CSV with the handle first; {"added","alreadyKnown","notFound","invalid"}; 400 without a name or any handle, at most 500 handles; X bills each profile it looks up
+curl -XDELETE $B/known-users/<xUserId>                            # {"ok":true}; 404 if not on the list; Discovery skips people on the list ("known-to-fund") and they are drafted again once removed
+curl $B/health/details                                            # for whoever installed it: database, worker (ok while its heartbeat is under 60 s old), mode, X app credentials, language and decision model
 curl -XPOST $B/auth/x/fake                                        # fake mode only: made-up sender @sandbox_sender, no X call; 404 with X_MODE=live
 curl -XPUT $B/sender-profile -H "$J" -d '{"intro":"GenAI Fund backs early AI founders in Southeast Asia.","programs":[{"id":1,"name":"Intro to investors","description":"Intro to investors","link":"https://genaifund.ai/","deadline":null}],"signer":"Vinh","sampleMessages":[]}'
 # create a campaign, discover and score as in section 6 and 7, then:

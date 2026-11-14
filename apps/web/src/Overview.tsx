@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { CampaignLane, ReadyToDraft, ReviewQueue, SenderProfile, WriteDraftsResult } from '../../api/src/review/contract'
 import { getJson, postJson } from './api'
 import FitBadge from './FitBadge'
+import NeedsAttention from './NeedsAttention'
 import type { Filter as CandidateFilter, Prospect } from './Prospects'
 import { verdict } from './review/labels'
 import { btnLink, btnPrimary, btnSecondary, money } from './ui'
@@ -47,7 +48,7 @@ const SEGMENTS = [
   { key: 'unscored', label: 'Not scored yet', bar: 'bg-raised ring-1 ring-inset ring-rule' },
 ] as const
 
-export default function Overview({ campaignId, onReview, onProspects }: { campaignId: number; onReview: () => void; onProspects: (filter: CandidateFilter) => void }) {
+export default function Overview({ campaignId, onReview, onProspects, onGo }: { campaignId: number; onReview: () => void; onProspects: (filter: CandidateFilter) => void; onGo: (page: 'inbox' | 'profile' | 'overview') => void }) {
   const qc = useQueryClient()
   const [waitingFor, setWaitingFor] = useState<{ at: string | null } | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -141,6 +142,8 @@ export default function Overview({ campaignId, onReview, onProspects }: { campai
       {waiting && <p className="mt-3 text-sm text-muted" role="status">The search is queued. This page updates when it finishes.</p>}
       {note && <p className="mt-3 text-sm font-medium text-warn" role="status">{note}</p>}
       {search.error && <p role="alert" className="mt-3 text-sm font-medium text-block">{search.error.message}</p>}
+
+      <NeedsAttention campaignId={campaignId} onGo={onGo} />
 
       <section aria-label="Next step" className="mt-8 flex flex-wrap items-center justify-between gap-x-10 gap-y-5 rounded-3xl bg-rail px-5 py-6 sm:px-10 sm:py-9">
         {drafts.length > 0 ? (
