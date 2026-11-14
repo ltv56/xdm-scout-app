@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
-import { HealthDetailsController, PreflightController } from './preflight/preflight.controller'
+import { AttentionController } from './attention/attention.controller'
+import { AttentionService } from './attention/attention.service'
+import { HealthDetailsController, PreflightController, TopBarController } from './preflight/preflight.controller'
 import { PreflightService } from './preflight/preflight.service'
 import { AuthController } from './auth/auth.controller'
 import { AuthService, X_AUTH_CONFIG, XAuthConfig } from './auth/auth.service'
@@ -54,6 +56,8 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     InboxController,
     PreflightController,
     HealthDetailsController,
+    TopBarController,
+    AttentionController,
   ],
   providers: [
     JobsService,
@@ -79,6 +83,7 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     RetentionService,
     InboxService,
     RepliesService,
+    AttentionService,
     {
       provide: PreflightService,
       inject: [DataSource, AuthService, ConfigService],

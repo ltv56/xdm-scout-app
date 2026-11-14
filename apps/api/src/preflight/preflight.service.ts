@@ -3,7 +3,8 @@ import { DataSource } from 'typeorm'
 import { AuthService } from '../auth/auth.service'
 import { Setting } from '../setting.entity'
 import { SendAttempt } from '../sending/entities'
-import type { PreflightRow } from './contract'
+import { ApiUsage } from '../discovery/entities'
+import type { PreflightRow, TopBar } from './contract'
 
 const BEAT_KEY = 'worker.lastBeatAt'
 const BEAT_FRESH_MS = 60_000
@@ -44,6 +45,27 @@ export class PreflightService {
       this.llm(),
       this.decision(),
     ]
+  }
+
+  // Sends count from midnight UTC, the same clock the database uses.
+  async topBar(campaignId: number | null, now = new Date()): Promise<TopBar> {
+    const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const sentToday = await this.ds
+      .getRepository(SendAttempt)
+      .createQueryBuilder('a')
+      .where('a.status IN (:...done)', { done: ['sent', 'manual_unverified'] })
+      .andWhere('a.updatedAt >= :midnight', { midnight })
+      .getCount()
+    const cost =
+      campaignId === null
+        ? null
+        : await this.ds.getRepository(ApiUsage).createQueryBuilder('u').select('COALESCE(SUM(u.costMicros), 0)', 'total').where('u.campaignId = :campaignId', { campaignId }).getRawOne<{ total: string }>()
+    return {
+      mode: this.mode() === 'live' ? 'live' : 'fake',
+      sentToday,
+      workerRunning: (await this.worker(now)).status === 'ok',
+      campaignCostMicros: cost ? Number(cost.total) : null,
+    }
   }
 
   private mode() {

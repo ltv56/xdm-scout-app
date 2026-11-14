@@ -79,3 +79,21 @@ describe('PreflightService.details (for whoever installed it)', () => {
     expect(row(set, 'x_app').status).toBe('ok')
   })
 })
+
+describe('PreflightService.topBar', () => {
+  it('shows the mode, sends since midnight UTC, worker state and the campaign cost', async () => {
+    const draft = await seedDraft(ds, '200', 'Hi there')
+    const attempt = (status: string, at: string) =>
+      ds.query('INSERT INTO send_attempts (contactId, draftId, route, status, contentHash, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)', [draft.contactId, draft.id, 'api', status, sha('Hi there'), at, at])
+    await attempt('sent', '2026-11-14 01:00:00')
+    await attempt('manual_unverified', '2026-11-14 09:00:00')
+    await attempt('sent', '2026-11-13 23:59:00')
+    await attempt('failed', '2026-11-14 10:00:00')
+    await recordHeartbeat(ds, new Date(NOW.getTime() - 10_000))
+    const campaign = (await ds.query("INSERT INTO campaigns (name, handles, keywords) VALUES ('c', '[]', '[]')")).insertId
+    await ds.query("INSERT INTO api_usage (campaignId, kind, count, costMicros) VALUES (?, 'profile', 3, 30000), (?, 'dm_event', 1, 10000)", [campaign, campaign])
+
+    expect(await make().topBar(campaign, NOW)).toEqual({ mode: 'fake', sentToday: 2, workerRunning: true, campaignCostMicros: 40000 })
+    expect(await make({ X_MODE: 'live' }).topBar(null, new Date(NOW.getTime() + 5 * 60_000))).toEqual({ mode: 'live', sentToday: 2, workerRunning: false, campaignCostMicros: null })
+  })
+})

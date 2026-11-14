@@ -12,6 +12,7 @@ import Overview from './Overview'
 import Prospects, { type Filter as CandidateFilter } from './Prospects'
 import ReviewQueue from './review/ReviewQueue'
 import Settings from './Settings'
+import StatusStrip from './StatusStrip'
 
 interface Health {
   status: string
@@ -80,6 +81,7 @@ export default function App() {
           ))}
         </nav>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 lg:ml-auto">
+          <StatusStrip campaignId={active} />
           <CampaignPicker
             list={list}
             active={active}
@@ -126,7 +128,7 @@ export default function App() {
             </div>
           ) : tab === 'overview' ? (
             <div className={scroll}>
-              <Overview campaignId={active} onReview={() => setTab('review')} onProspects={(f) => {
+              <Overview campaignId={active} onReview={() => setTab('review')} onGo={(page) => page !== 'overview' && setTab(page)} onProspects={(f) => {
                   setCandidateFilter(f)
                   setTab('prospects')
                 }}

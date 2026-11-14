@@ -169,6 +169,8 @@ Start the API and the worker with `X_MODE=fake`. Without `LLM_MODEL` the draft t
 B=http://localhost:3001/api; J='content-type: application/json'
 curl $B/auth/x/status                                             # {"mode","connected","handle","tokenExpiresAt","missingScopes"}
 curl $B/preflight                                                 # what Settings shows: X account, Send DM, Chat passcode (id, label, status ok|warn|fail|info, detail, fix); no call to X or an LLM
+curl "$B/top-bar?campaignId=1"                                    # {"mode","sentToday","workerRunning","campaignCostMicros"}: sends since midnight UTC (sent or marked sent by hand), worker heartbeat under 60 s, X calls and DM reads counted for the campaign (null without campaignId)
+curl "$B/needs-attention?campaignId=1"                            # items sorted by priority then longest wait: X not connected, worker stopped, replies still to handle (Interested first), sends to check in X, failed sends, discovery stopped at the budget; [] when nothing waits; 404 unknown campaign, 400 bad id
 curl $B/health/details                                            # for whoever installed it: database, worker (ok while its heartbeat is under 60 s old), mode, X app credentials, language and decision model
 curl -XPOST $B/auth/x/fake                                        # fake mode only: made-up sender @sandbox_sender, no X call; 404 with X_MODE=live
 curl -XPUT $B/sender-profile -H "$J" -d '{"intro":"GenAI Fund backs early AI founders in Southeast Asia.","programs":[{"id":1,"name":"Intro to investors","description":"Intro to investors","link":"https://genaifund.ai/","deadline":null}],"signer":"Vinh","sampleMessages":[]}'

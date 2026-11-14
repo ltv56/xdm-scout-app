@@ -7,3 +7,10 @@ export type PreflightRow = {
   detail: string
   fix?: string
 }
+
+export type TopBar = {
+  mode: 'fake' | 'live'
+  sentToday: number
+  workerRunning: boolean
+  campaignCostMicros: number | null
+}

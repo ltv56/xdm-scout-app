@@ -1,0 +1,35 @@
+import { useQuery } from '@tanstack/react-query'
+import type { TopBar } from '../../api/src/preflight/contract'
+import { getJson } from './api'
+import { chip, money, tone } from './ui'
+
+// Always on screen: where messages go, how many went out today, what the open campaign cost so far.
+export default function StatusStrip({ campaignId }: { campaignId: number | null }) {
+  const bar = useQuery<TopBar>({
+    queryKey: ['top-bar', campaignId],
+    queryFn: () => getJson(`/top-bar${campaignId === null ? '' : `?campaignId=${campaignId}`}`),
+    refetchInterval: 30_000,
+    retry: false,
+  })
+  const b = bar.data
+  if (!b) return null
+
+  return (
+    <div aria-label="Status" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+      <span className={`${chip} ${b.mode === 'live' ? tone.stop.chip : tone.done.chip}`}>{b.mode === 'live' ? 'LIVE' : 'SANDBOX'}</span>
+      <span>
+        Sent today <span className="font-semibold text-ink">{b.sentToday}</span>
+      </span>
+      {b.campaignCostMicros !== null && (
+        <span title="Estimated from the calls made for this campaign. Exact figures are in the X Developer Console.">
+          Est. cost <span className="font-semibold text-ink">{money(b.campaignCostMicros)}</span>
+        </span>
+      )}
+      {!b.workerRunning && (
+        <span className={`${chip} ${tone.stop.chip}`}>
+          Worker stopped: nothing is being sent or read
+        </span>
+      )}
+    </div>
+  )
+}
