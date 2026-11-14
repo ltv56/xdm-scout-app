@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm'
 import { Contact, DoNotContact, Draft, SendAttempt, SenderAccount, XUser } from './sending/entities'
 import { ApiUsage, Campaign, Prospect, XPost } from './discovery/entities'
 import { Claim, Evidence } from './fit/entities'
+import { KnownUser } from './known/known-user.entity'
+import { ActivityLog } from './activity/activity-log.entity'
 import { Reply } from './inbox/reply.entity'
 import { Job } from './jobs/job.entity'
 import { ReviewSignal } from './review/review-signal.entity'
@@ -15,7 +17,7 @@ export const dataSourceOptions = {
   url: process.env.DATABASE_URL,
   // MySQL fills createdAt/updatedAt in UTC; read and write every datetime as UTC too, whatever the machine's zone.
   timezone: 'Z',
-  entities: [Setting, SenderAccount, XUser, Contact, Draft, SendAttempt, DoNotContact, Job, Campaign, Prospect, XPost, ApiUsage, Evidence, Claim, ReviewSignal, Reply],
+  entities: [Setting, SenderAccount, XUser, Contact, Draft, SendAttempt, DoNotContact, Job, Campaign, Prospect, XPost, ApiUsage, Evidence, Claim, ReviewSignal, Reply, ActivityLog, KnownUser],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
 }

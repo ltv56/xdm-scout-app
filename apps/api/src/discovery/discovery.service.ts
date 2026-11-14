@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { DataSource, In, Not } from 'typeorm'
+import { KnownUser } from '../known/known-user.entity'
 import { Contact, DoNotContact, RelationshipContext, SendAttempt, XUser } from '../sending/entities'
 import { X_CLIENT, XClient, XProfile } from '../x/x-client'
 import { ApiUsage, Campaign, Prospect, XPost } from './entities'
@@ -12,6 +13,7 @@ export type SkipReason =
   | 'protected'
   | 'organization'
   | 'do-not-contact'
+  | 'known-to-fund'
   | 'already-contacted'
   | 'off-topic'
   | 'budget'
@@ -208,6 +210,7 @@ export class DiscoveryService {
     if (user.isProtected) return 'protected'
     if (user.orgType) return 'organization'
     if (await this.ds.getRepository(DoNotContact).existsBy({ xUserId: user.xUserId })) return 'do-not-contact'
+    if (await this.ds.getRepository(KnownUser).existsBy({ xUserId: user.xUserId })) return 'known-to-fund'
     if (await this.wasContacted(user.xUserId)) return 'already-contacted'
     const bio = (user.bio ?? '').toLowerCase()
     if (!keywords.some((k) => bio.includes(k.toLowerCase()))) return 'off-topic'

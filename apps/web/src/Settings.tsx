@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PreflightRow, PreflightStatus } from '../../api/src/preflight/contract'
 import { getJson } from './api'
+import DoNotContactList from './DoNotContactList'
+import KnownList from './KnownList'
 import { btnSecondary } from './ui'
 
 const DOT: Record<PreflightStatus, string> = {
@@ -47,6 +49,8 @@ export default function Settings() {
           ))}
         </ul>
       </section>
+      <KnownList />
+      <DoNotContactList />
     </div>
   )
 }
