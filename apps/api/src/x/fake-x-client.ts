@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   DmMessage,
+  InboundDm,
   SendDmResult,
   XClient,
   XNotAcceptingDmError,
@@ -29,6 +30,8 @@ export class FakeXClient implements XClient {
   private readonly following = new Map<string, string[]>()
   private readonly searches = new Map<string, string[]>()
   readonly searchCalls: { query: string; max: number }[] = []
+  private readonly inbound: InboundDm[] = []
+  inboundReads = 0
   private counter = 0
 
   async sendDm(recipientId: string, text: string): Promise<SendDmResult> {
@@ -60,6 +63,16 @@ export class FakeXClient implements XClient {
       .filter((m) => m.recipientId === recipientId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.seq - a.seq)
     return newestFirst.slice(0, max ?? newestFirst.length)
+  }
+
+  addInboundDm(dm: { senderId: string; handle: string | null; text: string; createdAt: Date }) {
+    this.counter += 1
+    this.inbound.push({ eventId: `in-${this.counter}`, conversationId: `${dm.senderId}-100`, ...dm })
+  }
+
+  async getInboundDms(max: number): Promise<InboundDm[]> {
+    this.inboundReads += 1
+    return [...this.inbound].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, max)
   }
 
   static fromFixtures(dir = join(process.cwd(), '../../fixtures')) {

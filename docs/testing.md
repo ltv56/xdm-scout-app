@@ -247,6 +247,20 @@ E2E_API_URL=http://localhost:3021 npm run e2e
 - Inbox empties the database again when it ends: it marks people as sent, and the fake X has only three people to draft for. Its reply tests write rows into `replies` and `do_not_contact` directly.
 - Vite starts on port 3020 (`E2E_WEB_PORT`) and proxies `/api` to `E2E_API_URL`.
 
+## Reply classification on the labelled DMs
+
+Measures `classifyReply` on the 196 DMs in `fixtures/eval/dms.json` that have a reply class. The model comes from the environment only; the script reads no `.env` file.
+
+```
+cd apps/api
+npx tsc -p tsconfig.build.json
+node scripts/eval-replies.cjs                                   # dry run with the canned client
+LLM_MODEL=deepseek-chat DEEPSEEK_API_KEY=... node scripts/eval-replies.cjs --out report.md
+```
+
+- A model name starting with `deepseek` uses `DEEPSEEK_API_KEY`, else `LLM_API_KEY`.
+- The dry run answers Unclear for everything the opt-out rule does not catch.
+
 ## Automated tests
 
 ```

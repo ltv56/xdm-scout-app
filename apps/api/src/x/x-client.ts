@@ -8,6 +8,9 @@ export type DmMessage = {
   createdAt: Date
 }
 
+// A DM someone sent to the sender account. handle is null when X did not return it.
+export type InboundDm = { eventId: string; conversationId: string; senderId: string; handle: string | null; text: string; createdAt: Date }
+
 export type XProfile = {
   id: string
   handle: string
@@ -41,6 +44,8 @@ export interface XClient {
   sendDm(recipientId: string, text: string): Promise<SendDmResult>
   // Newest first. X bills each event read, so callers pass the smallest max they need.
   getConversation(recipientId: string, max?: number): Promise<DmMessage[]>
+  // Newest first. X bills each event read.
+  getInboundDms(max: number): Promise<InboundDm[]>
   lookupUsers(handles: string[]): Promise<XProfile[]>
   getRecentPosts(userId: string, max: number): Promise<XPost[]>
   getFollowing(userId: string, max: number): Promise<XProfile[]>

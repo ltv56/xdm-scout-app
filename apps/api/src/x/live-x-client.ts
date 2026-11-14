@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DmMessage, SendDmResult, XClient, XPost, XProfile, XNotAcceptingDmError, XRateLimitError, XUncertainError } from './x-client'
+import { DmMessage, InboundDm, SendDmResult, XClient, XPost, XProfile, XNotAcceptingDmError, XRateLimitError, XUncertainError } from './x-client'
 
 const BASE = 'https://api.x.com'
 const TIMEOUT_MS = 15_000
@@ -18,6 +18,11 @@ const eventsResponse = z.object({
       }),
     )
     .optional(),
+})
+
+const inboundResponse = z.object({
+  data: eventsResponse.shape.data,
+  includes: z.object({ users: z.array(z.object({ id: z.string(), username: z.string() })).optional() }).optional(),
 })
 
 const usersResponse = z.object({
@@ -93,6 +98,23 @@ export class LiveXClient implements XClient {
         fromMe: e.sender_id === userId,
         createdAt: new Date(e.created_at),
       }))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  }
+
+  async getInboundDms(max: number): Promise<InboundDm[]> {
+    const { userId } = await this.getSession()
+    const query = new URLSearchParams({
+      'dm_event.fields': 'created_at,sender_id,text,dm_conversation_id,event_type',
+      event_types: 'MessageCreate',
+      expansions: 'sender_id',
+      'user.fields': 'username',
+      max_results: String(Math.min(100, Math.max(1, max))),
+    })
+    const parsed = inboundResponse.parse(await (await this.call(`/2/dm_events?${query}`, 'GET')).json())
+    const handles = new Map((parsed.includes?.users ?? []).map((u) => [u.id, u.username]))
+    return (parsed.data ?? [])
+      .filter((e) => e.event_type === 'MessageCreate' && e.sender_id !== userId)
+      .map((e) => ({ eventId: e.id, conversationId: e.dm_conversation_id, senderId: e.sender_id, handle: handles.get(e.sender_id) ?? null, text: e.text ?? '', createdAt: new Date(e.created_at) }))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }
 

@@ -42,6 +42,20 @@ describe('routeText', () => {
   it('treats an empty name as off', () => {
     expect(routeText('', all)).toBeNull()
   })
+
+  it('sends deepseek models to DeepSeek and names the key when it is missing', () => {
+    expect(routeText('deepseek-chat', { deepseek: 'd', openRouter: 'o' })).toEqual({ provider: 'deepseek', model: 'deepseek-chat' })
+    expect(routeText('deepseek-chat', { openRouter: 'o' })).toEqual({ provider: 'openrouter', model: 'deepseek/deepseek-chat' })
+    expect(() => routeText('deepseek-chat', {})).toThrow(/DEEPSEEK_API_KEY/)
+  })
+})
+
+describe('createLlmClient with DeepSeek', () => {
+  it('uses DEEPSEEK_API_KEY, else LLM_API_KEY', () => {
+    expect(createLlmClient({ LLM_MODEL: 'deepseek-chat', DEEPSEEK_API_KEY: 'd' })).toBeInstanceOf(OpenAiCompatibleLlmClient)
+    expect(createLlmClient({ LLM_MODEL: 'deepseek-chat', LLM_API_KEY: 'k' })).toBeInstanceOf(OpenAiCompatibleLlmClient)
+    expect(() => createLlmClient({ LLM_MODEL: 'deepseek-chat' })).toThrow(/DEEPSEEK_API_KEY/)
+  })
 })
 
 describe('createLlmClient with DeepSeek', () => {

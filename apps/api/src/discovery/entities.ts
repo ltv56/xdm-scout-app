@@ -141,6 +141,19 @@ export class Prospect {
 
   @Column({ type: 'json', nullable: true })
   criteria!: CriterionResult[] | null
+
+  // 'call' = they answered the campaign's call post by DM; the DM is kept here until the operator confirms the invitation.
+  @Column({ type: 'varchar', length: 8, default: 'search' })
+  source!: 'search' | 'call'
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  callEventId!: string | null
+
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  callText!: string | null
+
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  callAt!: Date | null
 }
 
 export type DiscoveryRun = {
