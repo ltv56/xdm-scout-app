@@ -10,6 +10,7 @@
     "eval": "tsc -p tsconfig.build.json && node scripts/eval.cjs",
     "lint": "oxlint",
     "test": "vitest run",
+    "sandbox:reset": "node dist/sandbox/reset-sandbox-main.js",
     "typeorm": "typeorm-ts-node-commonjs -d src/data-source.ts",
     "db:migrate": "npm run typeorm -- migration:run",
     "db:generate": "npm run typeorm -- migration:generate"

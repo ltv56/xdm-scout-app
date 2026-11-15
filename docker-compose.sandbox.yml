@@ -1,0 +1,56 @@
+# Sandbox stack: fake X, canned model answers, the fixtures. No keys. Does not touch the development database in docker-compose.yml.
+name: xdm-sandbox
+
+x-sandbox-env: &sandbox-env
+  DATABASE_URL: mysql://xdm:xdm@db:3306/xdm_sandbox?allowPublicKeyRetrieval=true
+  X_MODE: fake
+  PORT: "3001"
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: xdm_sandbox
+      MYSQL_USER: xdm
+      MYSQL_PASSWORD: xdm
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - sandbox-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      retries: 20
+
+  app:
+    build: .
+    environment: *sandbox-env
+    ports:
+      - "3040:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  worker:
+    build: .
+    command: ["node", "dist/worker-main.js"]
+    environment: *sandbox-env
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://app:3001/api/top-bar').then((r) => r.json()).then((b) => process.exit(b.workerRunning ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+volumes:
+  sandbox-db:
