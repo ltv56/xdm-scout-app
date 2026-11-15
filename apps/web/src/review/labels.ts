@@ -15,8 +15,8 @@ export const RELATIONSHIP_LABEL: Record<ReviewItem['prospect']['relationship'], 
   messaged_us: 'Messaged you first',
   follower: 'Follows you',
   engaged: 'Engaged with you',
-  adjacent: 'Not connected',
-  cold: 'Not connected',
+  adjacent: 'No contact yet',
+  cold: 'No contact yet',
 }
 
 export const PATH_LABEL: Record<ReviewItem['sendPath'], string> = {

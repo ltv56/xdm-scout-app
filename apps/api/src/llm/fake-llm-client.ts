@@ -9,7 +9,7 @@ function cannedDraft({ opening, profile }: DraftInput) {
     sentences: [
       { text: opening.evidence_id.startsWith('fund_list:') ? `Good to be in touch after ${topic}.` : `Saw your post: ${topic}.`, source: { type: 'evidence', evidence_id: opening.evidence_id } },
       { text: profile.intro, source: { type: 'sender_profile', field: 'intro' } },
-      { text: `Would it help if we offered: ${(profile.programs[0]?.name ?? 'an intro').toLowerCase()}?`, source: { type: 'sender_profile', field: 'program' } },
+      { text: `Would it help if we offered: ${(profile.programs[0]?.name ?? 'an intro')}?`, source: { type: 'sender_profile', field: 'program' } },
       { text: 'No worries if not.', source: { type: 'opt_out' } },
     ],
   }

@@ -250,7 +250,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo }: { 
                   <span className="min-w-0 text-base font-semibold wrap-anywhere">
                     {p.name} <span className="text-base font-normal text-muted">@{p.handle}</span>
                   </span>
-                  {p.role && <span className="text-sm text-muted">{p.role}</span>}
+                  {p.role && p.role !== 'other' && <span className="text-sm text-muted">{p.role}</span>}
                 </div>
                 <p className="mt-2 max-w-[70ch] text-sm">
                   {p.opening?.summary ?? <span className="text-muted">No reason to reach out yet</span>}

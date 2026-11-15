@@ -128,7 +128,10 @@ export function PersonFacts({ prospect }: { prospect: Prospect }) {
           <p className="mt-0.5 text-sm leading-snug">“{prospect.bio}”</p>
         </div>
       )}
-      {prospect.criteria.length > 0 && (
+      {prospect.criteria.length > 0 && prospect.criteria.every((c) => c.status === 'unknown') && (
+        <p className="mt-5 text-xs text-muted">{prospect.criteria.length} fund criteria unknown: not enough posts read yet.</p>
+      )}
+      {prospect.criteria.some((c) => c.status !== 'unknown') && (
         <ul className="mt-5 space-y-2" aria-label="Fund criteria">
           {prospect.criteria.map((c, i) => {
             const { label, Icon, style } = CRITERION[c.status]

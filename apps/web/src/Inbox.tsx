@@ -33,7 +33,7 @@ export default function Inbox({ campaignId }: { campaignId: number }) {
     <div className="max-w-3xl">
       <h1 className="text-[28px] font-bold leading-tight">Inbox</h1>
       <section aria-labelledby="replies-heading" className="mt-8">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h2 id="replies-heading" className="text-lg font-semibold">
             Replies
             {open > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 align-middle text-xs font-semibold text-accent-ink">{open}</span>}
@@ -65,11 +65,10 @@ export default function Inbox({ campaignId }: { campaignId: number }) {
           </ul>
         )}
       </section>
+      {delivered.length > 0 && (
       <section aria-labelledby="delivered-heading" className="mt-10">
         <h2 id="delivered-heading" className="text-lg font-semibold">Delivered</h2>
-        {delivered.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">No delivered messages yet.</p>
-        ) : (
+        {(
           <>
             <p className="mt-1 text-sm text-muted">Replies in encrypted chats don't reach the app. If someone answered in X, mark it here.</p>
             <ul className="mt-3 divide-y divide-rule">
@@ -80,6 +79,7 @@ export default function Inbox({ campaignId }: { campaignId: number }) {
           </>
         )}
       </section>
+      )}
     </div>
   )
 }

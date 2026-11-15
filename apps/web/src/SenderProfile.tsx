@@ -9,11 +9,11 @@ const field = `${baseField} mt-1`
 // Grows with the text, so a long answer is never cut off behind the box.
 const area = `${field} field-sizing-content`
 
-export default function SenderProfile() {
+export default function SenderProfile({ embedded = false }: { embedded?: boolean }) {
   const { data, error, isLoading } = useQuery<Profile>({ queryKey: ['sender-profile'], queryFn: () => getJson('/sender-profile') })
   if (isLoading) return <p role="status" className="text-sm text-muted">Loading…</p>
   if (error || !data) return <p role="alert" className="text-sm font-medium text-block">{error?.message ?? 'No profile returned'}</p>
-  return <ProfileForm profile={data} />
+  return <ProfileForm profile={data} embedded={embedded} />
 }
 
 // A program as the form edits it: the deadline is '' while there is none.
@@ -54,7 +54,7 @@ function FramePreviewBox({ profile, greeting, optOut, contactLine }: { profile: 
   )
 }
 
-function ProfileForm({ profile }: { profile: Profile }) {
+function ProfileForm({ profile, embedded }: { profile: Profile; embedded: boolean }) {
   const qc = useQueryClient()
   const [intro, setIntro] = useState(profile.intro)
   const [programs, setPrograms] = useState<Draft[]>(profile.programs.map((p) => ({ ...p, deadline: p.deadline ?? '' })))
@@ -108,16 +108,18 @@ function ProfileForm({ profile }: { profile: Profile }) {
         submit()
       }}
     >
+      {!embedded && (
       <div>
         <h3 className="text-xl font-bold">Sender profile</h3>
         <p className="mt-1 text-sm text-muted">Drafts may only claim what is written here or in the person's own posts.</p>
       </div>
+      )}
 
       <div>
         <label htmlFor="intro" className="text-sm font-medium">
           Who you are
         </label>
-        <textarea id="intro" rows={3} maxLength={400} value={intro} onChange={(e) => setIntro(e.target.value)} className={area} />
+        <textarea id="intro" rows={3} style={{ minHeight: '6rem' }} maxLength={400} value={intro} onChange={(e) => setIntro(e.target.value)} className={area} />
         <p className="mt-1 text-xs text-muted">{intro.length} of 400</p>
       </div>
 

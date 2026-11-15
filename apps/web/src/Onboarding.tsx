@@ -80,7 +80,7 @@ export default function Onboarding({ onCreated }: { onCreated: (id: number) => v
           <section aria-label="Fund profile">
             <h1 className="text-2xl font-bold">Tell us about the fund</h1>
             <p className="mb-6 mt-2 text-sm text-muted">Drafts may only say what is written here, or what the person wrote in their own posts.</p>
-            <SenderProfile />
+            <SenderProfile embedded />
           </section>
         ) : (
           <NewCampaign first onCancel={() => undefined} onCreated={onCreated} />
