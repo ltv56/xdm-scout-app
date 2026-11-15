@@ -9,8 +9,9 @@ export class Evidence {
   @Column({ type: 'varchar', length: 32 })
   xUserId!: string
 
-  @Column({ type: 'varchar', length: 8 })
-  kind!: 'bio' | 'post'
+  // fund_list: the fund's own list and event for a person on a warm list; there is no post behind it.
+  @Column({ type: 'varchar', length: 16 })
+  kind!: 'bio' | 'post' | 'fund_list'
 
   @Column({ type: 'varchar', length: 255 })
   url!: string

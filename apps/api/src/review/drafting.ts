@@ -12,9 +12,11 @@ export interface DraftCandidate {
 
 const WARMTH: RelationshipContext[] = ['messaged_us', 'engaged', 'follower', 'adjacent', 'cold']
 
-export function readyToDraft<T extends DraftCandidate>(prospects: T[], draftedIds: Set<number>, now: Date): T[] {
+// cantReceive: prospect ids whose DMs X says they do not take; they are left out of the batch and can still be drafted one by one.
+export function readyToDraft<T extends DraftCandidate>(prospects: T[], draftedIds: Set<number>, now: Date, cantReceive: Set<number> = new Set()): T[] {
   return prospects.filter(
     (p) =>
+      !cantReceive.has(p.id) &&
       (p.fit === 'strong' || p.fit === 'possible') &&
       p.openingEvidenceId !== null &&
       !(p.openingDate && openingFreshness(p.openingDate, now) === 'expired') &&

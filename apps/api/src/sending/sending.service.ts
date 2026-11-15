@@ -1,6 +1,8 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { createHash } from 'node:crypto'
 import { DataSource, EntityManager, LessThan } from 'typeorm'
+import { Prospect } from '../discovery/entities'
+import { citedPostIds, DELETED_POST_REASON, recheckEvidence } from '../fit/evidence-recheck'
 import { JobsService } from '../jobs/jobs.service'
 import { DmMessage, SendDmResult, X_CLIENT, XClient, XRateLimitError, XUncertainError } from '../x/x-client'
 import { dailyCap, ensureCapLock, lockCap, usedToday } from './daily-cap'
@@ -110,6 +112,16 @@ export class SendingService {
     }
     const blocked = apiSendBlock(contact, now)
     if (blocked) return this.release(attempt, contact.id, 'cancelled', blocked)
+    const quoted = citedPostIds(draft.sentences)
+    if (quoted.length) {
+      try {
+        const campaignId = (await this.ds.getRepository(Prospect).findOneBy({ id: draft.prospectId ?? 0 }))?.campaignId ?? null
+        if ((await recheckEvidence(this.ds, this.x, quoted, now, campaignId)).length) return this.release(attempt, contact.id, 'cancelled', DELETED_POST_REASON)
+      } catch (err) {
+        // Nothing was sent yet, so failing here is safe and frees the send right.
+        return this.release(attempt, contact.id, 'failed', `Could not check the posts this message quotes: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
     let latest: DmMessage | undefined
     try {
       latest = (await this.x.getConversation(contact.xUserId, 1))[0]

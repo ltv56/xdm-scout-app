@@ -140,7 +140,7 @@ export class ReviewService {
     for (const key of keys) {
       const e = key ? ctx.evidence.get(key) : undefined
       if (!key || !e || out.some((o) => o.key === key)) continue
-      out.push({ key, item: { id: out.length + 1, kind: e.kind, text: e.excerpt, url: e.url, postedAt: e.postedAt?.toISOString() ?? null } })
+      out.push({ key, item: { id: out.length + 1, kind: e.kind, text: e.excerpt, url: e.url || null, postedAt: e.postedAt?.toISOString() ?? null } })
     }
     return out
   }
@@ -216,7 +216,9 @@ function weakestPoint(sentences: StoredSentence[], evidence: { item: EvidenceIte
   const posts = evidence.filter((e) => e.item.kind === 'post')
   const dates = posts.flatMap((e) => (e.item.postedAt ? [new Date(e.item.postedAt).getTime()] : []))
   const unknown = (prospect.criteria ?? []).filter((c) => c.status === 'unknown').length
+  const list = evidence.find((e) => e.item.kind === 'fund_list')
   const parts: string[] = []
+  if (list && !posts.length) parts.push(`Rests on your own list (${list.item.text}), not on a post`)
   if (dates.length) {
     const days = Math.floor((now.getTime() - Math.min(...dates)) / DAY)
     parts.push(`Rests on ${posts.length === 1 ? 'one post' : `${posts.length} posts`} from ${days} ${days === 1 ? 'day' : 'days'} ago`)

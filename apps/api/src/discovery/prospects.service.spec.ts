@@ -83,7 +83,7 @@ describe('prospects list', () => {
 })
 
 describe('likely lands in', () => {
-  const seen = (id: string, receivesYourDm: boolean, over: Partial<Prospect> = {}) =>
+  const seen = (id: string, receivesYourDm: boolean | null, over: Partial<Prospect> = {}) =>
     addProspect(id, over).then(() => ds.getRepository(XUser).update(id, { receivesYourDm, fetchedAt: now }))
 
   it('test 19: follower, open stranger, closed DMs and missing data give Inbox, Requests, Can\'t receive and blank', async () => {
@@ -97,6 +97,15 @@ describe('likely lands in', () => {
       ['u2', 'requests'],
       ['u3', 'cant_receive'],
       ['u4', null],
+    ])
+  })
+
+  it('says nothing when the profile never reported the field', async () => {
+    await seen('1', null)
+    await seen('2', null, { relationship: 'follower' })
+    expect((await new ProspectsService(ds).list(1, now)).map((p) => [p.handle, p.landsIn])).toEqual([
+      ['u2', 'inbox'],
+      ['u1', null],
     ])
   })
 

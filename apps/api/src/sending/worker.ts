@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { DiscoveryService } from '../discovery/discovery.service'
 import { FitService } from '../fit/fit.service'
+import { EvidenceRecheckService } from '../fit/evidence-recheck.service'
 import { InboundLaneService } from '../inbound/inbound-lane.service'
 import { RepliesService } from '../inbox/replies.service'
 import { JobsService } from '../jobs/jobs.service'
@@ -18,6 +19,7 @@ export class Worker {
     private readonly drafts: DraftService,
     private readonly replies: RepliesService,
     private readonly inbound: InboundLaneService,
+    private readonly evidence: EvidenceRecheckService,
   ) {}
 
   async tick(now = new Date()): Promise<boolean> {
@@ -31,6 +33,7 @@ export class Worker {
       else if (job.type === 'verify_manual') await this.sending.verifyManual(job.payload.attemptId)
       else if (job.type === 'draft') await this.drafts.generate(job.payload.prospectId, now)
       else if (job.type === 'read_replies') await this.replies.read(job.payload.contactId, now)
+      else if (job.type === 'recheck_evidence') await this.evidence.recheckLive(now)
       else if (job.type === 'inbound_check') await this.inbound.attach(job.payload.campaignId)
       else throw new Error(`Unknown job type: ${job.type}`)
       await this.jobs.finish(job.id)

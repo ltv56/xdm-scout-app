@@ -83,8 +83,8 @@ export default function Overview({ campaignId, onReview, onProspects, onGo }: { 
     onSuccess: (r) => {
       setDraftNote(
         r.drafted === 0
-          ? 'Nobody is ready for a draft.'
-          : `Wrote ${plural(r.drafted, 'draft')}.${r.readyToDraft ? ` ${plural(r.readyToDraft, 'more person', 'more people')} still waiting.` : ''}${r.noOpening ? ` ${plural(r.noOpening, 'person', 'people')} skipped: no reason to reach out yet.` : ''}`,
+          ? `Nobody is ready for a draft.${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed.` : ''}`
+          : `Wrote ${plural(r.drafted, 'draft')}.${r.readyToDraft ? ` ${plural(r.readyToDraft, 'more person', 'more people')} still waiting.` : ''}${r.noOpening ? ` ${plural(r.noOpening, 'person', 'people')} skipped: no reason to reach out yet.` : ''}${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed. Draft one from Candidates if you still want to.` : ''}`,
       )
       return Promise.all([qc.invalidateQueries({ queryKey: ['review-queue'] }), qc.invalidateQueries({ queryKey: ['ready'] })])
     },

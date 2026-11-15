@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { DiscoveryService } from '../discovery/discovery.service'
 import { Campaign, Prospect } from '../discovery/entities'
 import { DraftService } from '../review/draft.service'
+import { EvidenceRecheckService } from '../fit/evidence-recheck.service'
 import { FitService } from '../fit/fit.service'
 import { InboundLaneService } from '../inbound/inbound-lane.service'
 import { RepliesService } from '../inbox/replies.service'
@@ -14,7 +15,8 @@ import { createTestDataSource } from '../test/db'
 import { seedDraft, sha } from '../test/seed'
 import { FakeXClient } from '../x/fake-x-client'
 import { XRateLimitError } from '../x/x-client'
-import { Contact, DoNotContact, SendAttempt, SenderAccount } from './entities'
+import { Evidence } from '../fit/entities'
+import { Contact, DoNotContact, Draft, SendAttempt, SenderAccount } from './entities'
 import { SendingService } from './sending.service'
 import { Worker } from './worker'
 
@@ -33,7 +35,7 @@ beforeEach(async () => {
   x = new FakeXClient()
   const jobs = new JobsService(ds)
   service = new SendingService(ds, x, jobs)
-  worker = new Worker(jobs, service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), jobs), new RepliesService(ds, x, jobs, new FakeLlmClient(cannedHandler)), new InboundLaneService(ds, x, jobs))
+  worker = new Worker(jobs, service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), jobs), new RepliesService(ds, x, jobs, new FakeLlmClient(cannedHandler)), new InboundLaneService(ds, x, jobs), new EvidenceRecheckService(ds, x, jobs))
 })
 
 afterAll(async () => {
@@ -63,7 +65,7 @@ describe('worker', () => {
 
   it('two workers racing on one job send one DM', async () => {
     await approve()
-    const other = new Worker(new JobsService(ds), service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), new JobsService(ds)), new RepliesService(ds, x, new JobsService(ds), new FakeLlmClient(cannedHandler)), new InboundLaneService(ds, x, new JobsService(ds)))
+    const other = new Worker(new JobsService(ds), service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), new JobsService(ds)), new RepliesService(ds, x, new JobsService(ds), new FakeLlmClient(cannedHandler)), new InboundLaneService(ds, x, new JobsService(ds)), new EvidenceRecheckService(ds, x, new JobsService(ds)))
     await Promise.all([worker.tick(new Date()), other.tick(new Date())])
     expect(x.sent).toHaveLength(1)
   })
@@ -240,6 +242,18 @@ describe('send outcomes', () => {
     expect(attempt.error).toContain('older than 30 days')
     expect(x.sendCalls).toBe(0)
     expect((await contactOf(attempt.contactId)).activeAttemptId).toBeNull()
+  })
+
+  it('a recheck_evidence job marks the posts live drafts quote that X no longer has', async () => {
+    const campaign = await ds.getRepository(Campaign).save({ name: 'c', keywords: [], handles: [] })
+    const draft = await seedDraft(ds, '200', 'Hi there')
+    const prospect = await ds.getRepository(Prospect).save({ campaignId: campaign.id, xUserId: '200' })
+    await ds.getRepository(Draft).update(draft.id, { prospectId: prospect.id, sentences: [{ text: 'Your post', source: { type: 'evidence', evidenceId: 'post:77' } }] })
+    await ds.getRepository(Evidence).save({ id: 'post:77', xUserId: '200', kind: 'post', url: 'https://x.com/u/status/77', excerpt: 'gone soon', postedAt: new Date(), fetchedAt: new Date() })
+    await new JobsService(ds).enqueue('recheck_evidence', { all: 1 }, new Date())
+    expect(await worker.tick(new Date())).toBe(true)
+    expect((await ds.getRepository(Evidence).findOneByOrFail({ id: 'post:77' })).deletedAt).not.toBeNull()
+    expect((await ds.getRepository(Job).findOneByOrFail({ type: 'recheck_evidence' })).status).toBe('done')
   })
 
   it('test 10: Do not contact added after approve blocks the send', async () => {

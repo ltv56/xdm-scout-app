@@ -123,6 +123,26 @@ describe('LiveXClient.getInboundDms', () => {
 
 const user = (id: string, username: string) => ({ id, username, name: username, description: 'robotics', public_metrics: { followers_count: 5 } })
 
+describe('LiveXClient receives_your_dm', () => {
+  it('maps a missing field to null, and keeps true and false', async () => {
+    const { client } = clientWith(() =>
+      json(200, {
+        data: [
+          { id: '1', username: 'open', name: 'o', receives_your_dm: true },
+          { id: '2', username: 'closed', name: 'c', receives_your_dm: false },
+          { id: '3', username: 'silent', name: 's' },
+        ],
+      }),
+    )
+    const profiles = await client.lookupUsers(['open', 'closed', 'silent'])
+    expect(profiles.map((p) => [p.handle, p.receivesYourDm])).toEqual([
+      ['open', true],
+      ['closed', false],
+      ['silent', null],
+    ])
+  })
+})
+
 describe('LiveXClient discovery reads', () => {
   it('pages following until max and asks only for what is left', async () => {
     const { client, calls } = clientWith((call) =>
@@ -165,5 +185,34 @@ describe('LiveXClient discovery reads', () => {
     const posts = await client.getRecentPosts('1', 10)
     expect(posts.map((p) => p.lang)).toEqual(['vi', undefined])
     expect(new URL(calls[0].url).searchParams.get('tweet.fields')).toBe('created_at,lang')
+  })
+})
+
+describe('LiveXClient.getPostsExist', () => {
+  it('asks X for the posts by id and returns the ones it still serves', async () => {
+    const { client, calls } = clientWith(() => json(200, { data: [{ id: '1' }, { id: '3' }], errors: [{ resource_id: '2', title: 'Not Found Error', type: 'https://api.twitter.com/2/problems/resource-not-found' }] }))
+    expect([...(await client.getPostsExist(['1', '2', '3']))].sort()).toEqual(['1', '3'])
+    const url = new URL(calls[0].url)
+    expect(url.pathname).toBe('/2/tweets')
+    expect(url.searchParams.get('ids')).toBe('1,2,3')
+    expect(url.searchParams.get('tweet.fields')).toBe('id')
+  })
+
+  it('answers none when X returns no data at all', async () => {
+    const { client } = clientWith(() => json(200, { errors: [{ resource_id: '1', title: 'Not Found Error' }] }))
+    expect((await client.getPostsExist(['1'])).size).toBe(0)
+  })
+
+  it('asks in groups of 100 and makes no call for no ids', async () => {
+    const { client, calls } = clientWith(() => json(200, {}))
+    await client.getPostsExist([])
+    expect(calls).toHaveLength(0)
+    await client.getPostsExist(Array.from({ length: 101 }, (_, i) => String(i + 1)))
+    expect(calls.map((c) => new URL(c.url).searchParams.get('ids')!.split(',').length)).toEqual([100, 1])
+  })
+
+  it('does not treat a failed call as deleted posts', async () => {
+    const { client } = clientWith(() => json(500, { title: 'boom' }))
+    await expect(client.getPostsExist(['1'])).rejects.toThrow()
   })
 })

@@ -54,13 +54,15 @@ function toProfile(u: NonNullable<z.infer<typeof usersResponse>['data']>[number]
     followers: u.public_metrics?.followers_count ?? 0,
     isProtected: u.protected ?? false,
     orgType: u.verified_type === 'business' || u.verified_type === 'government' ? u.verified_type : null,
-    receivesYourDm: u.receives_your_dm ?? false,
+    receivesYourDm: u.receives_your_dm ?? null,
   }
 }
 
 const postsResponse = z.object({
   data: z.array(z.object({ id: z.string(), text: z.string(), created_at: z.string(), lang: z.string().optional() })).optional(),
 })
+
+const postsExistResponse = z.object({ data: z.array(z.object({ id: z.string() })).optional() })
 
 const searchResponse = z.object({
   data: z.array(z.object({ id: z.string(), text: z.string(), created_at: z.string(), author_id: z.string(), lang: z.string().optional() })).optional(),
@@ -126,6 +128,17 @@ export class LiveXClient implements XClient {
     })
     const parsed = postsResponse.parse(await (await this.call(`/2/users/${userId}/tweets?${query}`, 'GET')).json())
     return (parsed.data ?? []).slice(0, max).map((p) => ({ id: p.id, userId, text: p.text, createdAt: new Date(p.created_at), lang: p.lang }))
+  }
+
+  // Posts X no longer has come back in `errors`, not in `data`; only `data` counts as existing.
+  async getPostsExist(ids: string[]): Promise<Set<string>> {
+    const found = new Set<string>()
+    for (let i = 0; i < ids.length; i += 100) {
+      const query = new URLSearchParams({ ids: ids.slice(i, i + 100).join(','), 'tweet.fields': 'id' })
+      const parsed = postsExistResponse.parse(await (await this.call(`/2/tweets?${query}`, 'GET')).json())
+      for (const p of parsed.data ?? []) found.add(p.id)
+    }
+    return found
   }
 
   async lookupUsers(handles: string[]): Promise<XProfile[]> {

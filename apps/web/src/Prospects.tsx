@@ -239,7 +239,7 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
   if (!data?.length) return <p className="text-sm text-muted">No candidates in this campaign yet. Run a search from the Overview.</p>
 
   // Ready: could get a draft now. Same rule as the Overview and the Write drafts button.
-  const isReady = (p: Prospect) => p.status !== 'dismissed' && (p.fit === 'strong' || p.fit === 'possible') && !!p.opening && p.opening.freshness !== 'expired' && !inReview.has(p.handle)
+  const isReady = (p: Prospect) => p.status !== 'dismissed' && (p.fit === 'strong' || p.fit === 'possible') && !!p.opening && p.opening.freshness !== 'expired' && !inReview.has(p.handle) && p.landsIn !== 'cant_receive'
   const matches: Record<Filter, (p: Prospect) => boolean> = {
     all: () => true,
     ready: isReady,

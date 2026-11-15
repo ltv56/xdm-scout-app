@@ -49,8 +49,9 @@ export class XUser {
   @Column({ type: 'varchar', length: 16, nullable: true })
   orgType!: string | null
 
-  @Column({ type: 'boolean', default: false })
-  receivesYourDm!: boolean
+  // null = X never reported it (or the row was never fetched); only false means closed DMs.
+  @Column({ type: 'boolean', nullable: true, default: null })
+  receivesYourDm!: boolean | null
 
   @Column({ type: 'datetime', precision: 3, nullable: true })
   fetchedAt!: Date | null

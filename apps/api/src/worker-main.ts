@@ -2,6 +2,7 @@ import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import { DataSource } from 'typeorm'
+import { EvidenceRecheckService } from './fit/evidence-recheck.service'
 import { InboundLaneService } from './inbound/inbound-lane.service'
 import { RepliesService } from './inbox/replies.service'
 import { recordHeartbeat } from './preflight/preflight.service'
@@ -26,6 +27,10 @@ async function bootstrap() {
   const scheduleInbound = () => inbound.scheduleChecks(new Date()).catch((err: unknown) => console.error('inbound schedule failed', err))
   void scheduleInbound()
   setInterval(() => void scheduleInbound(), INBOUND_SCHEDULE_EVERY_MS)
+  const evidence = app.get(EvidenceRecheckService)
+  const scheduleEvidence = () => evidence.scheduleDaily(new Date()).catch((err: unknown) => console.error('evidence schedule failed', err))
+  void scheduleEvidence()
+  setInterval(() => void scheduleEvidence(), SWEEP_EVERY_MS)
   const ds = app.get(DataSource)
   const beat = () => recordHeartbeat(ds, new Date()).catch((err: unknown) => console.error('heartbeat failed', err))
   void beat()

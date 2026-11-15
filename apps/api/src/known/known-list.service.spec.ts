@@ -111,6 +111,28 @@ describe('warm list', () => {
   })
 })
 
+describe('warm list opening for people already found', () => {
+  it('gives a scored candidate with no opening the warm event as its opening, and leaves one with a post alone', async () => {
+    const campaign = await ds.getRepository(Campaign).save({ name: 'c', keywords: ['ai'], handles: [] })
+    const scored = new Date('2026-11-12T10:00:00Z')
+    await ds.getRepository(Prospect).save({ campaignId: campaign.id, xUserId: '1', fit: 'possible', openingType: 'none', scoredAt: scored })
+    await ds.getRepository(Prospect).save({ campaignId: campaign.id, xUserId: '2', fit: 'possible', openingType: 'launch', openingEvidenceId: 'post:5', openingSummary: 'Shipped', openingDate: scored, scoredAt: scored })
+    await service.import('Build Week 2026', 'alice\nbob', { kind: 'warm', event: 'Met at Build Week' })
+    const rows = await ds.getRepository(Prospect).find({ order: { id: 'ASC' } })
+    expect(rows.map((p) => [p.xUserId, p.openingType, p.openingEvidenceId])).toEqual([
+      ['1', 'fund_list', 'fund_list:1'],
+      ['2', 'launch', 'post:5'],
+    ])
+  })
+
+  it('does not give a known-list person an opening', async () => {
+    const campaign = await ds.getRepository(Campaign).save({ name: 'c', keywords: ['ai'], handles: [] })
+    await ds.getRepository(Prospect).save({ campaignId: campaign.id, xUserId: '1', fit: 'possible', openingType: 'none', scoredAt: new Date() })
+    await service.import('Portfolio', 'alice')
+    expect((await ds.getRepository(Prospect).findOneByOrFail({ xUserId: '1' })).openingType).toBe('none')
+  })
+})
+
 describe('activity log', () => {
   it('records an import and a removal', async () => {
     await service.import('Portfolio', 'alice\nbob')

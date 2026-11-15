@@ -80,7 +80,7 @@ function CriterionPanel({ criterion }: { criterion: Prospect['criteria'][number]
                 <p className="text-sm leading-snug">“{e.text}”</p>
                 <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted">
                   <span>
-                    {e.kind === 'bio' ? 'Their bio' : e.kind === 'inbound_dm' ? 'Their message to you' : 'Their post'}
+                    {e.kind === 'bio' ? 'Their bio' : e.kind === 'inbound_dm' ? 'Their message to you' : e.kind === 'fund_list' ? 'Your list' : 'Their post'}
                     {shortDate(e.postedAt) && ` · ${shortDate(e.postedAt)}`}
                   </span>
                   {e.url && (

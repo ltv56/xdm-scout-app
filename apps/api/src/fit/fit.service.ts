@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { Campaign, CriterionResult, Prospect, XPost } from '../discovery/entities'
+import { applyWarmOpening } from '../known/warm-opening'
 import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
 import { withMeter } from '../llm/with-meter'
 import { XUser } from '../sending/entities'
@@ -56,6 +57,7 @@ export class FitService {
         scoredAt: now,
       })
     })
+    await applyWarmOpening(this.ds, [prospect.xUserId], now)
   }
 
   // Met or not met needs evidence that exists and passes the same second check as claims.

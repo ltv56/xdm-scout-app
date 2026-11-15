@@ -51,7 +51,7 @@ function EvidenceList({ evidence, stale, active, onHover, onPick }: {
           <p className="text-[15px] leading-snug">“{e.text}”</p>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
             <span>
-              {e.kind === 'post' ? 'Their post' : e.kind === 'inbound_dm' ? 'Their message to you' : 'Their bio'}
+              {e.kind === 'post' ? 'Their post' : e.kind === 'inbound_dm' ? 'Their message to you' : e.kind === 'fund_list' ? 'Your list' : 'Their bio'}
               {shortDate(e.postedAt) && ` · ${shortDate(e.postedAt)}`}
             </span>
             {stale && e.kind === 'post' && isOld(e.postedAt) && <span className={`${chip} ${tone.warn.chip}`}>Old post</span>}

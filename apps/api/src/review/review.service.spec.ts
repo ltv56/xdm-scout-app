@@ -182,6 +182,19 @@ describe('review queue', () => {
     expect(item.sentences[0].source).toBeNull()
   })
 
+  it('treats a draft that rests on the warm list as backed, and says so', async () => {
+    const p = await seedPerson('mai')
+    await ds.getRepository(Evidence).save({ id: 'fund_list:u-mai', xUserId: 'u-mai', kind: 'fund_list', url: '', excerpt: 'Build Week 2026: Met at Build Week', postedAt: new Date('2026-11-01T00:00:00Z'), fetchedAt: now })
+    await ds.getRepository(Prospect).update(p.id, { openingType: 'fund_list', openingEvidenceId: 'fund_list:u-mai', openingDate: new Date('2026-11-01T00:00:00Z'), criteria: [] })
+    const draft = await ds.getRepository(Draft).findOneByOrFail({ prospectId: p.id })
+    await ds.getRepository(Draft).update(draft.id, { sentences: [draft.sentences![0], { text: 'We met at Build Week.', source: { type: 'evidence', evidenceId: 'fund_list:u-mai' } }, ...draft.sentences!.slice(2)] })
+    const item = reviewQueue.parse(await service().queue(1, now)).items[0]
+    expect(item.evidence[0]).toMatchObject({ kind: 'fund_list', text: 'Build Week 2026: Met at Build Week', url: null })
+    expect(item.checks.map((c) => c.code)).not.toContain('unbacked_claim')
+    expect(item.checks.map((c) => c.code)).not.toContain('generic_first_line')
+    expect(item.weakestPoint).toBe('Rests on your own list (Build Week 2026: Met at Build Week), not on a post.')
+  })
+
   it('names the thinnest backing when everything is backed', async () => {
     await seedPerson('mai')
     expect((await service().queue(1, now)).items[0].weakestPoint).toBe('Rests on one post from 4 days ago; 1 criterion unknown.')

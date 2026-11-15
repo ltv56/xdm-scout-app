@@ -31,6 +31,7 @@ import { InboxService } from './inbox/inbox.service'
 import { RepliesService } from './inbox/replies.service'
 import { JobsService } from './jobs/jobs.service'
 import { DECISION_CLIENT } from './decisions/review-decisions'
+import { EvidenceRecheckService } from './fit/evidence-recheck.service'
 import { AI_ENV_VARS, createDecisionClient, createLlmClient } from './llm/ai-config'
 import { LlmUsageService } from './llm/llm-usage.service'
 import type { LlmUsageSink } from './llm/llm-client'
@@ -120,6 +121,7 @@ const meter = (usage: LlmUsageService): LlmUsageSink => (u) => void usage.record
     ActivityService,
     SendSettingsService,
     LlmUsageService,
+    EvidenceRecheckService,
     ReviewSummaryService,
     {
       provide: PreflightService,

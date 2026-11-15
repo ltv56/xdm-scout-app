@@ -2,6 +2,7 @@ import 'reflect-metadata'
 import { ConflictException, ForbiddenException } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { Evidence } from '../fit/entities'
 import { Job } from '../jobs/job.entity'
 import { Setting } from '../setting.entity'
 import { JobsService } from '../jobs/jobs.service'
@@ -213,6 +214,67 @@ describe('processAttempt', () => {
     expect(attempt.error).toContain("doesn't accept DMs from this account")
     const contact = await ds.getRepository(Contact).findOneByOrFail({ id: draft.contactId })
     expect(contact.activeAttemptId).toBeNull()
+  })
+})
+
+describe('processAttempt with quoted posts', () => {
+  const quoting = async (...ids: string[]) => {
+    const draft = await seedDraft()
+    await ds.getRepository(Draft).update(draft.id, { sentences: ids.map((evidenceId) => ({ text: `About ${evidenceId}`, source: { type: 'evidence' as const, evidenceId } })) })
+    for (const id of ids) await ds.getRepository(Evidence).save({ id, xUserId: '200', kind: 'post', url: `https://x.com/u/status/${id}`, excerpt: `text of ${id}`, postedAt: new Date(), fetchedAt: new Date() })
+    return draft
+  }
+  const attemptOf = (id: number) => ds.getRepository(SendAttempt).findOneByOrFail({ id })
+
+  it('sends when every quoted post is still on X', async () => {
+    const draft = await quoting('post:1')
+    x.addPosts('200', [{ id: '1', userId: '200', text: 't', createdAt: new Date() }])
+    const { attemptId } = await queued(draft)
+    await service.processAttempt(attemptId)
+    expect((await attemptOf(attemptId)).status).toBe('sent')
+    expect(x.postExistReads).toEqual([['1']])
+  })
+
+  it('cancels with a clear reason when a quoted post is gone from X, and marks it deleted', async () => {
+    const draft = await quoting('post:1', 'post:2')
+    x.addPosts('200', [{ id: '1', userId: '200', text: 't', createdAt: new Date() }])
+    const { attemptId } = await queued(draft)
+    await service.processAttempt(attemptId)
+    const attempt = await attemptOf(attemptId)
+    expect(attempt.status).toBe('cancelled')
+    expect(attempt.error).toBe('A post this message quotes was deleted on X. Fix or skip the draft.')
+    expect(x.sendCalls).toBe(0)
+    expect((await ds.getRepository(Evidence).findOneByOrFail({ id: 'post:2' })).deletedAt).not.toBeNull()
+    expect((await ds.getRepository(Contact).findOneByOrFail({ id: draft.contactId })).activeAttemptId).toBeNull()
+  })
+
+  it('cancels without asking X when the recheck already found the post deleted', async () => {
+    const draft = await quoting('post:1')
+    await ds.getRepository(Evidence).update('post:1', { deletedAt: new Date(), excerpt: '' })
+    const { attemptId } = await queued(draft)
+    await service.processAttempt(attemptId)
+    expect((await attemptOf(attemptId)).status).toBe('cancelled')
+    expect(x.postExistReads).toEqual([])
+    expect(x.sendCalls).toBe(0)
+  })
+
+  it('does not call X about posts when the draft quotes none', async () => {
+    const draft = await seedDraft()
+    const { attemptId } = await queued(draft)
+    await service.processAttempt(attemptId)
+    expect(x.postExistReads).toEqual([])
+    expect((await attemptOf(attemptId)).status).toBe('sent')
+  })
+
+  it('fails the attempt without sending when X cannot answer about the posts', async () => {
+    const draft = await quoting('post:1')
+    x.postExistError = new Error('X is down')
+    const { attemptId } = await queued(draft)
+    await service.processAttempt(attemptId)
+    const attempt = await attemptOf(attemptId)
+    expect(attempt.status).toBe('failed')
+    expect(attempt.error).toContain('Could not check the posts this message quotes')
+    expect(x.sendCalls).toBe(0)
   })
 })
 

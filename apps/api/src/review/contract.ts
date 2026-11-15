@@ -36,7 +36,7 @@ export const senderProfile = z.object({
 
 export const evidenceItem = z.object({
   id: z.number(),
-  kind: z.enum(['post', 'inbound_dm', 'bio']),
+  kind: z.enum(['post', 'inbound_dm', 'bio', 'fund_list']),
   text: z.string(),
   url: z.string().nullable(),
   postedAt: z.string().nullable(),
@@ -187,7 +187,7 @@ export const languageBody = z.object({ language })
 
 // "Write drafts": up to ten people, Strong first, then the warmer relationship, then the newer opening.
 export const writeDraftsBody = z.object({ limit: z.number().int().min(1).max(10).default(10) })
-export const writeDraftsResult = z.object({ drafted: z.number(), readyToDraft: z.number(), noOpening: z.number() })
+export const writeDraftsResult = z.object({ drafted: z.number(), readyToDraft: z.number(), noOpening: z.number(), cantReceive: z.number() })
 
 // People with an opening and a Fit of Strong or Possible who have no draft yet. Nothing is drafted by itself.
 export const readyToDraft = z.object({ ready: z.number() })

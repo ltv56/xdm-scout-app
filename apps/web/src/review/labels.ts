@@ -105,7 +105,7 @@ export function sourceLine(sentence: DraftSentence, evidence: EvidenceItem[]) {
   const e = evidence.find((x) => x.id === s.evidenceId)
   if (!e) return 'Evidence is missing.'
   const when = shortDate(e.postedAt)
-  const what = e.kind === 'post' ? 'their post' : e.kind === 'inbound_dm' ? 'their message to you' : 'their bio'
+  const what = e.kind === 'post' ? 'their post' : e.kind === 'inbound_dm' ? 'their message to you' : e.kind === 'fund_list' ? 'your list' : 'their bio'
   return `From ${what}${when ? `, ${when}` : ''}.`
 }
 
