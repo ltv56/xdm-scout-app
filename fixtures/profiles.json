@@ -1,10 +1,11 @@
 [
   { "id": "9001", "handle": "mina_builds", "name": "Mina Park", "bio": "Building open-source robotics foundation models. Previously ML at a self-driving startup.", "followers": 4200, "receivesYourDm": true },
   { "id": "9002", "handle": "tomas_agents", "name": "Tomas Reyes", "bio": "Founder. LLM agents and developer tools for infra teams.", "followers": 880, "receivesYourDm": true },
-  { "id": "9003", "handle": "lena_embodied", "name": "Lena Ito", "bio": "Researcher, embodied AI and manipulation.", "followers": 15000, "receivesYourDm": false },
+  { "id": "9003", "handle": "lena_embodied", "name": "Lena Ito", "bio": "Researcher, embodied AI and manipulation.", "followers": 15000, "receivesYourDm": null },
   { "id": "9004", "handle": "robotco", "name": "RoboCo", "bio": "Robotics platform for warehouses.", "followers": 52000, "orgType": "business" },
   { "id": "9005", "handle": "private_dev", "name": "P. Dev", "bio": "AI engineer.", "followers": 90, "isProtected": true },
   { "id": "9006", "handle": "pasta_daily", "name": "Pasta Daily", "bio": "Recipes every day.", "followers": 310, "receivesYourDm": true },
   { "id": "9101", "handle": "sea_robotics_lab", "name": "SEA Robotics Lab", "bio": "University robotics lab in Singapore.", "followers": 2100, "receivesYourDm": true },
-  { "id": "9102", "handle": "ai_builders_sg", "name": "AI Builders SG", "bio": "Community of AI builders in Southeast Asia.", "followers": 6400, "receivesYourDm": true }
+  { "id": "9102", "handle": "ai_builders_sg", "name": "AI Builders SG", "bio": "Community of AI builders in Southeast Asia.", "followers": 6400, "receivesYourDm": true },
+  { "id": "9007", "handle": "dm_closed", "name": "Kai Ono", "bio": "Robotics researcher, grasping and tactile sensing.", "followers": 3100, "receivesYourDm": false }
 ]

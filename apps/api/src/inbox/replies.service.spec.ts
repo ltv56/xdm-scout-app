@@ -128,6 +128,15 @@ describe('checkNow', () => {
 })
 
 describe('read', () => {
+  it('labels the classifier call with the campaign and the lane of the person', async () => {
+    const calls: unknown[] = []
+    replies = new RepliesService(ds, x, new JobsService(ds), new FakeLlmClient((req) => (calls.push(req.meter), llmAnswer)))
+    const { contactId } = await seedSent('201', new Date('2026-11-14T00:00:00Z'))
+    x.priorMessage('201', 'Sounds good, tell me more', new Date('2026-11-14T00:40:00Z'))
+    await replies.read(contactId, new Date('2026-11-14T01:00:00Z'))
+    expect(calls).toEqual([{ campaignId: 1, lane: 'search' }])
+  })
+
   it('stores nothing when the newest message is ours, and remembers the read', async () => {
     const now = new Date('2026-11-14T01:00:00Z')
     const { contactId } = await seedSent('201', new Date('2026-11-14T00:00:00Z'))
@@ -192,11 +201,21 @@ describe('read: reply class', () => {
     expect(await ds.getRepository(DoNotContact).count()).toBe(0)
   })
 
-  it('puts Not interested on the list and only records Not now', async () => {
-    llmAnswer = { class: 'Not interested', probability: 0.9 }
-    expect((await replyWith('Not for me, thanks')).handledAt).not.toBeNull()
-    expect(await ds.getRepository(DoNotContact).findOneBy({ xUserId: '201' })).toMatchObject({ reason: 'Replied: Not interested' })
+  it('leaves a decline the model decided open and off Do not contact until a person confirms it', async () => {
+    llmAnswer = { class: 'Not interested', probability: 0.99 }
+    const reply = await replyWith('Not for me, thanks')
+    expect(reply).toMatchObject({ replyClass: 'Not interested', classBy: 'llm', handledAt: null })
+    expect(await ds.getRepository(DoNotContact).count()).toBe(0)
+  })
 
+  it('leaves a stop request without a keyword open too: the model alone never blocks a person', async () => {
+    llmAnswer = { class: 'Opt-out', probability: 0.99 }
+    const reply = await replyWith("please don't reach out again")
+    expect(reply).toMatchObject({ replyClass: 'Opt-out', classBy: 'llm', handledAt: null })
+    expect(await ds.getRepository(DoNotContact).count()).toBe(0)
+  })
+
+  it('only records Not now', async () => {
     llmAnswer = { class: 'Not now', probability: 0.9 }
     const { contactId } = await seedSent('202', new Date('2026-11-14T00:00:00Z'))
     x.priorMessage('202', 'Maybe next quarter', new Date('2026-11-14T00:40:00Z'))
@@ -212,7 +231,7 @@ describe('worker', () => {
     const { XRateLimitError } = await import('../x/x-client')
     const jobs = new JobsService(ds)
     const sending = new SendingService(ds, x, jobs)
-    const worker = new Worker(jobs, sending, undefined as never, undefined as never, undefined as never, replies)
+    const worker = new Worker(jobs, sending, undefined as never, undefined as never, undefined as never, replies, undefined as never, undefined as never)
     const { contactId } = await seedSent('201', new Date('2026-11-14T00:00:00Z'))
     const retryAt = new Date('2026-11-14T02:00:00.000Z')
     x.conversationError = new XRateLimitError(retryAt)

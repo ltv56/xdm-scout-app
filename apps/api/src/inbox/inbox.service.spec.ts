@@ -117,6 +117,17 @@ describe('replies', () => {
     expect(await ds.getRepository(DoNotContact).find()).toEqual([expect.objectContaining({ xUserId: '201', source: 'operator', reason: 'Reply marked Opt-out' })])
   })
 
+  it('confirming a stop the model decided puts the person on Do not contact', async () => {
+    const a = await seedAttempt(1, '201', 'sent', 'api')
+    const reply = await ds.getRepository(Reply).save({ contactId: a.draft.contactId, attemptId: a.attempt.id, xEventId: 'e1', text: 'not for us', source: 'api', at: new Date(), replyClass: 'Not interested', classBy: 'llm', handledAt: null })
+    expect(await ds.getRepository(DoNotContact).count()).toBe(0)
+
+    await inbox.setClass(reply.id, 'Not interested')
+
+    expect(await ds.getRepository(Reply).findOneByOrFail({ id: reply.id })).toMatchObject({ classBy: 'operator', handledAt: expect.any(Date) })
+    expect(await ds.getRepository(DoNotContact).find()).toEqual([expect.objectContaining({ xUserId: '201', source: 'operator', reason: 'Reply marked Not interested' })])
+  })
+
   it('moving a reply out of Opt-out keeps the person on Do not contact', async () => {
     const a = await seedAttempt(1, '201', 'sent', 'api')
     const reply = await ds.getRepository(Reply).save({ contactId: a.draft.contactId, attemptId: a.attempt.id, xEventId: 'e1', text: 'stop', source: 'api', at: new Date(), replyClass: 'Opt-out', classBy: 'rule' })

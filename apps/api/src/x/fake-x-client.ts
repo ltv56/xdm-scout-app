@@ -32,6 +32,8 @@ export class FakeXClient implements XClient {
   readonly searchCalls: { query: string; max: number }[] = []
   private readonly inbound: InboundDm[] = []
   inboundReads = 0
+  readonly postExistReads: string[][] = []
+  postExistError: Error | null = null
   private counter = 0
 
   async sendDm(recipientId: string, text: string): Promise<SendDmResult> {
@@ -70,6 +72,13 @@ export class FakeXClient implements XClient {
     this.inbound.push({ eventId: `in-${this.counter}`, conversationId: `${dm.senderId}-100`, ...dm })
   }
 
+  async getPostsExist(ids: string[]): Promise<Set<string>> {
+    this.postExistReads.push(ids)
+    if (this.postExistError) throw this.postExistError
+    const served = new Set([...this.posts.values()].flat().map((p) => p.id))
+    return new Set(ids.filter((id) => served.has(id)))
+  }
+
   async getInboundDms(max: number): Promise<InboundDm[]> {
     this.inboundReads += 1
     return [...this.inbound].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, max)
@@ -101,7 +110,7 @@ export class FakeXClient implements XClient {
       followers: 0,
       isProtected: false,
       orgType: null,
-      receivesYourDm: false,
+      receivesYourDm: null,
       ...p,
     })
   }

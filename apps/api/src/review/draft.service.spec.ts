@@ -160,6 +160,28 @@ describe('draft generation', () => {
     expect(drafts.map((d) => d.status)).toEqual(['superseded', 'pending'])
   })
 
+  it('labels the model call with the campaign and the lane of the person', async () => {
+    const p = await seed()
+    const llm = new FakeLlmClient(cannedHandler)
+    await service(llm).generate(p.id, now)
+    expect(llm.calls[0].meter).toEqual({ campaignId: p.campaignId, lane: 'search' })
+  })
+
+  it('writes about the warm event when that is the opening, and cites it as the source', async () => {
+    const p = await seed()
+    await ds.getRepository(Evidence).save({ id: 'fund_list:u-mai', xUserId: 'u-mai', kind: 'fund_list', url: '', excerpt: 'Build Week 2026: Met at Build Week', postedAt: new Date('2026-11-01T00:00:00Z'), fetchedAt: now })
+    await ds.getRepository(Prospect).update(p.id, { openingType: 'fund_list', openingSummary: 'Build Week 2026: Met at Build Week', openingEvidenceId: 'fund_list:u-mai', openingDate: new Date('2026-11-01T00:00:00Z') })
+    const llm = new FakeLlmClient(cannedHandler)
+    await service(llm).generate(p.id, now)
+    const user = JSON.parse(llm.calls[0].user) as { opening: { evidence_id: string; text: string } }
+    expect([user.opening.evidence_id, user.opening.text]).toEqual(['fund_list:u-mai', 'Build Week 2026: Met at Build Week'])
+    expect(llm.calls[0].system).toContain('fund_list:')
+    const draft = await ds.getRepository(Draft).findOneByOrFail({ prospectId: p.id })
+    expect(draft.sentences?.[1]).toMatchObject({ source: { type: 'evidence', evidenceId: 'fund_list:u-mai' } })
+    expect(draft.sentences?.[1].text).toContain('Met at Build Week')
+    expect(draft.sentences?.[1].text).not.toMatch(/your post/i)
+  })
+
   it('sends the prompt only the opening, verified claims and the profile', async () => {
     const p = await seed()
     await ds.getRepository(Claim).save({ prospectId: p.id, side: 'for', text: 'Seems senior', evidenceIds: [], status: 'inferred' })
@@ -216,15 +238,38 @@ describe('writing drafts for a campaign', () => {
 
   it('queues one job per chosen person and says what is left and who has no opening', async () => {
     const ok = await field()
-    expect(await service().writeDrafts(1, 10, now)).toEqual({ drafted: 1, readyToDraft: 0, noOpening: 1 })
+    expect(await service().writeDrafts(1, 10, now)).toEqual({ drafted: 1, readyToDraft: 0, noOpening: 1, cantReceive: 0 })
     const jobs = await ds.getRepository(Job).find()
     expect(jobs.map((j) => [j.type, j.payload])).toEqual([['draft', { prospectId: ok.id }]])
+  })
+
+  it('leaves out people who cannot receive a DM, counts them apart from the ones with no opening, and does not draft them', async () => {
+    const ok = await seed({ handle: 'open' })
+    await ds.getRepository(XUser).update('u-open', { receivesYourDm: true, fetchedAt: now })
+    const shut = await seed({ handle: 'shut' })
+    await ds.getRepository(XUser).update('u-shut', { receivesYourDm: false, fetchedAt: now })
+    const unknown = await seed({ handle: 'unknown' })
+    await ds.getRepository(XUser).update('u-unknown', { receivesYourDm: null, fetchedAt: now })
+    const follower = await seed({ handle: 'follower' })
+    await ds.getRepository(XUser).update('u-follower', { receivesYourDm: false, fetchedAt: now })
+    await ds.getRepository(Prospect).update(follower.id, { relationship: 'follower' })
+
+    expect((await service().ready(1, now)).map((p) => p.id).sort()).toEqual([ok.id, unknown.id, follower.id].sort())
+    expect(await service().writeDrafts(1, 10, now)).toEqual({ drafted: 3, readyToDraft: 0, noOpening: 0, cantReceive: 1 })
+    expect((await ds.getRepository(Job).find()).map((j) => j.payload.prospectId)).not.toContain(shut.id)
+  })
+
+  it('still drafts a person who cannot receive a DM when asked for that one person', async () => {
+    const p = await seed({ handle: 'shut' })
+    await ds.getRepository(XUser).update('u-shut', { receivesYourDm: false, fetchedAt: now })
+    const id = await service().draftOne(1, p.id, now)
+    expect((await ds.getRepository(Draft).findOneByOrFail({ id })).prospectId).toBe(p.id)
   })
 
   it('does not queue the same person twice', async () => {
     await field()
     await service().writeDrafts(1, 10, now)
-    expect(await service().writeDrafts(1, 10, now)).toEqual({ drafted: 0, readyToDraft: 0, noOpening: 1 })
+    expect(await service().writeDrafts(1, 10, now)).toEqual({ drafted: 0, readyToDraft: 0, noOpening: 1, cantReceive: 0 })
     expect(await ds.getRepository(Job).count()).toBe(1)
   })
 
@@ -232,7 +277,7 @@ describe('writing drafts for a campaign', () => {
     await seed({ handle: 'a' })
     await seed({ handle: 'b' })
     await seed({ handle: 'c' })
-    expect(await service().writeDrafts(1, 2, now)).toEqual({ drafted: 2, readyToDraft: 1, noOpening: 0 })
+    expect(await service().writeDrafts(1, 2, now)).toEqual({ drafted: 2, readyToDraft: 1, noOpening: 0, cantReceive: 0 })
   })
 })
 

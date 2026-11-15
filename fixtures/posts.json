@@ -8,5 +8,8 @@
   ],
   "9003": [
     { "id": "930001", "text": "New preprint: dexterous manipulation from 50 demonstrations.", "createdAt": "2026-10-28T11:00:00Z" }
+  ],
+  "9007": [
+    { "id": "970001", "text": "Released our tactile grasping benchmark and the first results.", "createdAt": "2026-11-10T08:00:00Z" }
   ]
 }

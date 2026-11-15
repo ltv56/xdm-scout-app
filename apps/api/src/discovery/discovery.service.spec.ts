@@ -34,6 +34,17 @@ afterAll(async () => {
 const newCampaign = (handles: string[]) =>
   ds.getRepository(Campaign).save({ name: 'c', keywords: ['robotics', 'llm', 'ai'], handles })
 
+describe('receives_your_dm is stored as X reported it', () => {
+  it('keeps true, false and never-reported apart', async () => {
+    x.addProfile({ id: '8', handle: 'openbob', name: 'Bob', bio: 'robotics builder', followers: 5, receivesYourDm: true })
+    x.addProfile({ id: '9', handle: 'closedbob', name: 'Bob', bio: 'robotics builder', followers: 5, receivesYourDm: false })
+    x.addProfile({ id: '10', handle: 'silentbob', name: 'Bob', bio: 'robotics builder', followers: 5 })
+    await discovery.run((await newCampaign(['openbob', 'closedbob', 'silentbob'])).id, now)
+    const rows = await ds.getRepository(XUser).find({ order: { xUserId: 'ASC' } })
+    expect(Object.fromEntries(rows.filter((r) => ['8', '9', '10'].includes(r.xUserId)).map((r) => [r.handle, r.receivesYourDm]))).toEqual({ openbob: true, closedbob: false, silentbob: null })
+  })
+})
+
 describe('discovery from a handle list', () => {
   it('dedupes handles and keeps only people who pass the rules', async () => {
     await ds.getRepository(DoNotContact).save({ xUserId: '6', reason: 'stop', source: 'reply' })

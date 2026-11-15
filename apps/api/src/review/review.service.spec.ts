@@ -11,6 +11,7 @@ import { hashContent } from '../sending/sending.service'
 import { Setting } from '../setting.entity'
 import { createTestDataSource } from '../test/db'
 import { FixtureDecisionClient } from '../decisions/decision-client'
+import { LlmDecisionClient } from '../decisions/llm-decision-client'
 import { reviewQueue } from './contract'
 import { DraftService } from './draft.service'
 import { ReviewController } from './review.controller'
@@ -141,6 +142,14 @@ describe('review queue', () => {
     expect((await service().queue(1, now)).items[0]).toMatchObject({ language: 'vi', englishText: 'Hi Mai!' })
   })
 
+  it('labels the decision calls with the campaign and the lane', async () => {
+    await seedPerson('mai')
+    const llm = new FakeLlmClient(() => ({ probability: 0.9 }))
+    await new ReviewService(ds, new LlmDecisionClient(llm)).queue(1, now)
+    expect(llm.calls.length).toBeGreaterThan(0)
+    expect(llm.calls.every((c) => c.meter?.campaignId === 1 && c.meter.lane === 'search')).toBe(true)
+  })
+
   it('adds the model checks when a decision client is there, and none otherwise', async () => {
     await seedPerson('mai')
     expect((await service().queue(1, now)).items[0].decisions).toEqual([])
@@ -171,6 +180,19 @@ describe('review queue', () => {
     expect(item.checks.map((c) => `${c.level}:${c.code}`)).toContain('block:unbacked_claim')
     expect(item.weakestPoint).toMatch(/no post behind it/)
     expect(item.sentences[0].source).toBeNull()
+  })
+
+  it('treats a draft that rests on the warm list as backed, and says so', async () => {
+    const p = await seedPerson('mai')
+    await ds.getRepository(Evidence).save({ id: 'fund_list:u-mai', xUserId: 'u-mai', kind: 'fund_list', url: '', excerpt: 'Build Week 2026: Met at Build Week', postedAt: new Date('2026-11-01T00:00:00Z'), fetchedAt: now })
+    await ds.getRepository(Prospect).update(p.id, { openingType: 'fund_list', openingEvidenceId: 'fund_list:u-mai', openingDate: new Date('2026-11-01T00:00:00Z'), criteria: [] })
+    const draft = await ds.getRepository(Draft).findOneByOrFail({ prospectId: p.id })
+    await ds.getRepository(Draft).update(draft.id, { sentences: [draft.sentences![0], { text: 'We met at Build Week.', source: { type: 'evidence', evidenceId: 'fund_list:u-mai' } }, ...draft.sentences!.slice(2)] })
+    const item = reviewQueue.parse(await service().queue(1, now)).items[0]
+    expect(item.evidence[0]).toMatchObject({ kind: 'fund_list', text: 'Build Week 2026: Met at Build Week', url: null })
+    expect(item.checks.map((c) => c.code)).not.toContain('unbacked_claim')
+    expect(item.checks.map((c) => c.code)).not.toContain('generic_first_line')
+    expect(item.weakestPoint).toBe('Rests on your own list (Build Week 2026: Met at Build Week), not on a post.')
   })
 
   it('names the thinnest backing when everything is backed', async () => {

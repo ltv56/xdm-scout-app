@@ -3,7 +3,7 @@ import { FixtureDecisionClient } from '../decisions/decision-client'
 import { GeminiDecisionClient } from '../decisions/gemini-decision-client'
 import { LlmDecisionClient } from '../decisions/llm-decision-client'
 import { SystemOneDecisionClient } from '../decisions/system-one-decision-client'
-import { createDecisionClient, createLlmClient, routeDecision, routeText } from './ai-config'
+import { AI_ENV_VARS, createDecisionClient, createLlmClient, LIVE_DEFAULT_MODEL, routeDecision, routeText } from './ai-config'
 import { FakeLlmClient } from './fake-llm-client'
 import { AnthropicLlmClient, OpenAiCompatibleLlmClient } from './http-llm-clients'
 
@@ -111,5 +111,34 @@ describe('createDecisionClient', () => {
   it('with no decision model asks the LLM when there is one, else answers from fixtures', () => {
     expect(createDecisionClient({ GOOGLE_API_KEY: 'g', LLM_MODEL: 'gemini-4-hydrogen' }, llm)).toBeInstanceOf(LlmDecisionClient)
     expect(createDecisionClient({}, llm)).toBeInstanceOf(FixtureDecisionClient)
+  })
+})
+
+describe('the env names the app passes to the model factories', () => {
+  it('include the DeepSeek key and the generic LLM key, so deepseek-chat works inside the app', () => {
+    expect(AI_ENV_VARS).toEqual(expect.arrayContaining(['DEEPSEEK_API_KEY', 'LLM_API_KEY']))
+    const env = Object.fromEntries(AI_ENV_VARS.map((k) => [k, k === 'LLM_MODEL' ? 'deepseek-chat' : k === 'DEEPSEEK_API_KEY' ? 'd' : '']))
+    expect(createLlmClient(env)).toBeInstanceOf(OpenAiCompatibleLlmClient)
+  })
+})
+
+describe('the live default model', () => {
+  const llm = new FakeLlmClient(() => ({}))
+
+  it('is gpt-6-luna when X_MODE is live and LLM_MODEL is empty, and asks for the OpenAI key', () => {
+    expect(LIVE_DEFAULT_MODEL).toBe('gpt-6-luna')
+    expect(AI_ENV_VARS).toContain('X_MODE')
+    expect(createLlmClient({ X_MODE: 'live', OPENAI_API_KEY: 'p' })).toBeInstanceOf(OpenAiCompatibleLlmClient)
+    expect(() => createLlmClient({ X_MODE: 'live' })).toThrow(/gpt-6-luna.*OPENAI_API_KEY/)
+  })
+
+  it('does not change the sandbox, and an explicit LLM_MODEL wins', () => {
+    expect(createLlmClient({ X_MODE: 'fake', OPENAI_API_KEY: 'p' })).toBeInstanceOf(FakeLlmClient)
+    expect(createLlmClient({ OPENAI_API_KEY: 'p' })).toBeInstanceOf(FakeLlmClient)
+    expect(createLlmClient({ X_MODE: 'live', LLM_MODEL: 'claude-x', ANTHROPIC_API_KEY: 'a' })).toBeInstanceOf(AnthropicLlmClient)
+  })
+
+  it('the checks are answered by the same model unless DECISION_MODEL says otherwise', () => {
+    expect(createDecisionClient({ X_MODE: 'live', OPENAI_API_KEY: 'p' }, llm)).toBeInstanceOf(LlmDecisionClient)
   })
 })

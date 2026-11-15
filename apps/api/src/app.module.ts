@@ -31,7 +31,10 @@ import { InboxService } from './inbox/inbox.service'
 import { RepliesService } from './inbox/replies.service'
 import { JobsService } from './jobs/jobs.service'
 import { DECISION_CLIENT } from './decisions/review-decisions'
-import { createDecisionClient, createLlmClient } from './llm/ai-config'
+import { EvidenceRecheckService } from './fit/evidence-recheck.service'
+import { AI_ENV_VARS, createDecisionClient, createLlmClient } from './llm/ai-config'
+import { LlmUsageService } from './llm/llm-usage.service'
+import type { LlmUsageSink } from './llm/llm-client'
 import { LLM_CLIENT, LlmClient } from './llm/llm-client'
 import { RetentionService } from './retention/retention.service'
 import { CampaignDraftsController } from './review/campaign-drafts.controller'
@@ -45,13 +48,17 @@ import { ReviewSummaryService } from './review/review-summary.service'
 import { ReviewService } from './review/review.service'
 import { SenderProfileController } from './review/sender-profile.controller'
 import { SendingService } from './sending/sending.service'
+import { SendSettingsController } from './sending/send-settings.controller'
+import { SendSettingsService } from './sending/send-settings.service'
 import { Worker } from './sending/worker'
 import { FakeXClient } from './x/fake-x-client'
 import { LiveXClient } from './x/live-x-client'
 import { X_CLIENT, XClient } from './x/x-client'
 
-const AI_VARS = ['GOOGLE_API_KEY', 'OPEN_ROUTER_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'LLM_MODEL', 'DECISION_MODEL']
-const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [k, config.get<string>(k, '')]))
+const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) => [k, config.get<string>(k, '')]))
+
+// Token counts go to llm_usage without ever failing the model call.
+const meter = (usage: LlmUsageService): LlmUsageSink => (u) => void usage.record(u).catch((err: unknown) => console.error('llm usage not saved', err))
 
 @Module({
   imports: [
@@ -78,6 +85,7 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     InboundLaneController,
     FunnelController,
     ActivityController,
+    SendSettingsController,
     ReviewSummaryController,
   ],
   providers: [
@@ -111,6 +119,9 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     InboundLaneService,
     FunnelService,
     ActivityService,
+    SendSettingsService,
+    LlmUsageService,
+    EvidenceRecheckService,
     ReviewSummaryService,
     {
       provide: PreflightService,
@@ -119,13 +130,13 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     },
     {
       provide: LLM_CLIENT,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService): LlmClient => createLlmClient(aiEnv(config)),
+      inject: [ConfigService, LlmUsageService],
+      useFactory: (config: ConfigService, usage: LlmUsageService): LlmClient => createLlmClient(aiEnv(config), meter(usage)),
     },
     {
       provide: DECISION_CLIENT,
-      inject: [ConfigService, LLM_CLIENT],
-      useFactory: (config: ConfigService, llm: LlmClient) => createDecisionClient(aiEnv(config), llm),
+      inject: [ConfigService, LLM_CLIENT, LlmUsageService],
+      useFactory: (config: ConfigService, llm: LlmClient, usage: LlmUsageService) => createDecisionClient(aiEnv(config), llm, meter(usage)),
     },
     {
       provide: X_CLIENT,

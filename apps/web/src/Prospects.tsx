@@ -29,6 +29,7 @@ export interface Prospect {
   areas: string[]
   identityWarning: boolean
   landsIn: 'inbox' | 'requests' | 'cant_receive' | null
+  call: { text: string; at: string; invitationConfirmed: boolean } | null
   fundList: { name: string; kind: 'known' | 'warm'; event: string | null } | null
   opening: { type: string; summary: string | null; freshness: 'fresh' | 'stale' | 'expired'; url: string | null; date: string } | null
   claims: Claim[]
@@ -77,6 +78,36 @@ function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; camp
           {make.error.message}
         </span>
       )}
+    </div>
+  )
+}
+
+// A call-post answer: their DM is the invitation, but only the operator's click makes it count for sending.
+function InvitationControl({ p, campaignId }: { p: Prospect & { call: NonNullable<Prospect['call']> }; campaignId: number }) {
+  const qc = useQueryClient()
+  const confirm = useMutation({
+    mutationFn: () => postJson(`/campaigns/${campaignId}/prospects/${p.id}/invitation`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prospects', campaignId] }),
+  })
+  return (
+    <div className="mt-3 text-sm">
+      <p>
+        <span className="font-semibold">Their answer to your call post:</span> <span className="wrap-anywhere">“{p.call.text}”</span>
+      </p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {p.call.invitationConfirmed ? (
+          <span className="font-semibold text-ok">Invitation confirmed</span>
+        ) : (
+          <button type="button" className={btnSecondary} disabled={confirm.isPending} onClick={() => confirm.mutate()}>
+            Confirm invitation
+          </button>
+        )}
+        {confirm.error && (
+          <span role="alert" className="font-medium text-block">
+            {confirm.error.message}
+          </span>
+        )}
+      </p>
     </div>
   )
 }
@@ -171,6 +202,16 @@ const RELATIONSHIP_OPTIONS: { id: RelationshipFilter; label: string }[] = [
   { id: 'cold', label: 'Cold' },
 ]
 
+type LandsInFilter = NonNullable<Prospect['landsIn']> | 'unknown' | 'any'
+
+const LANDS_IN_OPTIONS: { id: LandsInFilter; label: string }[] = [
+  { id: 'any', label: 'All' },
+  { id: 'inbox', label: LANDS_IN_LABEL.inbox },
+  { id: 'requests', label: LANDS_IN_LABEL.requests },
+  { id: 'cant_receive', label: LANDS_IN_LABEL.cant_receive },
+  { id: 'unknown', label: 'Unknown' },
+]
+
 export type Filter = 'all' | 'ready' | 'drafted' | 'not_a_fit'
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -183,6 +224,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 export default function Prospects({ campaignId, onReview, initialFilter = 'all' }: { campaignId: number; onReview: () => void; initialFilter?: Filter }) {
   const [filter, setFilter] = useState<Filter>(initialFilter)
   const [relationship, setRelationship] = useState<RelationshipFilter>('any')
+  const [landsIn, setLandsIn] = useState<LandsInFilter>('any')
   const [sortKey, setSortKey] = useState<SortKey>('default')
   const [dir, setDir] = useState<Dir>('desc')
   const { data, error, isLoading } = useQuery<Prospect[]>({
@@ -197,7 +239,7 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
   if (!data?.length) return <p className="text-sm text-muted">No candidates in this campaign yet. Run a search from the Overview.</p>
 
   // Ready: could get a draft now. Same rule as the Overview and the Write drafts button.
-  const isReady = (p: Prospect) => p.status !== 'dismissed' && (p.fit === 'strong' || p.fit === 'possible') && !!p.opening && p.opening.freshness !== 'expired' && !inReview.has(p.handle)
+  const isReady = (p: Prospect) => p.status !== 'dismissed' && (p.fit === 'strong' || p.fit === 'possible') && !!p.opening && p.opening.freshness !== 'expired' && !inReview.has(p.handle) && p.landsIn !== 'cant_receive'
   const matches: Record<Filter, (p: Prospect) => boolean> = {
     all: () => true,
     ready: isReady,
@@ -205,7 +247,8 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
     not_a_fit: (p) => p.fit === 'not_a_fit',
   }
   const byRelationship = (p: Prospect) => relationship === 'any' || p.relationship === relationship
-  const shown = sortProspects(data.filter((p) => matches[filter](p) && byRelationship(p)), sortKey, dir)
+  const byLandsIn = (p: Prospect) => landsIn === 'any' || (p.landsIn ?? 'unknown') === landsIn
+  const shown = sortProspects(data.filter((p) => matches[filter](p) && byRelationship(p) && byLandsIn(p)), sortKey, dir)
 
   return (
     <div className="pb-16">
@@ -229,6 +272,16 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
           <span className="shrink-0 text-muted">Relationship</span>
           <select value={relationship} onChange={(e) => setRelationship(e.target.value as RelationshipFilter)} className={`${field} min-w-0 flex-1 py-1.5 sm:w-auto sm:flex-none`}>
             {RELATIONSHIP_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex w-full items-center gap-2 sm:w-auto">
+          <span className="shrink-0 text-muted" title={LANDS_IN_HINT}>Likely lands in</span>
+          <select value={landsIn} onChange={(e) => setLandsIn(e.target.value as LandsInFilter)} className={`${field} min-w-0 flex-1 py-1.5 sm:w-auto sm:flex-none`}>
+            {LANDS_IN_OPTIONS.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
@@ -310,6 +363,7 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
               <p className="mt-3 text-sm font-semibold text-muted">Dismissed</p>
             ) : (
               <>
+                {p.call && <InvitationControl p={{ ...p, call: p.call }} campaignId={campaignId} />}
                 <DraftControl p={p} campaignId={campaignId} inReview={inReview.has(p.handle)} onReview={onReview} />
                 {!inReview.has(p.handle) && (
                   <div className="mt-2">

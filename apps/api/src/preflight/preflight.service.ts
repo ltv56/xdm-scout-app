@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service'
 import { Setting } from '../setting.entity'
 import { SendAttempt } from '../sending/entities'
 import { ApiUsage } from '../discovery/entities'
+import { LlmUsageService } from '../llm/llm-usage.service'
 import { dailyCap, sentToday as sent } from '../sending/daily-cap'
 import type { PreflightRow, TopBar } from './contract'
 
@@ -60,8 +61,14 @@ export class PreflightService {
       sentToday,
       dailyCap: await dailyCap(this.ds.manager),
       workerRunning: (await this.worker(now)).status === 'ok',
-      campaignCostMicros: cost ? Number(cost.total) : null,
+      campaignCostMicros: cost ? Number(cost.total) + (await this.llmCost(campaignId)) : null,
     }
+  }
+
+  private async llmCost(campaignId: number | null): Promise<number> {
+    if (campaignId === null) return 0
+    const { search, call } = await new LlmUsageService(this.ds).costByLane(campaignId)
+    return search + call
   }
 
   private mode() {

@@ -33,6 +33,10 @@ describe('readyToDraft', () => {
     expect(readyToDraft(people, new Set([8]), now).map((x) => x.id)).toEqual([1, 2, 10])
   })
 
+  it('leaves out the people who cannot receive a DM, and keeps the rest', () => {
+    expect(readyToDraft([p(1), p(2), p(3)], new Set(), now, new Set([2])).map((x) => x.id)).toEqual([1, 3])
+  })
+
   it('treats an opening without a date as not expired', () => {
     expect(readyToDraft([p(1, { openingDate: null })], new Set(), now)).toHaveLength(1)
   })

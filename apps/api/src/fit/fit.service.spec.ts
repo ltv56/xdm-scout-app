@@ -5,6 +5,7 @@ import { Campaign, Prospect, XPost } from '../discovery/entities'
 import { FakeLlmClient } from '../llm/fake-llm-client'
 import { LlmRequest } from '../llm/llm-client'
 import { Job } from '../jobs/job.entity'
+import { KnownUser } from '../known/known-user.entity'
 import { Draft, XUser } from '../sending/entities'
 import { createTestDataSource } from '../test/db'
 import { Claim, Evidence } from './entities'
@@ -53,6 +54,18 @@ afterAll(async () => {
 })
 
 describe('fit scoring', () => {
+  it('labels every model call with the campaign and the lane of the person', async () => {
+    const llm = llmWith(() => goodFit)
+    await new FitService(ds, llm).score(prospectId, now)
+    expect(llm.calls.length).toBeGreaterThan(1)
+    expect(llm.calls.every((c) => c.meter?.campaignId === 1 && c.meter.lane === 'search')).toBe(true)
+
+    await ds.getRepository(Prospect).update(prospectId, { source: 'call' })
+    const again = llmWith(() => goodFit)
+    await new FitService(ds, again).score(prospectId, now)
+    expect(again.calls.every((c) => c.meter?.lane === 'call')).toBe(true)
+  })
+
   it('stores the label, role, areas and opening, and marks claims Verified only when the cited evidence exists and a second check supports them', async () => {
     const llm = llmWith(() => goodFit, (claim) => claim !== 'Is hiring ML engineers')
     await new FitService(ds, llm).score(prospectId, now)
@@ -115,6 +128,42 @@ describe('fit scoring', () => {
     expect(p.fit).toBe('possible')
     expect(p.openingType).toBe('none')
     expect(p.openingEvidenceId).toBeNull()
+  })
+})
+
+describe('warm list opening', () => {
+  const noOpening = { ...goodFit, opening: { type: 'none', summary: '', evidence_id: null, date: null } }
+  const warm = (event: string | null = 'Met at Build Week') => ds.getRepository(KnownUser).save({ xUserId: '9001', handle: 'mina', listName: 'Build Week 2026', kind: 'warm', event })
+
+  it('uses the warm list and its event as the opening when the model finds no post', async () => {
+    await warm()
+    await new FitService(ds, llmWith(() => noOpening)).score(prospectId, now)
+    const p = await ds.getRepository(Prospect).findOneByOrFail({ id: prospectId })
+    expect([p.openingType, p.openingEvidenceId, p.openingSummary]).toEqual(['fund_list', 'fund_list:9001', 'Build Week 2026: Met at Build Week'])
+    const e = await ds.getRepository(Evidence).findOneByOrFail({ id: 'fund_list:9001' })
+    expect([e.kind, e.excerpt, e.xUserId]).toEqual(['fund_list', 'Build Week 2026: Met at Build Week', '9001'])
+    expect(p.openingDate).toEqual(e.postedAt)
+  })
+
+  it('names only the list when the import gave no event', async () => {
+    await warm(null)
+    await new FitService(ds, llmWith(() => noOpening)).score(prospectId, now)
+    expect((await ds.getRepository(Evidence).findOneByOrFail({ id: 'fund_list:9001' })).excerpt).toBe('Build Week 2026')
+  })
+
+  it('keeps a post opening when there is one', async () => {
+    await warm()
+    await new FitService(ds, llmWith(() => goodFit)).score(prospectId, now)
+    expect((await ds.getRepository(Prospect).findOneByOrFail({ id: prospectId })).openingEvidenceId).toBe('post:910001')
+    expect(await ds.getRepository(Evidence).countBy({ kind: 'fund_list' })).toBe(0)
+  })
+
+  it('does nothing for a person on the known list or on no list', async () => {
+    await new FitService(ds, llmWith(() => noOpening)).score(prospectId, now)
+    expect((await ds.getRepository(Prospect).findOneByOrFail({ id: prospectId })).openingType).toBe('none')
+    await ds.getRepository(KnownUser).save({ xUserId: '9001', handle: 'mina', listName: 'Portfolio', kind: 'known', event: null })
+    await new FitService(ds, llmWith(() => noOpening)).score(prospectId, now)
+    expect((await ds.getRepository(Prospect).findOneByOrFail({ id: prospectId })).openingType).toBe('none')
   })
 })
 

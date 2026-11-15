@@ -19,7 +19,7 @@ export type XProfile = {
   followers: number
   isProtected: boolean
   orgType: 'business' | 'government' | null
-  receivesYourDm: boolean
+  receivesYourDm: boolean | null
 }
 
 // lang is X's own language guess for the post ("und" when it has none).
@@ -49,6 +49,8 @@ export interface XClient {
   lookupUsers(handles: string[]): Promise<XProfile[]>
   getRecentPosts(userId: string, max: number): Promise<XPost[]>
   getFollowing(userId: string, max: number): Promise<XProfile[]>
+  // The ids among these posts that X still serves; the rest were deleted or hidden. X bills each post read.
+  getPostsExist(ids: string[]): Promise<Set<string>>
   // Recent posts (7 days) matching the query, with their authors.
   searchRecent(query: string, max: number): Promise<{ posts: XPost[]; authors: XProfile[] }>
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CheckItem, DeliveredItem, InboxChecks, ReplyItem } from '../../api/src/inbox/contract'
-import { ENDS_CONTACT, REPLY_CLASSES, type ClassBy, type ReplyClass } from '../../api/src/inbox/reply-class'
+import { ENDS_CONTACT, needsStopConfirm, REPLY_CLASSES, type ClassBy, type ReplyClass } from '../../api/src/inbox/reply-class'
 import { getJson, postJson } from './api'
 import { XLogo } from './icons'
 import { btnApprove, btnSecondary, btnToolbar, card, chip, money, tone, type Tone } from './ui'
@@ -126,6 +126,7 @@ function ReplyCard({ item, campaignId }: { item: ReplyItem; campaignId: number }
     mutationFn: (replyClass: ReplyClass) => postJson(`/replies/${item.replyId}/class`, { replyClass }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inbox-checks', campaignId] }),
   })
+  const stopToConfirm = !item.handled && needsStopConfirm(item.replyClass, item.classBy)
   return (
     <li className={`${card} p-5 ${item.handled ? 'opacity-60' : ''}`} aria-label={`Reply from @${item.handle}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -145,6 +146,11 @@ function ReplyCard({ item, campaignId }: { item: ReplyItem; campaignId: number }
       ) : (
         <blockquote className="mt-3 whitespace-pre-line rounded-xl border border-rule px-4 py-3 text-sm">{item.theirText}</blockquote>
       )}
+      {stopToConfirm && (
+        <p className="mt-3 text-sm font-medium text-warn">
+          {item.replyClass === 'Opt-out' ? 'Looks like a request to stop.' : 'Looks like a decline.'} Nobody is blocked until you confirm.
+        </p>
+      )}
       <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">You wrote</p>
       <blockquote className="mt-1 whitespace-pre-line rounded-xl bg-rail px-4 py-3 text-sm">{item.ourText}</blockquote>
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -152,6 +158,11 @@ function ReplyCard({ item, campaignId }: { item: ReplyItem; campaignId: number }
           <XLogo className="mr-2 size-4" />
           Open conversation in X
         </a>
+        {stopToConfirm && (
+          <button type="button" className={btnApprove} disabled={setClass.isPending} onClick={() => setClass.mutate(item.replyClass as ReplyClass)}>
+            Confirm: put on Do not contact
+          </button>
+        )}
         {!item.handled && (
           <button type="button" className={btnSecondary} disabled={handled.isPending} onClick={() => handled.mutate()}>
             Mark handled
