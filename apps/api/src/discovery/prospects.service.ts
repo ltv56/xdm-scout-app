@@ -5,6 +5,7 @@ import { openingFreshness } from '../fit/fit.service'
 import { KnownUser } from '../known/known-user.entity'
 import { XUser } from '../sending/entities'
 import { Prospect, XPost } from './entities'
+import { LANDS_IN_RANK, landsIn } from './lands-in'
 
 const FIT_RANK = { strong: 0, possible: 1, weak: 2, not_a_fit: 3 }
 
@@ -13,14 +14,18 @@ export class ProspectsService {
   constructor(private readonly ds: DataSource) {}
 
   async list(campaignId: number, now = new Date()) {
-    const prospects = (await this.ds.getRepository(Prospect).find({ where: { campaignId } })).sort(
+    const found = await this.ds.getRepository(Prospect).find({ where: { campaignId } })
+    const users = new Map((await this.ds.getRepository(XUser).findBy({ xUserId: In(found.map((p) => p.xUserId)) })).map((u) => [u.xUserId, u]))
+    const lands = (p: Prospect) => landsIn(p.relationship, users.get(p.xUserId))
+    // Spec s5: where the message lands first, then Fit, then how many seeds follow them, then the newest opening.
+    const prospects = found.sort(
       (a, b) =>
+        LANDS_IN_RANK[lands(a) ?? 'unknown'] - LANDS_IN_RANK[lands(b) ?? 'unknown'] ||
         (a.fit ? FIT_RANK[a.fit] : 9) - (b.fit ? FIT_RANK[b.fit] : 9) ||
         b.seedCount - a.seedCount ||
         (b.openingDate?.getTime() ?? 0) - (a.openingDate?.getTime() ?? 0) ||
         a.id - b.id,
     )
-    const users = new Map((await this.ds.getRepository(XUser).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((u) => [u.xUserId, u]))
     const claims = await this.ds.getRepository(Claim).findBy({ prospectId: In(prospects.map((p) => p.id)) })
     const evidence = new Map((await this.ds.getRepository(Evidence).find()).map((e) => [e.id, e]))
     const fundLists = new Map((await this.ds.getRepository(KnownUser).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((k) => [k.xUserId, k]))
@@ -46,6 +51,7 @@ export class ProspectsService {
         lastPostAt: lastPosts.get(p.xUserId) ?? null,
         criteria: p.criteria ?? [],
         relationship: p.relationship,
+        landsIn: lands(p),
         seedCount: p.seedCount,
         status: p.status,
         fit: p.fit,

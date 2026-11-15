@@ -139,6 +139,8 @@ export const reviewItem = z.object({
     name: z.string().nullable(),
     fit: z.enum(['strong', 'possible', 'weak', 'no_basis']),
     relationship: z.enum(['messaged_us', 'follower', 'engaged', 'adjacent', 'cold']),
+    // Where the message will probably land: from follower or conversation, else receives_your_dm. null when the profile was never read.
+    landsIn: z.enum(['inbox', 'requests', 'cant_receive']).nullable(),
     permissionNote: z.string(),
     // One factual line about our history with them ("Replied to your post on 3 Nov"), null when there is none.
     history: z.string().nullable(),

@@ -8,6 +8,9 @@ export const FIT_LABEL: Record<ReviewItem['prospect']['fit'], string> = {
   no_basis: 'No basis',
 }
 
+export const LANDS_IN_LABEL: Record<NonNullable<ReviewItem['prospect']['landsIn']>, string> = { inbox: 'Inbox', requests: 'Message requests', cant_receive: "Can't receive" }
+export const LANDS_IN_HINT = 'A guess from whether they follow you or wrote first, and whether X says they take DMs. Based on tests on 11 Nov 2026.'
+
 export const RELATIONSHIP_LABEL: Record<ReviewItem['prospect']['relationship'], string> = {
   messaged_us: 'Messaged you first',
   follower: 'Follows you',

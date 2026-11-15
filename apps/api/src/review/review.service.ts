@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { CriterionResult, Prospect, XPost } from '../discovery/entities'
+import { landsIn } from '../discovery/lands-in'
 import { DecisionClient } from '../decisions/decision-client'
 import { decisionsFor, DECISION_CLIENT } from '../decisions/review-decisions'
 import { Evidence } from '../fit/entities'
@@ -100,6 +101,7 @@ export class ReviewService {
         name: user?.name ?? null,
         fit: prospect.fit === 'strong' || prospect.fit === 'possible' || prospect.fit === 'weak' ? prospect.fit : 'no_basis',
         relationship: prospect.relationship,
+        landsIn: landsIn(prospect.relationship, user),
         permissionNote: permissionNote(contact, now),
         history: history(contact),
         bio: user?.bio ?? null,

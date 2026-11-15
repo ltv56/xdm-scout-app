@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReviewQueue, SkipReason } from '../../api/src/review/contract'
 import { getJson, postJson } from './api'
 import FitBadge from './FitBadge'
-import { RELATIONSHIP_LABEL, SKIP_LABEL, SKIP_REASONS } from './review/labels'
+import { LANDS_IN_HINT, LANDS_IN_LABEL, RELATIONSHIP_LABEL, SKIP_LABEL, SKIP_REASONS } from './review/labels'
 import { btnLink, btnSecondary, field } from './ui'
 
 interface Claim {
@@ -28,6 +28,7 @@ export interface Prospect {
   role: string | null
   areas: string[]
   identityWarning: boolean
+  landsIn: 'inbox' | 'requests' | 'cant_receive' | null
   fundList: { name: string; kind: 'known' | 'warm'; event: string | null } | null
   opening: { type: string; summary: string | null; freshness: 'fresh' | 'stale' | 'expired'; url: string | null; date: string } | null
   claims: Claim[]
@@ -273,6 +274,11 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
                 {p.lastPostAt && ` · last post ${daysAgo(p.lastPostAt)}`}
               </span>
             </div>
+            {p.landsIn && (
+              <p className="mt-1 text-sm text-muted" title={LANDS_IN_HINT}>
+                Likely lands in: <span className={p.landsIn === 'cant_receive' ? 'font-medium text-warn' : 'font-medium text-ink'}>{LANDS_IN_LABEL[p.landsIn]}</span>
+              </p>
+            )}
             {p.fundList && (
               <p className="mt-1 text-sm font-medium text-accent">
                 Known to the fund · {p.fundList.name}
