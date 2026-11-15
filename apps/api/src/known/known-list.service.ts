@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { X_CLIENT, XClient } from '../x/x-client'
-import type { ImportResult, KnownPerson } from './contract'
+import type { ImportResult, KnownKind, KnownPerson } from './contract'
 import { KnownUser } from './known-user.entity'
 
 const MAX_HANDLES = 500
@@ -29,11 +29,13 @@ export class KnownListService {
 
   async list(): Promise<KnownPerson[]> {
     const rows = await this.ds.getRepository(KnownUser).find({ order: { createdAt: 'ASC', xUserId: 'ASC' } })
-    return rows.map((r) => ({ xUserId: r.xUserId, handle: r.handle, listName: r.listName, since: r.createdAt.toISOString() }))
+    return rows.map((r) => ({ xUserId: r.xUserId, handle: r.handle, listName: r.listName, kind: r.kind, event: r.event, since: r.createdAt.toISOString() }))
   }
 
   // X bills each profile it returns, so the handles are looked up in batches and only once per import.
-  async import(listName: string, text: string): Promise<ImportResult> {
+  async import(listName: string, text: string, opts: { kind?: KnownKind; event?: string } = {}): Promise<ImportResult> {
+    const kind = opts.kind ?? 'known'
+    const event = kind === 'warm' ? opts.event?.trim() || null : null
     const name = listName.trim()
     if (!name) throw new BadRequestException('Give the list a name')
     const { valid: handles, invalid } = splitHandles(text)
@@ -45,7 +47,7 @@ export class KnownListService {
     const repo = this.ds.getRepository(KnownUser)
     const existing = new Set((await repo.findBy({ xUserId: In(found.map((p) => p.id)) })).map((k) => k.xUserId))
     const fresh = found.filter((p) => !existing.has(p.id))
-    await repo.save(fresh.map((p) => ({ xUserId: p.id, handle: p.handle, listName: name })))
+    await repo.save(fresh.map((p) => ({ xUserId: p.id, handle: p.handle, listName: name, kind, event })))
     const seen = new Set(found.map((p) => p.handle.toLowerCase()))
     return { added: fresh.length, alreadyKnown: found.length - fresh.length, notFound: handles.filter((h) => !seen.has(h)), invalid }
   }

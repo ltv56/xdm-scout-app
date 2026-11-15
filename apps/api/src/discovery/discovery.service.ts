@@ -210,7 +210,7 @@ export class DiscoveryService {
     if (user.isProtected) return 'protected'
     if (user.orgType) return 'organization'
     if (await this.ds.getRepository(DoNotContact).existsBy({ xUserId: user.xUserId })) return 'do-not-contact'
-    if (await this.ds.getRepository(KnownUser).existsBy({ xUserId: user.xUserId })) return 'known-to-fund'
+    if (await this.ds.getRepository(KnownUser).existsBy({ xUserId: user.xUserId, kind: 'known' })) return 'known-to-fund'
     if (await this.wasContacted(user.xUserId)) return 'already-contacted'
     const bio = (user.bio ?? '').toLowerCase()
     if (!keywords.some((k) => bio.includes(k.toLowerCase()))) return 'off-topic'

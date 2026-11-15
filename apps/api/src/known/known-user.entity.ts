@@ -12,6 +12,13 @@ export class KnownUser {
   @Column({ type: 'varchar', length: 128 })
   listName!: string
 
+  // known: leave them alone. warm: they know the fund, so they stay candidates and the label says why.
+  @Column({ type: 'varchar', length: 8, default: 'known' })
+  kind!: 'known' | 'warm'
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  event!: string | null
+
   @CreateDateColumn({ precision: 6 })
   createdAt!: Date
 }

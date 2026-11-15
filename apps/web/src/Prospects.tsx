@@ -28,6 +28,7 @@ export interface Prospect {
   role: string | null
   areas: string[]
   identityWarning: boolean
+  fundList: { name: string; kind: 'known' | 'warm'; event: string | null } | null
   opening: { type: string; summary: string | null; freshness: 'fresh' | 'stale' | 'expired'; url: string | null; date: string } | null
   claims: Claim[]
 }
@@ -272,6 +273,12 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
                 {p.lastPostAt && ` · last post ${daysAgo(p.lastPostAt)}`}
               </span>
             </div>
+            {p.fundList && (
+              <p className="mt-1 text-sm font-medium text-accent">
+                Known to the fund · {p.fundList.name}
+                {p.fundList.event && <span className="font-normal text-muted"> · {p.fundList.event}</span>}
+              </p>
+            )}
             {p.identityWarning && <p className="mt-1 text-sm font-medium text-warn">Identity not confirmed</p>}
             <p className="mt-2 max-w-[80ch] text-[15px]">{p.bio}</p>
 

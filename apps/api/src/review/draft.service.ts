@@ -108,7 +108,7 @@ export class DraftService {
     const ids = In(prospects.map((p) => p.xUserId))
     const blocked = new Set([
       ...(await this.ds.getRepository(DoNotContact).findBy({ xUserId: ids })).map((d) => d.xUserId),
-      ...(await this.ds.getRepository(KnownUser).findBy({ xUserId: ids })).map((k) => k.xUserId),
+      ...(await this.ds.getRepository(KnownUser).findBy({ xUserId: ids, kind: 'known' })).map((k) => k.xUserId),
     ])
     return prospects.filter((p) => p.status !== 'dismissed' && !blocked.has(p.xUserId))
   }

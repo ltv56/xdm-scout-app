@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { DiscoveryService } from '../discovery/discovery.service'
+import { ProspectsService } from '../discovery/prospects.service'
 import { Campaign, Prospect } from '../discovery/entities'
 import { createTestDataSource } from '../test/db'
 import { FakeXClient } from '../x/fake-x-client'
@@ -83,5 +84,28 @@ describe('KnownListService', () => {
     await service.remove('1')
     await discovery.run(campaign.id, now)
     expect((await ds.getRepository(Prospect).find({ order: { xUserId: 'ASC' } })).map((p) => p.xUserId)).toEqual(['1', '2'])
+  })
+})
+
+describe('warm list', () => {
+  it('keeps the kind and the event with each person', async () => {
+    await service.import('Build Week 2026', 'alice', { kind: 'warm', event: 'Met at Build Week' })
+    await service.import('Portfolio', 'bob')
+    expect((await service.list()).map((p) => [p.handle, p.kind, p.event])).toEqual([
+      ['alice', 'warm', 'Met at Build Week'],
+      ['bob', 'known', null],
+    ])
+  })
+
+  it('Discovery keeps warm people and Candidates says which list they are on', async () => {
+    await service.import('Build Week 2026', 'alice', { kind: 'warm', event: 'Met at Build Week' })
+    const campaign = await ds.getRepository(Campaign).save({ name: 'c', keywords: ['robotics', 'llm'], handles: ['alice', 'bob'] })
+    const run = await new DiscoveryService(ds, x).run(campaign.id, new Date('2026-11-12T10:00:00Z'))
+    expect(run.skipped).toEqual([])
+    const rows = await new ProspectsService(ds).list(campaign.id, new Date('2026-11-12T10:00:00Z'))
+    expect(rows.map((r) => [r.handle, r.fundList])).toEqual([
+      ['alice', { name: 'Build Week 2026', kind: 'warm', event: 'Met at Build Week' }],
+      ['bob', null],
+    ])
   })
 })

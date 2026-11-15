@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { Claim, Evidence } from '../fit/entities'
 import { openingFreshness } from '../fit/fit.service'
+import { KnownUser } from '../known/known-user.entity'
 import { XUser } from '../sending/entities'
 import { Prospect, XPost } from './entities'
 
@@ -22,6 +23,7 @@ export class ProspectsService {
     const users = new Map((await this.ds.getRepository(XUser).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((u) => [u.xUserId, u]))
     const claims = await this.ds.getRepository(Claim).findBy({ prospectId: In(prospects.map((p) => p.id)) })
     const evidence = new Map((await this.ds.getRepository(Evidence).find()).map((e) => [e.id, e]))
+    const fundLists = new Map((await this.ds.getRepository(KnownUser).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((k) => [k.xUserId, k]))
     const lastPosts = await this.lastPostDates(prospects.map((p) => p.xUserId))
 
     const rows = prospects.map((p) => {
@@ -50,6 +52,7 @@ export class ProspectsService {
         role: p.role,
         areas: p.areas ?? [],
         opening,
+        fundList: fundLists.has(p.xUserId) ? { name: fundLists.get(p.xUserId)!.listName, kind: fundLists.get(p.xUserId)!.kind, event: fundLists.get(p.xUserId)!.event } : null,
         identityWarning: /parody|\bfan\b/i.test(user?.bio ?? ''),
         claims: claims
           .filter((c) => c.prospectId === p.id)
