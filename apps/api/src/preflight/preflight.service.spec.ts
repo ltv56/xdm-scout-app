@@ -94,10 +94,12 @@ describe('PreflightService.topBar', () => {
     const campaign = (await ds.query("INSERT INTO campaigns (name, handles, keywords) VALUES ('c', '[]', '[]')")).insertId
     await ds.query("INSERT INTO api_usage (campaignId, kind, count, costMicros) VALUES (?, 'profile', 3, 30000), (?, 'dm_event', 1, 10000)", [campaign, campaign])
 
-    expect(await make().topBar(campaign, NOW)).toEqual({ mode: 'fake', sentToday: 2, dailyCap: 25, workerRunning: true, campaignCostMicros: 40000 })
+    expect(await make().topBar(campaign, NOW)).toEqual({ mode: 'fake', sentToday: 2, dailyCap: 25, workerRunning: true, campaignCostMicros: 40000, llmUnpriced: false })
     await new LlmUsageService(ds).record({ model: 'gpt-5-nano', task: 'fit', inputTokens: 1_000_000, outputTokens: 0, meter: { campaignId: campaign, lane: 'search' } })
     await new LlmUsageService(ds).record({ model: 'gpt-5-nano', task: 'fit', inputTokens: 1_000_000, outputTokens: 0, meter: { campaignId: campaign + 1, lane: 'search' } })
     expect((await make().topBar(campaign, NOW)).campaignCostMicros).toBe(90000)
-    expect(await make({ X_MODE: 'live' }).topBar(null, new Date(NOW.getTime() + 5 * 60_000))).toEqual({ mode: 'live', sentToday: 2, dailyCap: 25, workerRunning: false, campaignCostMicros: null })
+    await new LlmUsageService(ds).record({ model: 'brand-new-model', task: 'fit', inputTokens: 10, outputTokens: 5, meter: { campaignId: campaign, lane: 'search' } })
+    expect(await make().topBar(campaign, NOW)).toMatchObject({ campaignCostMicros: 90000, llmUnpriced: true })
+    expect(await make({ X_MODE: 'live' }).topBar(null, new Date(NOW.getTime() + 5 * 60_000))).toEqual({ mode: 'live', sentToday: 2, dailyCap: 25, workerRunning: false, campaignCostMicros: null, llmUnpriced: false })
   })
 })

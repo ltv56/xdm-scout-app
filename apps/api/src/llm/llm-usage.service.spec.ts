@@ -30,6 +30,17 @@ describe('priceMicros', () => {
     expect(priceMicros('gpt-5-nano', 1_000, 1_000)).toBe(450)
   })
 
+  it('prices the gpt-6 models from the pricing page', () => {
+    expect(priceMicros('gpt-6-luna', 1_000_000, 1_000_000)).toBe(600_000)
+    expect(priceMicros('gpt-6.1-terra', 1_000_000, 1_000_000)).toBe(6_000_000)
+    expect(priceMicros('gpt-6.1-sol', 1_000_000, 1_000_000)).toBe(12_000_000)
+    expect(priceMicros('gpt-6-astra', 1_000_000, 1_000_000)).toBe(60_000_000)
+  })
+
+  it('does not mistake a gpt-6 model for a gpt-5 one', () => {
+    expect(priceMicros('gpt-6-luna', 1_000_000, 0)).toBe(100_000)
+  })
+
   it('answers null for a model with no price', () => {
     expect(priceMicros('some-new-model', 10, 10)).toBeNull()
   })
@@ -42,6 +53,16 @@ describe('LlmUsageService', () => {
     expect([row.campaignId, row.lane, row.task, row.model, row.inputTokens, row.outputTokens, row.costMicros]).toEqual([3, 'call', 'draft', 'gpt-5-nano', 2_000, 500, 300])
   })
 
+  it('flags the cost of a campaign lane as incomplete when a model had no price', async () => {
+    const meter = { campaignId: 1, lane: 'search' as const }
+    await service.record({ model: 'gpt-5-nano', task: 'fit', inputTokens: 1_000_000, outputTokens: 0, meter })
+    expect((await service.costByLane(1)).unpriced).toEqual({ search: false, call: false })
+    await service.record({ model: 'some-new-model', task: 'fit', inputTokens: 10, outputTokens: 5, meter })
+    await service.record({ model: 'gpt-5-nano', task: 'draft', inputTokens: 10, outputTokens: 5, meter: { campaignId: 2, lane: 'call' } })
+    expect(await service.costByLane(1)).toEqual({ search: 50_000, call: 0, unpriced: { search: true, call: false } })
+    expect((await service.costByLane(2)).unpriced).toEqual({ search: false, call: false })
+  })
+
   it('keeps the tokens of an unpriced model and records cost 0', async () => {
     await service.record({ model: 'some-new-model', task: 'fit', inputTokens: 10, outputTokens: 5, meter: { campaignId: 3, lane: 'search' } })
     const [row] = await ds.getRepository(LlmUsage).find()
@@ -52,7 +73,7 @@ describe('LlmUsageService', () => {
     await service.record({ model: 'gpt-5-nano', task: 'reply', inputTokens: 1_000_000, outputTokens: 0, meter: null })
     const [row] = await ds.getRepository(LlmUsage).find()
     expect([row.campaignId, row.lane]).toEqual([null, null])
-    expect(await service.costByLane(1)).toEqual({ search: 0, call: 0 })
+    expect(await service.costByLane(1)).toEqual({ search: 0, call: 0, unpriced: { search: false, call: false } })
   })
 
   it('sums the cost of a campaign by lane', async () => {
@@ -60,6 +81,6 @@ describe('LlmUsageService', () => {
     await service.record({ model: 'gpt-5-nano', task: 'draft', inputTokens: 1_000_000, outputTokens: 0, meter: { campaignId: 1, lane: 'call' } })
     await service.record({ model: 'gpt-5-nano', task: 'draft', inputTokens: 2_000_000, outputTokens: 0, meter: { campaignId: 1, lane: 'call' } })
     await service.record({ model: 'gpt-5-nano', task: 'draft', inputTokens: 1_000_000, outputTokens: 0, meter: { campaignId: 2, lane: 'call' } })
-    expect(await service.costByLane(1)).toEqual({ search: 50_000, call: 150_000 })
+    expect(await service.costByLane(1)).toEqual({ search: 50_000, call: 150_000, unpriced: { search: false, call: false } })
   })
 })

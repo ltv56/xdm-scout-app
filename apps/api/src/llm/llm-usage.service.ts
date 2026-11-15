@@ -23,20 +23,26 @@ export class LlmUsageService {
       inputTokens: u.inputTokens,
       outputTokens: u.outputTokens,
       costMicros: priceMicros(u.model, u.inputTokens, u.outputTokens) ?? 0,
+      priced: priceLine(u.model) !== null,
     })
   }
 
-  async costByLane(campaignId: number): Promise<{ search: number; call: number }> {
+  async costByLane(campaignId: number): Promise<{ search: number; call: number; unpriced: { search: boolean; call: boolean } }> {
     const rows = await this.ds
       .getRepository(LlmUsage)
       .createQueryBuilder('u')
       .select('u.lane', 'lane')
       .addSelect('COALESCE(SUM(u.costMicros), 0)', 'total')
+      .addSelect('COALESCE(SUM(u.priced = 0), 0)', 'unpriced')
       .where('u.campaignId = :campaignId', { campaignId })
       .groupBy('u.lane')
-      .getRawMany<{ lane: 'search' | 'call'; total: string }>()
-    const out = { search: 0, call: 0 }
-    for (const r of rows) out[r.lane] += Number(r.total)
+      .getRawMany<{ lane: 'search' | 'call' | null; total: string; unpriced: string }>()
+    const out = { search: 0, call: 0, unpriced: { search: false, call: false } }
+    for (const r of rows) {
+      if (!r.lane) continue
+      out[r.lane] += Number(r.total)
+      out.unpriced[r.lane] = Number(r.unpriced) > 0
+    }
     return out
   }
 }
