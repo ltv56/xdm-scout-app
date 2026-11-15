@@ -66,9 +66,9 @@ describe('skip', () => {
     expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'cancelled' })
     expect((await ds.getRepository(Contact).findOneByOrFail({ id: d.contactId })).activeAttemptId).toBeNull()
     const signals = await ds.getRepository(ReviewSignal).find({ order: { id: 'ASC' } })
-    expect(signals.map((s) => [s.action, s.reason, s.note])).toEqual([
-      ['approve', null, null],
-      ['skip', 'wrong_tone', 'too salesy'],
+    expect(signals.map((s) => [s.action, s.reason, s.note, s.campaignId])).toEqual([
+      ['approve', null, null, 1],
+      ['skip', 'wrong_tone', 'too salesy', 1],
     ])
     expect(JSON.stringify(signals)).not.toContain('u-mai')
   })

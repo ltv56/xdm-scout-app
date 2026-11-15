@@ -14,6 +14,19 @@ Every label is answered and every item has `reviewed: true`. A label stands when
 
 `planted` and the group names only describe how the data was made. Labels derived from them show whether a model catches the faults we wrote, not the faults a model makes on its own.
 
+## Labelling guide: reply_class
+
+Where a reply fits two classes, the first matching line wins.
+
+- Opt-out: asks us to stop contacting them.
+- Not interested: declines.
+- Not now: maybe later.
+- Interested: says they want to apply, talk, meet or be contacted, or asks how to take the next step ("how do I join", "what do you need from us").
+- Question: asks for information (what is offered, eligibility, deadlines, terms, where you are) without saying they want to go ahead.
+- Unclear: nothing to act on, or spam.
+
+A person asking how to apply is Interested, because that is the strongest lead and Interested replies are shown first. Dated 15 Nov 2026: 23 DMs moved from Question to Interested under this definition (`dm001`, `dm007`, `dm013`, `dm019`, `dm101`, `dm105`, `dm108`, `dm110`, `dm112`, `dm113`, `dm115`, `dm119`, `dm121`, `dm125`, `dm128`, `dm130`, `dm132`, `dm133`, `dm135`, `dm139`, `dm273`, `dm274`, `dm291`). They were relabelled by reading the text, not by a second labeller, and `reviewed` is unchanged.
+
 ## Checking the labels with several chats
 Run from `apps/api` after `npx tsc -p tsconfig.build.json`.
 

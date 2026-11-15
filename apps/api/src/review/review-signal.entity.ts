@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm'
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm'
 
 export type SignalAction = 'approve' | 'skip' | 'regenerate' | 'dnc' | 'dismiss'
 
@@ -22,6 +22,11 @@ export class ReviewSignal {
 
   @Column({ type: 'text', nullable: true })
   finalText!: string | null
+
+  // Which campaign the draft belonged to, so counts can be shown per campaign. Not personal data.
+  @Index()
+  @Column({ type: 'int', nullable: true })
+  campaignId!: number | null
 
   @CreateDateColumn()
   createdAt!: Date

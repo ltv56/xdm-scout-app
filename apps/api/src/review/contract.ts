@@ -139,6 +139,8 @@ export const reviewItem = z.object({
     name: z.string().nullable(),
     fit: z.enum(['strong', 'possible', 'weak', 'no_basis']),
     relationship: z.enum(['messaged_us', 'follower', 'engaged', 'adjacent', 'cold']),
+    // Where the message will probably land: from follower or conversation, else receives_your_dm. null when the profile was never read.
+    landsIn: z.enum(['inbox', 'requests', 'cant_receive']).nullable(),
     permissionNote: z.string(),
     // One factual line about our history with them ("Replied to your post on 3 Nov"), null when there is none.
     history: z.string().nullable(),
@@ -227,3 +229,6 @@ export type SkipBody = z.infer<typeof skipBody>
 export type RegenerateBody = z.infer<typeof regenerateBody>
 export type ManualBody = z.infer<typeof manualBody>
 export type ApproveResult = z.infer<typeof approveResult>
+
+// What reviewers did to the AI's drafts in one campaign. A skip reason is a SkipReason; 'other' when none was given.
+export type ReviewSummary = { approved: number; edited: number; skipped: { reason: string; count: number }[] }

@@ -22,7 +22,7 @@ export class FunnelService {
 
     const prospectOfDraft = new Map(live.map((d) => [d.id, d.prospectId]))
     const prospectOfAttempt = new Map(attempts.map((a) => [a.id, prospectOfDraft.get(a.draftId)]))
-    const drafted = new Set(live.map((d) => d.prospectId))
+    const approved = new Set(live.filter((d) => d.status === 'approved').map((d) => d.prospectId))
     const sent = new Set(attempts.filter((a) => SENT.includes(a.status)).map((a) => prospectOfDraft.get(a.draftId)))
     const replied = new Set(replies.map((r) => prospectOfAttempt.get(r.attemptId)))
     const talking = new Set(replies.filter((r) => r.replyClass && CONVERSATION.includes(r.replyClass)).map((r) => prospectOfAttempt.get(r.attemptId)))
@@ -45,7 +45,8 @@ export class FunnelService {
       return {
         lane: name,
         found: mine.length,
-        drafted: count(drafted),
+        goodFit: mine.filter((p) => p.fit === 'strong' || p.fit === 'possible').length,
+        approved: count(approved),
         sent: count(sent),
         replied: count(replied),
         conversations,

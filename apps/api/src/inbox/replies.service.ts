@@ -4,7 +4,8 @@ import { ApiUsage, Prospect } from '../discovery/entities'
 import { PRICES } from '../discovery/pricing'
 import { JobsService } from '../jobs/jobs.service'
 import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
-import { Contact, DoNotContact, Draft, SendAttempt } from '../sending/entities'
+import { addDoNotContact } from '../dnc/add-do-not-contact'
+import { Contact, Draft, SendAttempt } from '../sending/entities'
 import { X_CLIENT, XClient } from '../x/x-client'
 import { classifyReply, ENDS_CONTACT, NO_ACTION } from './reply-class'
 import { Reply } from './reply.entity'
@@ -82,7 +83,7 @@ export class RepliesService {
           .orIgnore()
           .execute()
         if (res.raw.affectedRows && ENDS_CONTACT.includes(replyClass)) {
-          await em.createQueryBuilder().insert().into(DoNotContact).values({ xUserId: p.xUserId, reason: `Replied: ${replyClass}`, source: 'reply' }).orIgnore().execute()
+          await addDoNotContact(em, { xUserId: p.xUserId, reason: `Replied: ${replyClass}`, source: 'reply' })
         }
       })
     }

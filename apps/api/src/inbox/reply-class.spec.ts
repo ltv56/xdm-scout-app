@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FakeLlmClient } from '../llm/fake-llm-client'
-import { classifyReply, optOutRule } from './reply-class'
+import { classifyReply, classifyReplyDetailed, optOutRule } from './reply-class'
 
 describe('optOutRule', () => {
   it.each([
@@ -50,5 +50,17 @@ describe('classifyReply', () => {
     const llm = new FakeLlmClient(() => ({ class: 'Maybe', probability: 0.9 }))
     expect(await classifyReply(llm, 'hmm')).toEqual({ replyClass: 'Unclear', classBy: 'llm' })
     expect(llm.calls).toHaveLength(2)
+  })
+})
+
+describe('classifyReplyDetailed', () => {
+  it('keeps what the model said and how sure it was, also when that was too low to use', async () => {
+    const llm = new FakeLlmClient(() => ({ class: 'Question', probability: 0.6 }))
+    expect(await classifyReplyDetailed(llm, 'how do I apply?')).toEqual({ replyClass: 'Unclear', classBy: 'llm', said: 'Question', probability: 0.6 })
+  })
+
+  it('has nothing to add when the rule decided', async () => {
+    const llm = new FakeLlmClient(() => ({ class: 'Interested', probability: 0.99 }))
+    expect(await classifyReplyDetailed(llm, 'stop')).toEqual({ replyClass: 'Opt-out', classBy: 'rule', said: null, probability: null })
   })
 })

@@ -81,3 +81,33 @@ describe('prospects list', () => {
     expect(Object.fromEntries(list.map((p) => [p.handle, p.identityWarning]))).toEqual({ u1: true, u2: false })
   })
 })
+
+describe('likely lands in', () => {
+  const seen = (id: string, receivesYourDm: boolean, over: Partial<Prospect> = {}) =>
+    addProspect(id, over).then(() => ds.getRepository(XUser).update(id, { receivesYourDm, fetchedAt: now }))
+
+  it('test 19: follower, open stranger, closed DMs and missing data give Inbox, Requests, Can\'t receive and blank', async () => {
+    await seen('1', false, { relationship: 'follower' })
+    await seen('2', true)
+    await seen('3', false)
+    await addProspect('4')
+    const list = await new ProspectsService(ds).list(1, now)
+    expect(list.map((p) => [p.handle, p.landsIn])).toEqual([
+      ['u1', 'inbox'],
+      ['u2', 'requests'],
+      ['u3', 'cant_receive'],
+      ['u4', null],
+    ])
+  })
+
+  it('a conversation wins over receives_your_dm', async () => {
+    await seen('1', false, { relationship: 'messaged_us' })
+    expect((await new ProspectsService(ds).list(1, now))[0].landsIn).toBe('inbox')
+  })
+
+  it('sorts by where the message lands before Fit', async () => {
+    await seen('1', true, { fit: 'strong' })
+    await seen('2', false, { fit: 'weak', relationship: 'follower' })
+    expect((await new ProspectsService(ds).list(1, now)).map((p) => p.handle)).toEqual(['u2', 'u1'])
+  })
+})

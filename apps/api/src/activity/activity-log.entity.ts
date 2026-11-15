@@ -1,3 +1,4 @@
+import type { ActivityKind } from './contract'
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm'
 
 // Things an operator did that someone may ask about later, e.g. why a person left Do not contact.
@@ -7,7 +8,7 @@ export class ActivityLog {
   id!: number
 
   @Column({ type: 'varchar', length: 32 })
-  kind!: 'dnc_removed'
+  kind!: ActivityKind
 
   @Index()
   @Column({ type: 'varchar', length: 64 })

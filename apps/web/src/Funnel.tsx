@@ -12,7 +12,8 @@ export default function Funnel({ campaignId }: { campaignId: number }) {
   if (!data) return null
   const rows: [string, (l: FunnelData['lanes'][number]) => string | number][] = [
     ['Found', (l) => l.found],
-    ['Drafted', (l) => l.drafted],
+    ['Strong or Possible', (l) => l.goodFit],
+    ['Approved', (l) => l.approved],
     ['Sent', (l) => l.sent],
     ['Replied', (l) => l.replied],
     ['Conversations', (l) => l.conversations],

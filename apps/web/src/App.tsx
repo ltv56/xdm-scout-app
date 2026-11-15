@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { CampaignSummary, ReviewQueue as Queue, SenderProfile as Profile } from '../../api/src/review/contract'
 import { getJson } from './api'
 import Account from './Account'
+import Activity from './Activity'
 import AccountMenu from './AccountMenu'
 import CampaignPicker from './CampaignPicker'
 import { User as UserIcon } from './icons'
@@ -28,6 +29,7 @@ const TABS = [
   { id: 'prospects', label: 'Candidates' },
   { id: 'profile', label: 'Profile' },
   { id: 'settings', label: 'Settings' },
+  { id: 'activity', label: 'Activity' },
 ] as const
 type Tab = (typeof TABS)[number]['id']
 
@@ -66,7 +68,7 @@ export default function App() {
       <header className="mx-auto flex w-full max-w-[1280px] shrink-0 flex-wrap items-center gap-x-10 gap-y-2 px-6 py-5 text-sm">
         <span className="text-base font-bold tracking-tight text-ink">xdm-scout</span>
         <nav aria-label="Sections" className="flex flex-wrap gap-x-6">
-          {TABS.filter((t) => t.id !== 'profile' && t.id !== 'settings').map((t) => (
+          {TABS.filter((t) => t.id !== 'profile' && t.id !== 'settings' && t.id !== 'activity').map((t) => (
             <button
               key={t.id}
               type="button"
@@ -90,17 +92,17 @@ export default function App() {
             onSelect={(id) => {
               setCampaignId(id)
               setCreating(false)
-              if (tab === 'profile' || tab === 'settings') setTab('overview')
+              if (tab === 'profile' || tab === 'settings' || tab === 'activity') setTab('overview')
             }}
             onNew={() => {
-              if (tab === 'profile' || tab === 'settings') setTab('overview')
+              if (tab === 'profile' || tab === 'settings' || tab === 'activity') setTab('overview')
               setCreating(true)
             }}
           />
           <div className="flex items-center gap-4">
             {(health.error || (health.data && health.data.status !== 'ok')) && <span className="text-xs font-medium text-block">API unreachable</span>}
             <AccountMenu
-              current={tab === 'profile' || tab === 'settings' ? tab : null}
+              current={tab === 'profile' || tab === 'settings' || tab === 'activity' ? tab : null}
               onSelect={(page) => {
                 setTab(page)
                 setCreating(false)
@@ -114,8 +116,8 @@ export default function App() {
 
       <main id="main" className="mx-auto w-full max-w-[1280px] px-6 pb-6 lg:min-h-0 lg:flex-1">
         <div className="overflow-hidden rounded-3xl bg-raised shadow-soft lg:h-full lg:min-h-[460px]">
-          {tab === 'profile' || tab === 'settings' ? (
-            <div className={scroll}>{tab === 'profile' ? <Account /> : <Settings />}</div>
+          {tab === 'profile' || tab === 'settings' || tab === 'activity' ? (
+            <div className={scroll}>{tab === 'profile' ? <Account /> : tab === 'settings' ? <Settings /> : <Activity />}</div>
           ) : creating || active === null ? (
             <div className={scroll}>
               <NewCampaign

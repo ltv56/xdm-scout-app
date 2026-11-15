@@ -99,7 +99,7 @@ export class DraftService {
     if (!prospect) throw new NotFoundException('Prospect not found')
     await this.ds.transaction(async (em) => {
       await em.update(Prospect, prospectId, { status: 'dismissed' })
-      await em.save(ReviewSignal, { action: 'dismiss', reason, note: null, originalText: '', finalText: null })
+      await em.save(ReviewSignal, { campaignId, action: 'dismiss', reason, note: null, originalText: '', finalText: null })
     })
   }
 

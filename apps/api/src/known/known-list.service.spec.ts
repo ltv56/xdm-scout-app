@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { DiscoveryService } from '../discovery/discovery.service'
 import { ProspectsService } from '../discovery/prospects.service'
 import { Campaign, Prospect } from '../discovery/entities'
+import { ActivityLog } from '../activity/activity-log.entity'
 import { createTestDataSource } from '../test/db'
 import { FakeXClient } from '../x/fake-x-client'
 import { KnownListService, parseHandles, splitHandles } from './known-list.service'
@@ -106,6 +107,17 @@ describe('warm list', () => {
     expect(rows.map((r) => [r.handle, r.fundList])).toEqual([
       ['alice', { name: 'Build Week 2026', kind: 'warm', event: 'Met at Build Week' }],
       ['bob', null],
+    ])
+  })
+})
+
+describe('activity log', () => {
+  it('records an import and a removal', async () => {
+    await service.import('Portfolio', 'alice\nbob')
+    await service.remove('1')
+    expect((await ds.getRepository(ActivityLog).find({ order: { id: 'ASC' } })).map((a) => [a.kind, a.subject, a.detail])).toEqual([
+      ['known_added', 'Portfolio', 'Added 2 people'],
+      ['known_removed', '1', 'Removed alice from Portfolio'],
     ])
   })
 })

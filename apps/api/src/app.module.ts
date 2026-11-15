@@ -6,6 +6,8 @@ import { KnownListController } from './known/known-list.controller'
 import { KnownListService } from './known/known-list.service'
 import { DoNotContactController } from './dnc/do-not-contact.controller'
 import { DoNotContactService } from './dnc/do-not-contact.service'
+import { ActivityController } from './activity/activity.controller'
+import { ActivityService } from './activity/activity.service'
 import { AttentionController } from './attention/attention.controller'
 import { AttentionService } from './attention/attention.service'
 import { HealthDetailsController, PreflightController, TopBarController } from './preflight/preflight.controller'
@@ -38,6 +40,8 @@ import { ProspectDraftController } from './review/prospect-draft.controller'
 import { ReviewActionsController } from './review/review-actions.controller'
 import { ReviewActionsService } from './review/review-actions.service'
 import { ReviewController } from './review/review.controller'
+import { ReviewSummaryController } from './review/review-summary.controller'
+import { ReviewSummaryService } from './review/review-summary.service'
 import { ReviewService } from './review/review.service'
 import { SenderProfileController } from './review/sender-profile.controller'
 import { SendingService } from './sending/sending.service'
@@ -73,6 +77,8 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     OutboxController,
     InboundLaneController,
     FunnelController,
+    ActivityController,
+    ReviewSummaryController,
   ],
   providers: [
     JobsService,
@@ -104,6 +110,8 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [
     OutboxService,
     InboundLaneService,
     FunnelService,
+    ActivityService,
+    ReviewSummaryService,
     {
       provide: PreflightService,
       inject: [DataSource, AuthService, ConfigService],
