@@ -72,7 +72,9 @@ describe('resetSandbox', () => {
 
   it('refuses a database whose name does not say sandbox or e2e, and wipes nothing', async () => {
     await fill(ds)
-    await expect(resetSandbox(ds, { X_MODE: 'fake' }, new Date())).rejects.toThrow('xdm_p4_test')
+    // The test database is named after whoever runs it (xdm_test in CI), so read the name instead of spelling it.
+    const [{ name }] = (await ds.query('SELECT DATABASE() AS name')) as { name: string }[]
+    await expect(resetSandbox(ds, { X_MODE: 'fake' }, new Date())).rejects.toThrow(name)
     expect(await count(ds, 'campaigns')).toBe(1)
   })
 
