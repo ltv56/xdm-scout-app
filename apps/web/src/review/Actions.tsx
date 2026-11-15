@@ -286,7 +286,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule px-5 py-3 min-h-[62px] sm:px-8">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule px-5 py-3 min-h-[62px] max-sm:flex-nowrap max-sm:gap-x-2 max-sm:px-3 sm:px-8">
         {nav}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
           {pending && (
@@ -376,7 +376,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
               Approve
             </button>
           </div>
-          <p className="mt-2 text-center text-xs text-muted">Swipe left to skip · up for the next draft · right to go back</p>
+          <p className="mt-2 text-center text-xs text-muted">Swipe: left to skip · up for next · right to go back</p>
         </div>
       )}
       {confirmDnc && <DncDialog handle={item.prospect.handle} busy={m.dnc.isPending} error={m.dnc.error} onConfirm={() => m.dnc.mutate()} onCancel={() => setConfirmDnc(false)} />}
