@@ -55,8 +55,8 @@ test('Call lane: Check now reads the DMs, and Confirm invitation fills the permi
   await expect(stopper.getByText('Invitation confirmed')).toHaveCount(0)
 
   const check = await createConnection(E2E_DATABASE_URL)
-  const [rows] = await check.query("SELECT xUserId, recipientPermission, invitationEventId FROM contacts ORDER BY xUserId")
-  const [sent] = await check.query('SELECT COUNT(*) AS n FROM send_attempts')
+  const [rows] = await check.query("SELECT xUserId, recipientPermission, invitationEventId FROM contacts WHERE xUserId IN ('9101', '9102') ORDER BY xUserId")
+  const [sent] = await check.query("SELECT COUNT(*) AS n FROM send_attempts a JOIN contacts c ON c.id = a.contactId WHERE c.xUserId IN ('9101', '9102')")
   await check.end()
   expect(rows).toEqual([
     { xUserId: '9101', recipientPermission: 'requested_dm', invitationEventId: 'in-e2e-1' },

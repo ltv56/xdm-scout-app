@@ -14,4 +14,6 @@ export type TopBar = {
   dailyCap: number
   workerRunning: boolean
   campaignCostMicros: number | null
+  // Some model calls of the campaign had no price, so the cost is a lower bound.
+  llmUnpriced: boolean
 }

@@ -52,6 +52,7 @@ export class PreflightService {
   // Sends count from midnight UTC, the same clock the database uses.
   async topBar(campaignId: number | null, now = new Date()): Promise<TopBar> {
     const sentToday = await sent(this.ds.manager, now)
+    const llm = await this.llmCost(campaignId)
     const cost =
       campaignId === null
         ? null
@@ -61,14 +62,15 @@ export class PreflightService {
       sentToday,
       dailyCap: await dailyCap(this.ds.manager),
       workerRunning: (await this.worker(now)).status === 'ok',
-      campaignCostMicros: cost ? Number(cost.total) + (await this.llmCost(campaignId)) : null,
+      campaignCostMicros: cost ? Number(cost.total) + llm.cost : null,
+      llmUnpriced: llm.unpriced,
     }
   }
 
-  private async llmCost(campaignId: number | null): Promise<number> {
-    if (campaignId === null) return 0
-    const { search, call } = await new LlmUsageService(this.ds).costByLane(campaignId)
-    return search + call
+  private async llmCost(campaignId: number | null): Promise<{ cost: number; unpriced: boolean }> {
+    if (campaignId === null) return { cost: 0, unpriced: false }
+    const { search, call, unpriced } = await new LlmUsageService(this.ds).costByLane(campaignId)
+    return { cost: search + call, unpriced: unpriced.search || unpriced.call }
   }
 
   private mode() {

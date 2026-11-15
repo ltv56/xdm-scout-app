@@ -35,6 +35,7 @@ export class FakeXClient implements XClient {
   readonly postExistReads: string[][] = []
   postExistError: Error | null = null
   private counter = 0
+  private fixtureDir: string | null = null
 
   async sendDm(recipientId: string, text: string): Promise<SendDmResult> {
     this.sendCalls += 1
@@ -86,17 +87,45 @@ export class FakeXClient implements XClient {
 
   static fromFixtures(dir = join(process.cwd(), '../../fixtures')) {
     const client = new FakeXClient()
+    client.loadFixtures(dir)
+    return client
+  }
+
+  private loadFixtures(dir: string) {
+    this.fixtureDir = dir
     const profiles = JSON.parse(readFileSync(join(dir, 'profiles.json'), 'utf8')) as (Partial<XProfile> & Pick<XProfile, 'id' | 'handle'>)[]
-    for (const p of profiles) client.addProfile(p)
+    for (const p of profiles) this.addProfile(p)
     const posts = JSON.parse(readFileSync(join(dir, 'posts.json'), 'utf8')) as Record<string, { id: string; text: string; createdAt: string }[]>
     for (const [userId, list] of Object.entries(posts)) {
-      client.addPosts(userId, list.map((p) => ({ ...p, userId, createdAt: new Date(p.createdAt) })))
+      this.addPosts(userId, list.map((p) => ({ ...p, userId, createdAt: new Date(p.createdAt) })))
     }
     const following = JSON.parse(readFileSync(join(dir, 'following.json'), 'utf8')) as Record<string, string[]>
-    for (const [userId, handles] of Object.entries(following)) client.addFollowing(userId, handles)
+    for (const [userId, handles] of Object.entries(following)) this.addFollowing(userId, handles)
     const searches = JSON.parse(readFileSync(join(dir, 'search.json'), 'utf8')) as Record<string, string[]>
-    for (const [query, handles] of Object.entries(searches)) client.addSearch(query, handles)
-    return client
+    for (const [query, handles] of Object.entries(searches)) this.addSearch(query, handles)
+  }
+
+  // Back to the state of a fresh process: no messages, counters or injected errors, and the fixtures read again.
+  reset() {
+    this.messages.length = 0
+    this.inbound.length = 0
+    this.profiles.clear()
+    this.posts.clear()
+    this.following.clear()
+    this.searches.clear()
+    this.sent.length = 0
+    this.conversationReads.length = 0
+    this.searchCalls.length = 0
+    this.postExistReads.length = 0
+    this.sendCalls = 0
+    this.lookupCalls = 0
+    this.inboundReads = 0
+    this.counter = 0
+    this.nextSend = 'ok'
+    this.conversationError = null
+    this.readError = null
+    this.postExistError = null
+    if (this.fixtureDir) this.loadFixtures(this.fixtureDir)
   }
 
   removeProfile(handle: string) {

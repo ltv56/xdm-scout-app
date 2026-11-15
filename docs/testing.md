@@ -161,6 +161,19 @@ The worker sweeps on start and every hour:
 docker exec xdm-scout-db-1 mysql -uxdm -pxdm xdm -e "SELECT xUserId, LEFT(text, 20) FROM x_posts; SELECT id, LEFT(excerpt, 20) FROM evidence"
 ```
 
+## Reset `receivesYourDm` after migration 14
+
+Before migration `1794600000014`, the live client stored a missing `receives_your_dm` as `false`, so those rows read as Can't receive. The migration only set rows that were never fetched to NULL.
+
+Run this once on a database that ever ran Discovery against the real X. Use the time you applied migration 14 as the cutoff:
+
+```
+docker exec xdm-scout-db-1 mysql -uxdm -pxdm xdm -e "UPDATE x_users SET receivesYourDm = NULL WHERE fetchedAt < '2026-11-15 12:00:00'"
+```
+
+- Rows fetched after the cutoff keep their value. A sandbox database that only used the fake X does not need it.
+- NULL shows no Likely lands in label and does not skip the person in Write drafts. The next Discovery that reads the profile (a profile older than 7 days is read again) stores what X reports, or NULL when X reports nothing.
+
 ## Review with real data (fake X, canned LLM)
 
 Start the API and the worker with `X_MODE=fake`. Without `LLM_MODEL` the draft text is a fixed template built from the person's opening post, so no model is called.

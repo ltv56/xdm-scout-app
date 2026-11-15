@@ -55,10 +55,11 @@ export class FunnelService {
         conversations,
         costMicros: cost[name],
         llmCostMicros: llm[name],
+        llmUnpriced: llm.unpriced[name],
         costPerConversationMicros: conversations ? Math.round((cost[name] + llm[name]) / conversations) : null,
       }
     }
     const lanes = [lane('search'), lane('call')].filter((l) => l.lane === 'search' || l.found > 0)
-    return { lanes, totalMicros: cost.search + cost.call + llm.search + llm.call, llmMicros: llm.search + llm.call }
+    return { lanes, totalMicros: cost.search + cost.call + llm.search + llm.call, llmMicros: llm.search + llm.call, llmUnpriced: llm.unpriced.search || llm.unpriced.call }
   }
 }

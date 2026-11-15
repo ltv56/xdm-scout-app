@@ -34,6 +34,25 @@ npm run dev:web                  # http://localhost:3000
 
 `X_MODE=fake` in `.env` is what makes it a sandbox. The top bar shows SANDBOX.
 
+## Run with Docker
+
+One command starts the database, the API with the built web app, and the worker in sandbox mode. It needs no keys and uses its own project name, so it does not touch the development database.
+
+```bash
+docker compose -f docker-compose.sandbox.yml up -d --build
+docker compose -f docker-compose.sandbox.yml ps       # db, app and worker become healthy
+```
+
+The app is at http://localhost:3040 (database on host port 3307). The migrations run when the app starts. Then follow "First walkthrough".
+
+```bash
+docker compose -f docker-compose.sandbox.yml run --rm app node dist/sandbox/reset-sandbox-main.js   # wipe the data, reload the fixtures
+docker compose -f docker-compose.sandbox.yml down      # stop, keep the data
+docker compose -f docker-compose.sandbox.yml down -v   # stop and delete the data
+```
+
+The reset refuses unless `X_MODE=fake` and the database name contains `sandbox` or `e2e`. Limits of the sandbox: `docs/limitations.md`.
+
 ## First walkthrough
 
 1. Open http://localhost:3000. Avatar menu (top right) > Profile > Use sandbox account connects the fake sender.

@@ -3,6 +3,7 @@ import type { Funnel as FunnelData } from '../../api/src/funnel/contract'
 import { getJson } from './api'
 import { money } from './ui'
 
+const NO_PRICE = 'no price yet'
 const LANE = { search: 'Found by search', call: 'Answered the call post' }
 
 // Counts and money only: how far people got, what X billed, and what a conversation cost.
@@ -18,8 +19,8 @@ export default function Funnel({ campaignId }: { campaignId: number }) {
     ['Replied', (l) => l.replied],
     ['Conversations', (l) => l.conversations],
     ['X cost', (l) => money(l.costMicros)],
-    ['Model cost', (l) => money(l.llmCostMicros)],
-    ['Per conversation', (l) => (l.costPerConversationMicros === null ? '–' : money(l.costPerConversationMicros))],
+    ['Model cost', (l) => (l.llmUnpriced ? NO_PRICE : money(l.llmCostMicros))],
+    ['Per conversation', (l) => (l.costPerConversationMicros === null ? '–' : l.llmUnpriced ? NO_PRICE : money(l.costPerConversationMicros))],
   ]
   return (
     <section aria-label="Results so far" className="mt-12">
@@ -50,7 +51,7 @@ export default function Funnel({ campaignId }: { campaignId: number }) {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-muted">X cost is an estimate from the calls made for this campaign; model cost is priced from the tokens the model reported. {money(data.totalMicros)} so far, both together. A conversation is a reply that is Interested or a Question.</p>
+      <p className="mt-2 text-xs text-muted">X cost is an estimate from the calls made for this campaign; model cost is priced from the tokens the model reported. {money(data.totalMicros)} so far, both together{data.llmUnpriced && ', not counting model calls with no price yet'}. A conversation is a reply that is Interested or a Question.</p>
     </section>
   )
 }

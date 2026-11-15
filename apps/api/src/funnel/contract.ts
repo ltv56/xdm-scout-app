@@ -10,8 +10,10 @@ export type FunnelLane = {
   // What X billed for this lane; the model's cost is separate.
   costMicros: number
   llmCostMicros: number
+  // Some model calls of this lane had no price, so llmCostMicros is a lower bound.
+  llmUnpriced: boolean
   costPerConversationMicros: number | null
 }
 
 // totalMicros = X cost + model cost of the whole campaign; llmMicros is the model part.
-export type Funnel = { lanes: FunnelLane[]; totalMicros: number; llmMicros: number }
+export type Funnel = { lanes: FunnelLane[]; totalMicros: number; llmMicros: number; llmUnpriced: boolean }

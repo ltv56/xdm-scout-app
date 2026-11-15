@@ -5,6 +5,9 @@ import { DataSource } from 'typeorm'
 import { EvidenceRecheckService } from './fit/evidence-recheck.service'
 import { InboundLaneService } from './inbound/inbound-lane.service'
 import { RepliesService } from './inbox/replies.service'
+import { SandboxReload } from './sandbox/sandbox-reset'
+import { FakeXClient } from './x/fake-x-client'
+import { X_CLIENT } from './x/x-client'
 import { recordHeartbeat } from './preflight/preflight.service'
 import { RetentionService } from './retention/retention.service'
 import { Worker } from './sending/worker'
@@ -13,6 +16,7 @@ const SWEEP_EVERY_MS = 3_600_000
 const REPLY_SCHEDULE_EVERY_MS = 60_000
 const HEARTBEAT_EVERY_MS = 15_000
 const INBOUND_SCHEDULE_EVERY_MS = 60_000
+const RELOAD_EVERY_MS = 5_000
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule)
@@ -32,6 +36,11 @@ async function bootstrap() {
   void scheduleEvidence()
   setInterval(() => void scheduleEvidence(), SWEEP_EVERY_MS)
   const ds = app.get(DataSource)
+  const x = app.get(X_CLIENT)
+  if (x instanceof FakeXClient) {
+    const reload = new SandboxReload(ds, x)
+    setInterval(() => void reload.check().then((done) => done && console.log('sandbox reset seen: fake X fixtures reloaded')).catch((err: unknown) => console.error('sandbox reload failed', err)), RELOAD_EVERY_MS)
+  }
   const beat = () => recordHeartbeat(ds, new Date()).catch((err: unknown) => console.error('heartbeat failed', err))
   void beat()
   setInterval(() => void beat(), HEARTBEAT_EVERY_MS)

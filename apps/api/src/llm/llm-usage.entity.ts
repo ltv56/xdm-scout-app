@@ -28,6 +28,10 @@ export class LlmUsage {
   @Column({ type: 'int' })
   costMicros!: number
 
+  // false = the model had no price line when this was recorded, so costMicros is 0 for want of a price, not because it was free.
+  @Column({ type: 'boolean', default: true })
+  priced!: boolean
+
   @CreateDateColumn()
   createdAt!: Date
 }

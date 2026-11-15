@@ -78,6 +78,17 @@ describe('FunnelService', () => {
     expect([llmMicros, totalMicros]).toEqual([150_000, 210_000])
   })
 
+  it('marks a lane whose model calls had no price, instead of showing them as free', async () => {
+    await person('202', 'search', { status: 'sent', replyClass: 'Interested' })
+    await person('205', 'call', { status: 'sent', replyClass: 'Question' })
+    const llm = new LlmUsageService(ds)
+    await llm.record({ model: 'gpt-5-nano', task: 'fit', inputTokens: 1_000_000, outputTokens: 0, meter: { campaignId: 1, lane: 'search' } })
+    await llm.record({ model: 'brand-new-model', task: 'draft', inputTokens: 1_000, outputTokens: 100, meter: { campaignId: 1, lane: 'call' } })
+    const { lanes, llmUnpriced } = await service.get(1)
+    expect(lanes.map((l) => [l.lane, l.llmUnpriced])).toEqual([['search', false], ['call', true]])
+    expect(llmUnpriced).toBe(true)
+  })
+
   it('has no cost per conversation before the first conversation', async () => {
     await person('201', 'search')
     await usage('profile', 60_000)
