@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { ensureCampaign } from './setup.ts'
+
+test.beforeEach(async ({ request }) => {
+  await ensureCampaign(request)
+})
 
 test('The top bar says Sandbox and how many went out today', async ({ page }) => {
   await page.goto('/')
@@ -21,4 +26,15 @@ test('The top bar says a model has no price yet instead of showing it as free', 
   await page.route('**/api/top-bar*', (r) => r.fulfill({ json: { mode: 'fake', sentToday: 0, dailyCap: 25, workerRunning: true, campaignCostMicros: 40000, llmUnpriced: true } }))
   await page.goto('/')
   await expect(page.getByLabel('Status')).toContainText('Est. cost $0.04 · model: no price yet')
+})
+
+test('The top bar stays on one row at a laptop width even with the longest warnings', async ({ page }) => {
+  await page.setViewportSize({ width: 1291, height: 720 })
+  await page.route('**/api/top-bar*', (r) => r.fulfill({ json: { mode: 'fake', sentToday: 0, dailyCap: 25, workerRunning: false, campaignCostMicros: 80000, llmUnpriced: true } }))
+  await page.goto('/')
+  await expect(page.getByLabel('Status')).toContainText('Worker stopped')
+  const nav = (await page.getByRole('button', { name: 'Overview' }).boundingBox())!
+  const account = (await page.getByRole('button', { name: 'Account', exact: true }).boundingBox())!
+  expect(Math.abs(nav.y + nav.height / 2 - (account.y + account.height / 2))).toBeLessThan(30)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
 })

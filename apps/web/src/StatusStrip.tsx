@@ -30,8 +30,8 @@ export default function StatusStrip({ campaignId }: { campaignId: number | null 
         </span>
       )}
       {!b.workerRunning && (
-        <span className={`${chip} ${tone.stop.chip}`}>
-          Worker stopped: nothing is being sent or read
+        <span className={`${chip} ${tone.stop.chip} whitespace-nowrap`} title="Nothing is being sent or read until the worker runs again.">
+          Worker stopped<span className="sr-only">: nothing is being sent or read</span>
         </span>
       )}
     </div>
