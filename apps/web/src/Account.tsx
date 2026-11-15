@@ -4,7 +4,7 @@ import SenderProfile from './SenderProfile'
 import { XLogo } from './icons'
 import { btnSecondary } from './ui'
 
-interface XStatus {
+export interface XStatus {
   mode: 'fake' | 'live'
   connected: boolean
   handle: string | null

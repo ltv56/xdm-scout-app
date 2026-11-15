@@ -89,7 +89,7 @@ export default function NewCampaign({ first, onCreated, onCancel }: Props) {
       <div>
         <h2 className="text-2xl font-bold">{first ? 'Start your first campaign' : 'New campaign'}</h2>
         <p className="mt-1 text-sm text-muted">
-          {first ? 'A campaign is one search for people to message. Tell us who to look at, then run discovery from the Overview.' : 'Tell us who to look at, then run discovery from the Overview.'}
+          {first ? 'A campaign is one search for people to message. Say who to look for, then press Run first search on the Overview.' : 'Tell us who to look at, then run discovery from the Overview.'}
         </p>
       </div>
 

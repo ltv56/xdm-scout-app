@@ -9,6 +9,7 @@ import CampaignPicker from './CampaignPicker'
 import { User as UserIcon } from './icons'
 import Inbox from './Inbox'
 import NewCampaign from './NewCampaign'
+import Onboarding from './Onboarding'
 import Outbox from './Outbox'
 import Overview from './Overview'
 import Prospects, { type Filter as CandidateFilter } from './Prospects'
@@ -59,6 +60,11 @@ export default function App() {
     .join('')
 
   const scroll = 'h-full overflow-y-auto px-5 py-8 sm:px-12 sm:py-10'
+
+  // The first run has no campaign yet: connect, fill the profile and start one before any menu shows.
+  if (campaigns.isSuccess && list.length === 0) {
+    return <Onboarding onCreated={(id) => { setCampaignId(id); setTab('overview') }} />
+  }
 
   return (
     <div className="min-h-screen lg:flex lg:h-screen lg:flex-col">
