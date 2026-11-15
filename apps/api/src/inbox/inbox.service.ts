@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, In, IsNull } from 'typeorm'
 import { Prospect } from '../discovery/entities'
+import { addDoNotContact } from '../dnc/add-do-not-contact'
 import { AttemptStatus, Contact, DoNotContact, Draft, SendAttempt, XUser } from '../sending/entities'
 import { CheckItem, ConfirmBody, DeliveredItem, InboxChecks, ReplyItem } from './contract'
 import { ClassBy, ENDS_CONTACT, NO_ACTION, ReplyClass } from './reply-class'
@@ -69,7 +70,7 @@ export class InboxService {
       await em.update(Reply, reply.id, { replyClass, classBy: 'operator', ...(closes ? { handledAt: new Date() } : {}) })
       if (!ENDS_CONTACT.includes(replyClass)) return
       const { xUserId } = await em.findOneByOrFail(Contact, { id: reply.contactId })
-      await em.createQueryBuilder().insert().into(DoNotContact).values({ xUserId, reason: `Reply marked ${replyClass}`, source: 'operator' }).orIgnore().execute()
+      await addDoNotContact(em, { xUserId, reason: `Reply marked ${replyClass}`, source: 'operator' })
     })
   }
 

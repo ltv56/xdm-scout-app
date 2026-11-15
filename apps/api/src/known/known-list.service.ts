@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { DataSource, In } from 'typeorm'
 import { X_CLIENT, XClient } from '../x/x-client'
 import type { ImportResult, KnownKind, KnownPerson } from './contract'
+import { ActivityLog } from '../activity/activity-log.entity'
 import { KnownUser } from './known-user.entity'
 
 const MAX_HANDLES = 500
@@ -48,12 +49,17 @@ export class KnownListService {
     const existing = new Set((await repo.findBy({ xUserId: In(found.map((p) => p.id)) })).map((k) => k.xUserId))
     const fresh = found.filter((p) => !existing.has(p.id))
     await repo.save(fresh.map((p) => ({ xUserId: p.id, handle: p.handle, listName: name, kind, event })))
+    if (fresh.length) await this.ds.getRepository(ActivityLog).save({ kind: 'known_added', subject: name.slice(0, 64), detail: `Added ${fresh.length} ${fresh.length === 1 ? 'person' : 'people'}${event ? ` (${event})` : ''}`.slice(0, 500) })
     const seen = new Set(found.map((p) => p.handle.toLowerCase()))
     return { added: fresh.length, alreadyKnown: found.length - fresh.length, notFound: handles.filter((h) => !seen.has(h)), invalid }
   }
 
   async remove(xUserId: string): Promise<void> {
-    const res = await this.ds.getRepository(KnownUser).delete({ xUserId })
-    if (!res.affected) throw new NotFoundException('This person is not on the list')
+    const person = await this.ds.getRepository(KnownUser).findOneBy({ xUserId })
+    if (!person) throw new NotFoundException('This person is not on the list')
+    await this.ds.transaction(async (em) => {
+      await em.delete(KnownUser, { xUserId })
+      await em.save(ActivityLog, { kind: 'known_removed', subject: xUserId, detail: `Removed ${person.handle} from ${person.listName}`.slice(0, 500) })
+    })
   }
 }

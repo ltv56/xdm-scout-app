@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 // The avatar opens Profile (who sends and signs) and Settings (is the system ready).
 export default function AccountMenu({ current, onSelect, children }: {
-  current: 'profile' | 'settings' | null
-  onSelect: (page: 'profile' | 'settings') => void
+  current: 'profile' | 'settings' | 'activity' | null
+  onSelect: (page: 'profile' | 'settings' | 'activity') => void
   children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -44,7 +44,7 @@ export default function AccountMenu({ current, onSelect, children }: {
       </button>
       {open && (
         <ul aria-label="Account menu" className="absolute right-0 top-full z-30 mt-2 w-44 rounded-2xl bg-raised p-1.5 shadow-pop">
-          {(['profile', 'settings'] as const).map((page) => (
+          {(['profile', 'settings', 'activity'] as const).map((page) => (
             <li key={page}>
               <button
                 type="button"
@@ -56,7 +56,7 @@ export default function AccountMenu({ current, onSelect, children }: {
                   setOpen(false)
                 }}
               >
-                {page === 'profile' ? 'Profile' : 'Settings'}
+                {page === 'profile' ? 'Profile' : page === 'settings' ? 'Settings' : 'Activity log'}
               </button>
             </li>
           ))}

@@ -1,6 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common'
 import { DataSource, EntityManager, In } from 'typeorm'
-import { Contact, DoNotContact, Draft, SendAttempt } from '../sending/entities'
+import { addDoNotContact } from '../dnc/add-do-not-contact'
+import { Contact, Draft, SendAttempt } from '../sending/entities'
 import { hashContent, SendingService } from '../sending/sending.service'
 import { JobsService } from '../jobs/jobs.service'
 import { StoredSentence } from './checks'
@@ -93,7 +94,7 @@ export class ReviewActionsService {
       const open = await em.findBy(Draft, { contactId: contact.id, status: In(['pending', 'approved']) })
       for (const d of open) await this.pullBack(em, d.id)
       await em.update(Draft, { contactId: contact.id, status: In(['pending', 'approved']) }, { status: 'skipped', approvedHash: null })
-      await em.save(DoNotContact, { xUserId: contact.xUserId, reason: 'Reviewer chose Do not contact', source: 'review' })
+      await addDoNotContact(em, { xUserId: contact.xUserId, reason: 'Reviewer chose Do not contact', source: 'review' })
     })
     await this.signal('dnc', draft, {})
     return { ok: true }
