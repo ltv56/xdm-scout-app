@@ -49,6 +49,8 @@ Avatar menu > Settings has the Setup check, the Do not contact list and the Know
 
 ## Live mode
 
+Live mode uses `gpt-6-luna` for reply classes and checks unless `LLM_MODEL` says otherwise, and needs `OPENAI_API_KEY`. The prompts are tuned and measured on it. Another LLM works through the same interface, but run the reply eval on it first (`docs/testing.md`).
+
 Sending from a real X account needs an X app and a few keys: see `docs/x-app-setup.md`. Manual checks against the real X are in `docs/testing.md`.
 
 ## Checks

@@ -31,7 +31,7 @@ import { InboxService } from './inbox/inbox.service'
 import { RepliesService } from './inbox/replies.service'
 import { JobsService } from './jobs/jobs.service'
 import { DECISION_CLIENT } from './decisions/review-decisions'
-import { createDecisionClient, createLlmClient } from './llm/ai-config'
+import { AI_ENV_VARS, createDecisionClient, createLlmClient } from './llm/ai-config'
 import { LLM_CLIENT, LlmClient } from './llm/llm-client'
 import { RetentionService } from './retention/retention.service'
 import { CampaignDraftsController } from './review/campaign-drafts.controller'
@@ -50,8 +50,7 @@ import { FakeXClient } from './x/fake-x-client'
 import { LiveXClient } from './x/live-x-client'
 import { X_CLIENT, XClient } from './x/x-client'
 
-const AI_VARS = ['GOOGLE_API_KEY', 'OPEN_ROUTER_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'LLM_MODEL', 'DECISION_MODEL']
-const aiEnv = (config: ConfigService) => Object.fromEntries(AI_VARS.map((k) => [k, config.get<string>(k, '')]))
+const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) => [k, config.get<string>(k, '')]))
 
 @Module({
   imports: [
