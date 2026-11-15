@@ -56,6 +56,36 @@ describe('OpenAiCompatibleLlmClient', () => {
   })
 })
 
+describe('OpenAiCompatibleLlmClient with a model that fixes its own temperature', () => {
+  const refusal = { error: { message: "Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.", param: 'temperature' } }
+
+  function fetchRefusingTemperature() {
+    const bodies: Record<string, unknown>[] = []
+    const fetchFn = (async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body))
+      bodies.push(body)
+      return 'temperature' in body
+        ? new Response(JSON.stringify(refusal), { status: 400 })
+        : new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }), { status: 200 })
+    }) as typeof fetch
+    return { fetchFn, bodies }
+  }
+
+  it('asks again without temperature when the API says it is not supported, and remembers that', async () => {
+    const { fetchFn, bodies } = fetchRefusingTemperature()
+    const client = new OpenAiCompatibleLlmClient({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' }, fetchFn)
+    expect(await client.completeJson(req)).toEqual({ ok: true })
+    expect(await client.completeJson(req)).toEqual({ ok: true })
+    expect(bodies.map((b) => 'temperature' in b)).toEqual([true, false, false])
+  })
+
+  it('shows what the API said when a call fails for another reason', async () => {
+    const { fetchFn } = fetchReturning(400, { error: { message: 'The model `nope` does not exist' } })
+    const client = new OpenAiCompatibleLlmClient({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'nope' }, fetchFn)
+    await expect(client.completeJson(req)).rejects.toThrow('LLM request failed with 400: The model `nope` does not exist')
+  })
+})
+
 describe('AnthropicLlmClient', () => {
   it('posts to the messages endpoint with the api key header and parses the text block', async () => {
     const { fetchFn, calls } = fetchReturning(200, { content: [{ type: 'text', text: '{"supported":true}' }] })
