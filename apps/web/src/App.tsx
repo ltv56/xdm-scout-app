@@ -8,6 +8,7 @@ import AccountMenu from './AccountMenu'
 import CampaignPicker from './CampaignPicker'
 import { User as UserIcon } from './icons'
 import Inbox from './Inbox'
+import MobileMenu from './MobileMenu'
 import NewCampaign from './NewCampaign'
 import Onboarding from './Onboarding'
 import Outbox from './Outbox'
@@ -71,7 +72,33 @@ export default function App() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-raised focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-pop">
         Skip to content
       </a>
-      <header className="mx-auto flex w-full max-w-[1280px] shrink-0 flex-wrap items-center gap-x-10 gap-y-2 px-6 py-5 text-sm">
+      <MobileMenu
+        sections={TABS.filter((t) => t.id !== 'profile' && t.id !== 'settings' && t.id !== 'activity').map((t) => ({ id: t.id, label: t.label }))}
+        pages={TABS.filter((t) => t.id === 'profile' || t.id === 'settings' || t.id === 'activity').map((t) => ({ id: t.id, label: t.label }))}
+        tab={creating ? 'new' : tab}
+        waiting={waiting}
+        list={list}
+        active={active}
+        apiDown={!!(health.error || (health.data && health.data.status !== 'ok'))}
+        onSection={(id) => {
+          setTab(id as Tab)
+          setCreating(false)
+        }}
+        onPage={(id) => {
+          setTab(id as Tab)
+          setCreating(false)
+        }}
+        onSelect={(id) => {
+          setCampaignId(id)
+          setCreating(false)
+          if (tab === 'profile' || tab === 'settings' || tab === 'activity') setTab('overview')
+        }}
+        onNew={() => {
+          if (tab === 'profile' || tab === 'settings' || tab === 'activity') setTab('overview')
+          setCreating(true)
+        }}
+      />
+      <header className="mx-auto hidden w-full max-w-[1280px] shrink-0 flex-wrap items-center gap-x-10 gap-y-2 px-6 py-5 text-sm sm:flex">
         <span className="text-base font-bold tracking-tight text-ink">xdm-scout</span>
         <nav aria-label="Sections" className="flex flex-wrap gap-x-6">
           {TABS.filter((t) => t.id !== 'profile' && t.id !== 'settings' && t.id !== 'activity').map((t) => (

@@ -140,5 +140,5 @@ export default function ReviewQueue({ campaignId }: { campaignId: number }) {
     )
   }
 
-  return <DraftView key={current.draftId} item={current} nav={<DraftNav items={items} index={index} onSelect={go} />} onFinished={nextPending} />
+  return <DraftView key={current.draftId} item={current} nav={<DraftNav items={items} index={index} onSelect={go} />} onFinished={nextPending} onMove={(by) => go(index + by)} />
 }

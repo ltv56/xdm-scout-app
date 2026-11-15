@@ -138,7 +138,7 @@ function Draft({ item, shownSentence, setHoverSentence, pinnedSentence, onPick, 
 }
 
 // Fills its parent. The Frame supplies the toolbar; this is the body: Fit, person, draft, evidence.
-export default function DraftView({ item, nav, onFinished }: { item: ReviewItem; nav: React.ReactNode; onFinished: () => void }) {
+export default function DraftView({ item, nav, onFinished, onMove }: { item: ReviewItem; nav: React.ReactNode; onFinished: () => void; onMove?: (by: number) => void }) {
   const [hoverSentence, setHoverSentence] = useState<number | null>(null)
   const [hoverEvidence, setHoverEvidence] = useState<number | null>(null)
   const [pin, setPin] = useState<Pin>(null)
@@ -185,7 +185,7 @@ export default function DraftView({ item, nav, onFinished }: { item: ReviewItem;
   )
 
   return (
-    <Frame key={item.contentHash} item={item} nav={nav} onFinished={onFinished}>
+    <Frame key={item.contentHash} item={item} nav={nav} onFinished={onFinished} onMove={onMove}>
       {(api) => (
         <div className="grid lg:h-full lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-[minmax(0,1fr)]">
           <div className="scroll-thin min-w-0 px-5 pb-6 pt-6 sm:px-12 lg:overflow-y-auto">
