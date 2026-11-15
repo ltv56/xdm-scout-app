@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { ensureCampaign } from './setup.ts'
+
+// Without a campaign the app shows the first-run screens, not the menu these tests use.
+test.beforeEach(async ({ request }) => {
+  await ensureCampaign(request)
+})
 
 async function openMenu(page: import('@playwright/test').Page, item: string) {
   await page.getByRole('button', { name: 'Account' }).click()

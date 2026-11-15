@@ -6,6 +6,7 @@ import { Check, Copy, Globe, Pencil, Refresh, XLogo } from '../icons'
 import { btnLink, btnSecondary, btnToolbar, btnApprove, field, tone } from '../ui'
 import MoreMenu from './MoreMenu'
 import { blockers, LANGUAGE_NAME, SKIP_LABEL, SKIP_REASONS, verdict, type Verdict } from './labels'
+import { useSwipe } from './useSwipe'
 
 type Panel = 'none' | 'edit' | 'regenerate' | 'skip'
 
@@ -82,10 +83,12 @@ export interface FrameApi {
 
 // The review panel's chrome: toolbar (draft navigation, Skip, Approve), a notice row with the reasons, an
 // area for skip, the scrolling body, and for a hand-sent message a bar pinned at the bottom with Open in X. Edit and Regenerate live with the draft text.
-export default function ReviewFrame({ item, nav, onFinished, children }: {
+export default function ReviewFrame({ item, nav, onFinished, onMove, children }: {
   item: ReviewItem
   nav: React.ReactNode
   onFinished: () => void
+  // Moves to another draft: -1 the one before, 1 the one after. Used by the phone gestures.
+  onMove?: (by: number) => void
   children: (api: FrameApi) => React.ReactNode
 }) {
   const m = useDraftMutations(item, onFinished)
@@ -109,6 +112,16 @@ export default function ReviewFrame({ item, nav, onFinished, children }: {
   useEffect(() => {
     if (panel === 'edit' || panel === 'regenerate') firstField.current?.focus()
   }, [panel])
+
+  // Phone only. Sideways: skip (it asks why first) or the previous draft. Up and down: the next or previous draft.
+  const phone = typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
+  const swipe = useSwipe({
+    enabled: phone && pending && panel === 'none' && !confirmDnc,
+    onLeft: () => setPanel('skip'),
+    onRight: () => onMove?.(-1),
+    onUp: () => onMove?.(1),
+    onDown: () => onMove?.(-1),
+  })
 
   const toggle = (p: Panel) => setPanel((cur) => (cur === p ? 'none' : p))
   const handoff = item.status === 'approved'
@@ -273,16 +286,16 @@ export default function ReviewFrame({ item, nav, onFinished, children }: {
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule px-5 py-3 min-h-[62px] sm:px-8">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-rule px-5 py-3 min-h-[62px] max-sm:flex-nowrap max-sm:gap-x-2 max-sm:px-3 sm:px-8">
         {nav}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
           {pending && (
             <>
               <MoreMenu handle={item.prospect.handle} onDoNotContact={() => setConfirmDnc(true)} />
-              <button type="button" className={btnToolbar} onClick={() => toggle('skip')} aria-expanded={panel === 'skip'}>
+              <button type="button" className={`${btnToolbar} max-sm:hidden`} onClick={() => toggle('skip')} aria-expanded={panel === 'skip'}>
                 Skip
               </button>
-              <button type="button" className={`${btnApprove} ml-2`} disabled={!canApprove || m.approve.isPending} onClick={() => m.approve.mutate(confirmed)}>
+              <button type="button" className={`${btnApprove} ml-2 max-sm:hidden`} disabled={!canApprove || m.approve.isPending} onClick={() => m.approve.mutate(confirmed)}>
                 Approve
               </button>
             </>
@@ -345,8 +358,27 @@ export default function ReviewFrame({ item, nav, onFinished, children }: {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">{children({ verdict: v, editing: panel === 'edit', tools })}</div>
-      {send && <div className="shrink-0 border-t border-rule bg-raised px-5 py-3 sm:px-8">{send}</div>}
+      <div className="relative min-h-0 flex-1 touch-pan-y overflow-y-auto lg:overflow-hidden" {...swipe.handlers}>
+        <div style={{ transform: `translateX(${swipe.offset}px)`, transition: swipe.offset === 0 ? 'transform 180ms ease-out' : 'none' }}>
+          {children({ verdict: v, editing: panel === 'edit', tools })}
+        </div>
+        {swipe.offset <= -30 && <span className="pointer-events-none fixed right-3 top-1/2 rounded-full bg-ink px-3 py-1.5 text-sm font-semibold text-accent-ink sm:hidden">Skip</span>}
+        {swipe.offset >= 30 && <span className="pointer-events-none fixed left-3 top-1/2 rounded-full bg-ink px-3 py-1.5 text-sm font-semibold text-accent-ink sm:hidden">Back</span>}
+      </div>
+      {send && <div className={`shrink-0 border-t border-rule bg-raised px-5 py-3 sm:px-8 ${pending ? 'max-sm:hidden' : ''}`}>{send}</div>}
+      {pending && (
+        <div data-no-swipe className="sticky bottom-0 z-10 shrink-0 border-t border-rule bg-raised px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:hidden">
+          <div className="flex items-center gap-3">
+            <button type="button" className={`${btnSecondary} px-6 py-3 text-base`} onClick={() => toggle('skip')} aria-expanded={panel === 'skip'}>
+              Skip
+            </button>
+            <button type="button" className={`${btnApprove} flex-1 justify-center py-3 text-base`} disabled={!canApprove || m.approve.isPending} onClick={() => m.approve.mutate(confirmed)}>
+              Approve
+            </button>
+          </div>
+          <p className="mt-2 text-center text-xs text-muted">Swipe: left to skip · up for next · right to go back</p>
+        </div>
+      )}
       {confirmDnc && <DncDialog handle={item.prospect.handle} busy={m.dnc.isPending} error={m.dnc.error} onConfirm={() => m.dnc.mutate()} onCancel={() => setConfirmDnc(false)} />}
     </div>
   )

@@ -320,7 +320,7 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
               <a className="min-w-0 text-lg font-semibold wrap-anywhere hover:underline" href={`https://x.com/${p.handle}`} target="_blank" rel="noreferrer">
                 {p.name} <span className="font-normal text-muted">@{p.handle}</span>
               </a>
-              {(p.role || p.areas.length > 0) && <span className="text-sm text-muted">{[p.role, ...p.areas.map((a) => a.replace('_', ' '))].filter(Boolean).join(' · ')}</span>}
+              {(p.role !== 'other' && p.role || p.areas.length > 0) && <span className="text-sm text-muted">{[p.role !== 'other' ? p.role : null, ...p.areas.map((a) => a.replace('_', ' '))].filter(Boolean).join(' · ')}</span>}
               <span className="ml-auto text-sm text-muted">
                 {p.seedCount > 0 && `followed by ${p.seedCount} seed${p.seedCount > 1 ? 's' : ''} · `}
                 {p.followers.toLocaleString()} followers
@@ -373,7 +373,10 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
               </>
             )}
 
-            {p.criteria.length > 0 && (
+            {p.criteria.length > 0 && p.criteria.every((c) => c.status === 'unknown') && (
+              <p className="mt-3 text-xs text-muted">{p.criteria.length} fund criteria unknown: not enough posts read yet.</p>
+            )}
+            {p.criteria.some((c) => c.status !== 'unknown') && (
               <ul className="mt-3 flex flex-wrap gap-2 text-xs">
                 {p.criteria.map((c) => (
                   <li key={c.text} className={`rounded-full px-2.5 py-1 ${CRITERION_STYLE[c.status]}`}>

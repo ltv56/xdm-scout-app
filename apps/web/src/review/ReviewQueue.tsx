@@ -43,7 +43,7 @@ function DraftNav({ items, index, onSelect }: { items: ReviewItem[]; index: numb
   }, [open])
 
   return (
-    <div ref={box} className="relative flex items-center gap-0.5">
+    <div ref={box} className="relative flex min-w-0 items-center gap-0.5">
       <button type="button" className={arrow} aria-label="Previous draft" disabled={index === 0} onClick={() => onSelect(index - 1)}>
         <ChevronLeft />
       </button>
@@ -56,10 +56,10 @@ function DraftNav({ items, index, onSelect }: { items: ReviewItem[]; index: numb
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="ml-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-rail"
+        className="ml-2 flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-rail"
       >
-        <span className="font-semibold">{current.prospect.name ?? `@${current.prospect.handle}`}</span>
-        <span className="text-muted">
+        <span className="truncate font-semibold">{current.prospect.name ?? `@${current.prospect.handle}`}</span>
+        <span className="shrink-0 text-muted">
           {index + 1} of {items.length}
         </span>
         <ChevronDown className={`size-4 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -140,5 +140,5 @@ export default function ReviewQueue({ campaignId }: { campaignId: number }) {
     )
   }
 
-  return <DraftView key={current.draftId} item={current} nav={<DraftNav items={items} index={index} onSelect={go} />} onFinished={nextPending} />
+  return <DraftView key={current.draftId} item={current} nav={<DraftNav items={items} index={index} onSelect={go} />} onFinished={nextPending} onMove={(by) => go(index + by)} />
 }

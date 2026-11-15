@@ -120,3 +120,15 @@ export const QuestionCircle = ({ className }: IconProps) => (
     <circle cx="10" cy="14" r=".6" fill="currentColor" />
   </svg>
 )
+
+export const Menu = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M3.5 6h13M3.5 10h13M3.5 14h13" />
+  </svg>
+)
+
+export const Close = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M5 5l10 10M15 5 5 15" />
+  </svg>
+)

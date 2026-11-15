@@ -17,9 +17,10 @@ export class SenderProfileController {
     return (row?.value as SenderProfile | undefined) ?? null
   }
 
+  // Nothing saved yet: send empty fields the form can fill, not null, which Nest turns into an empty body the web app cannot parse.
   @Get()
-  read() {
-    return this.get()
+  async read(): Promise<SenderProfile> {
+    return (await this.get()) ?? { intro: '', programs: [], signer: '', sampleMessages: [] }
   }
 
   // Fills the frame on a sample person and a sample message, without saving anything.

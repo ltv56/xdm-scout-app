@@ -9,11 +9,11 @@ const field = `${baseField} mt-1`
 // Grows with the text, so a long answer is never cut off behind the box.
 const area = `${field} field-sizing-content`
 
-export default function SenderProfile() {
+export default function SenderProfile({ embedded = false }: { embedded?: boolean }) {
   const { data, error, isLoading } = useQuery<Profile>({ queryKey: ['sender-profile'], queryFn: () => getJson('/sender-profile') })
   if (isLoading) return <p role="status" className="text-sm text-muted">Loading…</p>
   if (error || !data) return <p role="alert" className="text-sm font-medium text-block">{error?.message ?? 'No profile returned'}</p>
-  return <ProfileForm profile={data} />
+  return <ProfileForm profile={data} embedded={embedded} />
 }
 
 // A program as the form edits it: the deadline is '' while there is none.
@@ -25,17 +25,21 @@ const isLink = (s: string) => /^https?:\/\/\S+$/.test(s)
 function FramePreviewBox({ profile, greeting, optOut, contactLine }: { profile: Profile; greeting: string; optOut: string; contactLine: string }) {
   const frame = { greeting: greeting || null, optOut: optOut || null, contactLine: contactLine || null }
   const valid = !greeting || greeting.includes('{name}')
+  // The preview is built from the saved profile, so before the first save there is nothing to show yet.
+  const saved = !!profile.intro && profile.programs.length > 0 && !!profile.signer
   const { data, error } = useQuery<FramePreview>({
     queryKey: ['frame-preview', frame],
     queryFn: () => postJson('/sender-profile/preview', { ...profile, frame }),
-    enabled: valid,
+    enabled: valid && saved,
     retry: false,
     placeholderData: (previous) => previous,
   })
   return (
     <div className="mt-4">
       <p className="text-xs font-semibold text-muted">Preview on a sample person</p>
-      {!valid ? (
+      {!saved ? (
+        <p className="mt-1 text-sm text-muted">Save the profile once to see the preview.</p>
+      ) : !valid ? (
         <p className="mt-1 text-sm text-muted">Put {'{name}'} in the greeting to see the preview.</p>
       ) : error ? (
         <p role="alert" className="mt-1 text-sm font-medium text-block">
@@ -50,7 +54,7 @@ function FramePreviewBox({ profile, greeting, optOut, contactLine }: { profile: 
   )
 }
 
-function ProfileForm({ profile }: { profile: Profile }) {
+function ProfileForm({ profile, embedded }: { profile: Profile; embedded: boolean }) {
   const qc = useQueryClient()
   const [intro, setIntro] = useState(profile.intro)
   const [programs, setPrograms] = useState<Draft[]>(profile.programs.map((p) => ({ ...p, deadline: p.deadline ?? '' })))
@@ -104,16 +108,18 @@ function ProfileForm({ profile }: { profile: Profile }) {
         submit()
       }}
     >
+      {!embedded && (
       <div>
         <h3 className="text-xl font-bold">Sender profile</h3>
         <p className="mt-1 text-sm text-muted">Drafts may only claim what is written here or in the person's own posts.</p>
       </div>
+      )}
 
       <div>
         <label htmlFor="intro" className="text-sm font-medium">
           Who you are
         </label>
-        <textarea id="intro" rows={3} maxLength={400} value={intro} onChange={(e) => setIntro(e.target.value)} className={area} />
+        <textarea id="intro" rows={3} style={{ minHeight: '6rem' }} maxLength={400} value={intro} onChange={(e) => setIntro(e.target.value)} className={area} />
         <p className="mt-1 text-xs text-muted">{intro.length} of 400</p>
       </div>
 

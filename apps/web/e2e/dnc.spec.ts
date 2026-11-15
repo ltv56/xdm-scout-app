@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { createConnection } from 'mysql2/promise'
 import { E2E_DATABASE_URL } from './global-setup.ts'
+import { ensureCampaign } from './setup.ts'
+
+// Without a campaign the app shows the first-run screens, not the menu these tests use.
+test.beforeEach(async ({ request }) => {
+  await ensureCampaign(request)
+})
 
 async function withDb<T>(run: (db: Awaited<ReturnType<typeof createConnection>>) => Promise<T>) {
   const db = await createConnection(E2E_DATABASE_URL)
