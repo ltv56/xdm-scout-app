@@ -19,8 +19,28 @@ async function post(fetchFn: typeof fetch, url: string, headers: Record<string, 
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
-  if (!res.ok) throw new Error(`LLM request failed with ${res.status}`)
+  if (!res.ok) throw new HttpError(res.status, await apiMessage(res))
   return res.json()
+}
+
+class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly detail: string,
+  ) {
+    super(`LLM request failed with ${status}${detail ? `: ${detail}` : ''}`)
+  }
+}
+
+// What the API said, short, so a 400 says why. The request carries the key in a header, never in the body, so nothing secret is echoed.
+async function apiMessage(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: { message?: string } | string }
+    const msg = typeof body.error === 'string' ? body.error : body.error?.message
+    return (msg ?? '').replace(/\s+/g, ' ').slice(0, 200)
+  } catch {
+    return ''
+  }
 }
 
 // OpenAI reasoning models reject any temperature but the default.
@@ -32,21 +52,29 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
+  // Some models fix their own temperature and refuse 0; once the API says so, stop sending it.
+  private sendTemperature = true
+
   async completeJson(req: LlmRequest): Promise<unknown> {
-    const data = (await post(
-      this.fetchFn,
-      `${this.cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`,
-      { Authorization: `Bearer ${this.cfg.apiKey}` },
-      {
-        model: this.cfg.model,
-        ...(fixedTemperature(this.cfg.model) ? {} : { temperature: 0 }),
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: req.system },
-          { role: 'user', content: req.user },
-        ],
-      },
-    )) as { choices?: { message?: { content?: string } }[] }
+    const url = `${this.cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`
+    const headers = { Authorization: `Bearer ${this.cfg.apiKey}` }
+    const body = () => ({
+      model: this.cfg.model,
+      ...(this.sendTemperature && !fixedTemperature(this.cfg.model) && { temperature: 0 }),
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: req.system },
+        { role: 'user', content: req.user },
+      ],
+    })
+    let data: { choices?: { message?: { content?: string } }[] }
+    try {
+      data = (await post(this.fetchFn, url, headers, body())) as typeof data
+    } catch (err) {
+      if (!(this.sendTemperature && err instanceof HttpError && err.status === 400 && /temperature/i.test(err.detail))) throw err
+      this.sendTemperature = false
+      data = (await post(this.fetchFn, url, headers, body())) as typeof data
+    }
     return parseJson(data.choices?.[0]?.message?.content ?? '')
   }
 }

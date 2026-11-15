@@ -3,6 +3,7 @@
 //   node scripts/eval-replies.cjs --dist dist-old     # run the build kept in apps/api/dist-old (the prompt before a change)
 //   node scripts/eval-replies.cjs --set blind.json    # another set in the same format, one run: accuracy and confusion only
 //   node scripts/eval-replies.cjs --set blind.json --list-wrong   # also list its wrong DMs; reading them ends its use as a blind check
+//   node scripts/eval-replies.cjs --write-halves fixtures/eval/reply-halves.json   # freeze the current split
 //   node scripts/eval-replies.cjs --mixed [--similar 0.6]   # no model: families whose DMs carry different labels
 // Needs `npx tsc -p tsconfig.build.json` first. The model comes from the environment only (LLM_MODEL plus its key);
 // with LLM_MODEL empty the canned client answers, which is a dry run. Reads no .env file.
@@ -97,7 +98,16 @@ for (const members of familyOf.values()) {
   nextHalf[label] = nextHalf[label] === 'tune' ? 'report' : 'tune'
   for (const m of members) halfOf.set(m.id, nextHalf[label])
 }
-const all = labelled.map((d) => ({ ...d, half: setPath ? 'report' : halfOf.get(d.id) }))
+if (option('--write-halves')) {
+  fs.writeFileSync(option('--write-halves'), `${JSON.stringify(Object.fromEntries(labelled.map((d) => [d.id, halfOf.get(d.id)])), null, 1)}
+`)
+  console.log(`wrote ${labelled.length} assignments to ${option('--write-halves')}`)
+  process.exit(0)
+}
+// The split is frozen in reply-halves.json so that changing a label cannot move a DM from one half to the other.
+const frozenPath = path.join(__dirname, '../../../fixtures/eval/reply-halves.json')
+const frozen = !setPath && fs.existsSync(frozenPath) ? JSON.parse(fs.readFileSync(frozenPath, 'utf8')) : null
+const all = labelled.map((d) => ({ ...d, half: setPath ? 'report' : (frozen?.[d.id] ?? halfOf.get(d.id)) }))
 const dms = all.filter((d) => setPath || half === 'all' || d.half === half)
 
 const pct = (a, b) => (b ? `${a}/${b} (${((100 * a) / b).toFixed(1)}%)` : '0/0')
