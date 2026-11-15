@@ -22,10 +22,10 @@ Where a reply fits two classes, the first matching line wins.
 - Not interested: declines.
 - Not now: maybe later.
 - Interested: says they want to apply, talk, meet or be contacted, or asks how to take the next step ("how do I join", "what do you need from us").
-- Question: asks for information (what is offered, eligibility, deadlines, terms, where you are) without saying they want to go ahead.
-- Unclear: nothing to act on, or spam.
+- Question: asks what the fund can answer about itself: programme, eligibility, deadlines, terms, location, or who is writing (are you a bot, who is this, is this legit), without saying they want to go ahead. Any other question (general knowledge, small talk, unrelated help) is Unclear.
+- Unclear: nothing to act on, spam, or a question that is not about the fund.
 
-A person asking how to apply is Interested, because that is the strongest lead and Interested replies are shown first. Dated 15 Nov 2026: 23 DMs moved from Question to Interested under this definition (`dm001`, `dm007`, `dm013`, `dm019`, `dm101`, `dm105`, `dm108`, `dm110`, `dm112`, `dm113`, `dm115`, `dm119`, `dm121`, `dm125`, `dm128`, `dm130`, `dm132`, `dm133`, `dm135`, `dm139`, `dm273`, `dm274`, `dm291`). They were relabelled by reading the text, not by a second labeller, and `reviewed` is unchanged.
+A person asking how to apply is Interested, because that is the strongest lead and Interested replies are shown first. Dated 15 Nov 2026: 23 DMs moved from Question to Interested under this definition (`dm001`, `dm007`, `dm013`, `dm019`, `dm101`, `dm105`, `dm108`, `dm110`, `dm112`, `dm113`, `dm115`, `dm119`, `dm121`, `dm125`, `dm128`, `dm130`, `dm132`, `dm133`, `dm135`, `dm139`, `dm273`, `dm274`, `dm291`). They were relabelled by reading the text, not by a second labeller, and `reviewed` is unchanged. Later the same day 8 DMs moved from Question to Unclear because they ask something unrelated to the fund (`dm177`, `dm197`, `dm180`, `dm200`, `dm189`, `dm209`, `dm290`, `dm298`).
 
 ## Checking the labels with several chats
 Run from `apps/api` after `npx tsc -p tsconfig.build.json`.
