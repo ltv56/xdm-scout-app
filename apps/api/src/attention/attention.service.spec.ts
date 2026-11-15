@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { AuthService } from '../auth/auth.service'
 import { Campaign, Prospect } from '../discovery/entities'
 import { InboxService } from '../inbox/inbox.service'
+import { Evidence } from '../fit/entities'
 import { Reply } from '../inbox/reply.entity'
 import { PreflightService, recordHeartbeat } from '../preflight/preflight.service'
 import { AttemptStatus, Contact, Draft, SendAttempt } from '../sending/entities'
@@ -109,5 +110,31 @@ describe('AttentionService', () => {
     const [item] = await service.list(1, NOW)
     expect(item).toMatchObject({ kind: 'budget_out', priority: 3, goTo: 'overview' })
     expect(item.reason).toContain('$1.00')
+  })
+  it('names a send that stopped because someone already answered by hand', async () => {
+    await seedAttempt('201', 'failed', 'Someone already replied outside xdm-scout')
+    const [item] = await service.list(1, NOW)
+    expect(item).toMatchObject({ kind: 'outside_reply', title: 'u201', reason: 'Someone already replied outside xdm-scout. Read the conversation in X before sending anything.', goTo: 'inbox' })
+  })
+
+  describe('evidence post deleted', () => {
+    const citing = async (xUserId: string, status: Draft['status'], deleted: boolean) => {
+      const { draft } = await seedAttempt(xUserId, 'approved')
+      await ds.getRepository(Evidence).save({ id: `ev-${xUserId}`, xUserId, kind: 'post', url: 'https://x.com/a/status/1', excerpt: deleted ? '' : 'text', fetchedAt: NOW, deletedAt: deleted ? NOW : null })
+      await ds.getRepository(Draft).update(draft.id, { status, sentences: [{ text: 'Your post on agents was sharp.', source: { type: 'evidence', evidenceId: `ev-${xUserId}` } }] })
+    }
+
+    it('flags a live draft that cites a post X no longer has', async () => {
+      await citing('201', 'pending', true)
+      const items = (await service.list(1, NOW)).filter((i) => i.kind === 'evidence_deleted')
+      expect(items).toHaveLength(1)
+      expect(items[0]).toMatchObject({ title: 'u201', reason: 'A post this draft quotes was deleted on X. Open the draft and fix or skip it.', goTo: 'review' })
+    })
+
+    it('ignores skipped drafts and posts that still exist', async () => {
+      await citing('201', 'skipped', true)
+      await citing('202', 'pending', false)
+      expect((await service.list(1, NOW)).filter((i) => i.kind === 'evidence_deleted')).toEqual([])
+    })
   })
 })

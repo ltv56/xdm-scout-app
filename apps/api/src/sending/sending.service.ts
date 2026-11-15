@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { DataSource, EntityManager, LessThan } from 'typeorm'
 import { JobsService } from '../jobs/jobs.service'
 import { DmMessage, SendDmResult, X_CLIENT, XClient, XRateLimitError, XUncertainError } from '../x/x-client'
+import { dailyCap, ensureCapLock, lockCap, usedToday } from './daily-cap'
 import { Contact, DoNotContact, Draft, SendAttempt } from './entities'
 
 export const hashContent = (content: string) => createHash('sha256').update(content).digest('hex')
@@ -60,7 +61,9 @@ export class SendingService {
 
   // Only this step creates the send job; the approved attempt must still hold the send right.
   async send(draftId: number, seenHash: string): Promise<{ attemptId: number }> {
+    await ensureCapLock(this.ds)
     return this.ds.transaction(async (em) => {
+      await lockCap(em)
       const draft = await em.findOne(Draft, { where: { id: draftId } })
       if (!draft) throw new NotFoundException('Draft not found')
       if (draft.status !== 'approved') throw new ConflictException('Approve the draft before sending it')
@@ -72,6 +75,7 @@ export class SendingService {
       const contact = await em.findOneOrFail(Contact, { where: { id: draft.contactId } })
       if (contact.activeAttemptId !== attempt.id) throw new ConflictException('This draft no longer holds the send right. Approve it again.')
       await this.assertSendable(em, contact, 'api')
+      if ((await usedToday(em, new Date())) >= (await dailyCap(em))) throw new ConflictException('Daily send limit reached. Try again tomorrow (UTC).')
 
       const moved = await em.update(SendAttempt, { id: attempt.id, status: 'approved' }, { status: 'queued' })
       if (moved.affected !== 1) throw new ConflictException('Already queued')
@@ -149,6 +153,7 @@ export class SendingService {
   }
 
   // The reviewer said they sent it by hand. Upgrade to sent when our message is in the conversation; never downgrade.
+  // updatedAt stays the report time, so the daily count does not move the message to the day it was verified.
   async verifyManual(attemptId: number): Promise<void> {
     const attempt = await this.ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })
     if (attempt.route !== 'manual' || attempt.status !== 'manual_unverified') return
@@ -157,7 +162,7 @@ export class SendingService {
     const messages = await this.x.getConversation(contact.xUserId, RECONCILE_READ_MAX)
     const since = Math.floor(attempt.createdAt.getTime() / 1000) * 1000
     const found = messages.find((m) => m.fromMe && m.text === draft.content && m.createdAt.getTime() >= since)
-    if (found) await this.ds.getRepository(SendAttempt).update(attemptId, { status: 'sent', verifiedBy: 'api', xConversationId: found.conversationId, xEventId: found.eventId })
+    if (found) await this.ds.getRepository(SendAttempt).update(attemptId, { status: 'sent', verifiedBy: 'api', xConversationId: found.conversationId, xEventId: found.eventId, updatedAt: attempt.updatedAt })
   }
 
   async reconcile(attemptId: number, now: Date): Promise<void> {

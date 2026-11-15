@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service'
 import { Setting } from '../setting.entity'
 import { SendAttempt } from '../sending/entities'
 import { ApiUsage } from '../discovery/entities'
+import { dailyCap, sentToday as sent } from '../sending/daily-cap'
 import type { PreflightRow, TopBar } from './contract'
 
 const BEAT_KEY = 'worker.lastBeatAt'
@@ -49,13 +50,7 @@ export class PreflightService {
 
   // Sends count from midnight UTC, the same clock the database uses.
   async topBar(campaignId: number | null, now = new Date()): Promise<TopBar> {
-    const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const sentToday = await this.ds
-      .getRepository(SendAttempt)
-      .createQueryBuilder('a')
-      .where('a.status IN (:...done)', { done: ['sent', 'manual_unverified'] })
-      .andWhere('a.updatedAt >= :midnight', { midnight })
-      .getCount()
+    const sentToday = await sent(this.ds.manager, now)
     const cost =
       campaignId === null
         ? null
@@ -63,6 +58,7 @@ export class PreflightService {
     return {
       mode: this.mode() === 'live' ? 'live' : 'fake',
       sentToday,
+      dailyCap: await dailyCap(this.ds.manager),
       workerRunning: (await this.worker(now)).status === 'ok',
       campaignCostMicros: cost ? Number(cost.total) : null,
     }

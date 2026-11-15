@@ -102,6 +102,25 @@ describe('LiveXClient.getConversation', () => {
   })
 })
 
+describe('LiveXClient.getInboundDms', () => {
+  it('keeps only DMs from other people and attaches their handles', async () => {
+    const { client, calls } = clientWith(() =>
+      json(200, {
+        data: [
+          { id: '2', text: 'build', sender_id: '200', created_at: '2026-11-12T10:01:00.000Z', dm_conversation_id: '100-200', event_type: 'MessageCreate' },
+          { id: '1', text: 'Hi', sender_id: '100', created_at: '2026-11-12T10:00:00.000Z', dm_conversation_id: '100-200', event_type: 'MessageCreate' },
+        ],
+        includes: { users: [{ id: '200', username: 'mina_builds' }] },
+      }),
+    )
+    expect(await client.getInboundDms(50)).toEqual([
+      { eventId: '2', conversationId: '100-200', senderId: '200', handle: 'mina_builds', text: 'build', createdAt: new Date('2026-11-12T10:01:00.000Z') },
+    ])
+    expect(calls[0].url).toContain('/2/dm_events?')
+    expect(new URL(calls[0].url).searchParams.get('max_results')).toBe('50')
+  })
+})
+
 const user = (id: string, username: string) => ({ id, username, name: username, description: 'robotics', public_metrics: { followers_count: 5 } })
 
 describe('LiveXClient discovery reads', () => {

@@ -93,7 +93,7 @@ describe('PreflightService.topBar', () => {
     const campaign = (await ds.query("INSERT INTO campaigns (name, handles, keywords) VALUES ('c', '[]', '[]')")).insertId
     await ds.query("INSERT INTO api_usage (campaignId, kind, count, costMicros) VALUES (?, 'profile', 3, 30000), (?, 'dm_event', 1, 10000)", [campaign, campaign])
 
-    expect(await make().topBar(campaign, NOW)).toEqual({ mode: 'fake', sentToday: 2, workerRunning: true, campaignCostMicros: 40000 })
-    expect(await make({ X_MODE: 'live' }).topBar(null, new Date(NOW.getTime() + 5 * 60_000))).toEqual({ mode: 'live', sentToday: 2, workerRunning: false, campaignCostMicros: null })
+    expect(await make().topBar(campaign, NOW)).toEqual({ mode: 'fake', sentToday: 2, dailyCap: 25, workerRunning: true, campaignCostMicros: 40000 })
+    expect(await make({ X_MODE: 'live' }).topBar(null, new Date(NOW.getTime() + 5 * 60_000))).toEqual({ mode: 'live', sentToday: 2, dailyCap: 25, workerRunning: false, campaignCostMicros: null })
   })
 })

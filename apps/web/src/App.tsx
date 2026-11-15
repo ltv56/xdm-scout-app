@@ -8,6 +8,7 @@ import CampaignPicker from './CampaignPicker'
 import { User as UserIcon } from './icons'
 import Inbox from './Inbox'
 import NewCampaign from './NewCampaign'
+import Outbox from './Outbox'
 import Overview from './Overview'
 import Prospects, { type Filter as CandidateFilter } from './Prospects'
 import ReviewQueue from './review/ReviewQueue'
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'review', label: 'Review' },
   { id: 'inbox', label: 'Inbox' },
+  { id: 'outbox', label: 'Outbox' },
   { id: 'prospects', label: 'Candidates' },
   { id: 'profile', label: 'Profile' },
   { id: 'settings', label: 'Settings' },
@@ -139,6 +141,10 @@ export default function App() {
           ) : tab === 'inbox' ? (
             <div className={scroll}>
               <Inbox campaignId={active} />
+            </div>
+          ) : tab === 'outbox' ? (
+            <div className={scroll}>
+              <Outbox campaignId={active} />
             </div>
           ) : (
             <div className={scroll}>

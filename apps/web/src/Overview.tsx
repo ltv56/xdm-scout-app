@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { CampaignLane, ReadyToDraft, ReviewQueue, SenderProfile, WriteDraftsResult } from '../../api/src/review/contract'
 import { getJson, postJson } from './api'
+import Funnel from './Funnel'
 import FitBadge from './FitBadge'
 import NeedsAttention from './NeedsAttention'
 import type { Filter as CandidateFilter, Prospect } from './Prospects'
@@ -48,7 +49,7 @@ const SEGMENTS = [
   { key: 'unscored', label: 'Not scored yet', bar: 'bg-raised ring-1 ring-inset ring-rule' },
 ] as const
 
-export default function Overview({ campaignId, onReview, onProspects, onGo }: { campaignId: number; onReview: () => void; onProspects: (filter: CandidateFilter) => void; onGo: (page: 'inbox' | 'profile' | 'overview') => void }) {
+export default function Overview({ campaignId, onReview, onProspects, onGo }: { campaignId: number; onReview: () => void; onProspects: (filter: CandidateFilter) => void; onGo: (page: 'inbox' | 'profile' | 'overview' | 'review') => void }) {
   const qc = useQueryClient()
   const [waitingFor, setWaitingFor] = useState<{ at: string | null } | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -304,6 +305,8 @@ export default function Overview({ campaignId, onReview, onProspects, onGo }: { 
           </>
         )}
       </section>
+
+      <Funnel campaignId={campaignId} />
     </div>
   )
 }

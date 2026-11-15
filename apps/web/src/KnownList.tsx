@@ -18,10 +18,12 @@ export default function KnownList() {
   const qc = useQueryClient()
   const [listName, setListName] = useState('')
   const [handles, setHandles] = useState('')
+  const [warm, setWarm] = useState(false)
+  const [event, setEvent] = useState('')
   const list = useQuery<KnownPerson[]>({ queryKey: ['known-users'], queryFn: () => getJson('/known-users'), retry: false })
   const done = () => qc.invalidateQueries({ queryKey: ['known-users'] })
   const add = useMutation({
-    mutationFn: () => postJson<ImportResult>('/known-users/import', { listName, handles }),
+    mutationFn: () => postJson<ImportResult>('/known-users/import', { listName, handles, ...(warm && { kind: 'warm', event }) }),
     onSuccess: () => {
       setHandles('')
       void done()
@@ -32,7 +34,7 @@ export default function KnownList() {
   return (
     <section aria-label="Known to the fund" className="max-w-xl">
       <h3 className="text-xl font-bold">Known to the fund</h3>
-      <p className="mt-1 text-sm text-muted">People you already know, such as your portfolio or people in talks. Searches skip them and no draft is written. You can take anyone off again.</p>
+      <p className="mt-1 text-sm text-muted">People you already know, such as your portfolio or people in talks. Searches skip them and no draft is written. People who know the fund already stay as candidates with a label. You can take anyone off again.</p>
 
       <form
         className="mt-4 space-y-3"
@@ -60,6 +62,18 @@ export default function KnownList() {
             onChange={(e) => void e.target.files?.[0]?.text().then(setHandles)}
           />
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={warm} onChange={(e) => setWarm(e.target.checked)} />
+          They know us already: keep them as candidates and say why
+        </label>
+        {warm && (
+          <div>
+            <label htmlFor="known-event" className="block text-sm font-medium">
+              How they know us
+            </label>
+            <input id="known-event" className={field} value={event} onChange={(e) => setEvent(e.target.value)} placeholder="Met at Build Week" />
+          </div>
+        )}
         {add.error && (
           <p role="alert" className="text-sm font-medium text-block">
             {add.error.message}
@@ -81,7 +95,10 @@ export default function KnownList() {
           {list.data.map((p) => (
             <li key={p.xUserId} className="flex items-center justify-between gap-4 px-5 py-3">
               <p className="text-sm">
-                <span className="font-semibold">@{p.handle}</span> <span className="text-muted">· {p.listName}</span>
+                <span className="font-semibold">@{p.handle}</span> <span className="text-muted">
+                  · {p.listName}
+                  {p.kind === 'warm' && ' (warm)'}
+                </span>
               </p>
               <button type="button" className={btnSecondary} disabled={remove.isPending} onClick={() => remove.mutate(p.xUserId)}>
                 Remove
