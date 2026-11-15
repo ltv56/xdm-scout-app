@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { ensureCampaign } from './setup.ts'
+
+// Without a campaign the app shows the first-run screens, not the menu these tests use.
+test.beforeEach(async ({ request }) => {
+  await ensureCampaign(request)
+})
 
 test('Handles pasted into Known to the fund are listed, and can be taken off again', async ({ page }) => {
   await page.goto('/')

@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { ensureCampaign } from './setup.ts'
+
+// Without a campaign the app shows the first-run screens, not the menu these tests use.
+test.beforeEach(async ({ request }) => {
+  await ensureCampaign(request)
+})
 
 test('Activity log lists what was changed and offers a CSV', async ({ page }) => {
   await page.goto('/')

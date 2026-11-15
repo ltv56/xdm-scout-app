@@ -13,8 +13,16 @@ const PROFILE = {
   sampleMessages: [],
 }
 
+// The fake sender connected and a sender profile saved, which the first-run screens ask for before any campaign.
+export async function ensureReady(request: APIRequestContext) {
+  const saved = await (await request.get('/api/sender-profile')).json()
+  if (!saved?.intro) expect((await request.put('/api/sender-profile', { data: PROFILE })).ok()).toBe(true)
+  expect((await request.post('/api/auth/x/fake')).ok()).toBe(true)
+}
+
 // Finds or creates the demo campaign, runs discovery and scoring on the fake X, and waits for the people to show up.
 export async function ensureCampaign(request: APIRequestContext): Promise<number> {
+  await ensureReady(request)
   const list = await (await request.get('/api/campaigns')).json()
   const found = list.find((c: { name: string }) => c.name === CAMPAIGN.name)
   const id: number = found ? found.id : (await (await request.post('/api/campaigns', { data: CAMPAIGN })).json()).id
@@ -25,8 +33,7 @@ export async function ensureCampaign(request: APIRequestContext): Promise<number
 // A new campaign with drafts written by the worker, so each spec file gets its own pending drafts.
 // Discovery skips people an earlier run approved; global-setup empties the database so none are left.
 export async function draftCampaign(request: APIRequestContext): Promise<string> {
-  if ((await (await request.get('/api/sender-profile')).text()) === '') await request.put('/api/sender-profile', { data: PROFILE })
-  expect((await request.post('/api/auth/x/fake')).ok()).toBe(true)
+  await ensureReady(request)
   const name = `review ${Date.now()}`
   const { id } = await (await request.post('/api/campaigns', { data: { ...CAMPAIGN, name } })).json()
   await waitForScoredPeople(request, id)
