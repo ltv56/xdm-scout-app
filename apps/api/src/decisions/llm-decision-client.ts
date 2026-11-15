@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { LlmClient } from '../llm/llm-client'
+import { LlmClient, LlmMeter } from '../llm/llm-client'
 import { DecisionAnswer, DecisionAsk, DecisionClient } from './decision-client'
 import { QUESTIONS } from './questions'
 
@@ -16,10 +16,10 @@ export class LlmDecisionClient implements DecisionClient {
     private readonly model?: string,
   ) {}
 
-  async decide(asks: DecisionAsk[]): Promise<DecisionAnswer[]> {
+  async decide(asks: DecisionAsk[], meter?: LlmMeter): Promise<DecisionAnswer[]> {
     return Promise.all(
       asks.map(async (ask) => {
-        const raw = await this.llm.completeJson({ task: 'decide', system: QUESTIONS[ask.code].instructions + SUFFIX, user: JSON.stringify({ input: ask.input }) })
+        const raw = await this.llm.completeJson({ task: 'decide', system: QUESTIONS[ask.code].instructions + SUFFIX, user: JSON.stringify({ input: ask.input }), meter })
         const parsed = answer.safeParse(raw)
         if (!parsed.success) throw new Error(`invalid decision answer for ${ask.code}`)
         return { ...ask, probability: parsed.data.probability, answeredBy: 'llm' as const, model: this.model }

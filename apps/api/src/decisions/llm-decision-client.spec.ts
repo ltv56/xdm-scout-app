@@ -16,6 +16,12 @@ describe('LlmDecisionClient', () => {
     expect(JSON.parse(llm.calls[0].user)).toEqual({ input: ask.input })
   })
 
+  it('passes the meter on to every call', async () => {
+    const llm = new FakeLlmClient(() => ({ probability: 0.5 }))
+    await new LlmDecisionClient(llm).decide([ask, ask], { campaignId: 2, lane: 'call' })
+    expect(llm.calls.map((c) => c.meter)).toEqual([{ campaignId: 2, lane: 'call' }, { campaignId: 2, lane: 'call' }])
+  })
+
   it('rejects an answer that is not a probability', async () => {
     for (const bad of [{ probability: 1.5 }, { probability: 'yes' }, { answer: 0.5 }, 'yes']) {
       await expect(new LlmDecisionClient(new FakeLlmClient(() => bad)).decide([ask])).rejects.toThrow(/invalid decision answer/)

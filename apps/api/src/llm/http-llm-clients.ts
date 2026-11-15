@@ -1,4 +1,4 @@
-import { LlmClient, LlmRequest } from './llm-client'
+import { LlmClient, LlmRequest, LlmUsageSink } from './llm-client'
 
 const TIMEOUT_MS = 60_000
 
@@ -21,6 +21,16 @@ async function post(fetchFn: typeof fetch, url: string, headers: Record<string, 
   })
   if (!res.ok) throw new HttpError(res.status, await apiMessage(res))
   return res.json()
+}
+
+// A failing sink (a database hiccup) must never turn a good answer into an error.
+function report(sink: LlmUsageSink | undefined, model: string, req: LlmRequest, inputTokens: unknown, outputTokens: unknown) {
+  if (!sink || typeof inputTokens !== 'number' || typeof outputTokens !== 'number') return
+  try {
+    sink({ model, task: req.task, inputTokens, outputTokens, meter: req.meter ?? null })
+  } catch (err) {
+    console.error('llm usage report failed', err)
+  }
 }
 
 class HttpError extends Error {
@@ -50,6 +60,7 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
   constructor(
     private readonly cfg: { baseUrl: string; apiKey: string; model: string },
     private readonly fetchFn: typeof fetch = fetch,
+    private readonly onUsage?: LlmUsageSink,
   ) {}
 
   // Some models fix their own temperature and refuse 0; once the API says so, stop sending it.
@@ -67,7 +78,7 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
         { role: 'user', content: req.user },
       ],
     })
-    let data: { choices?: { message?: { content?: string } }[] }
+    let data: { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } }
     try {
       data = (await post(this.fetchFn, url, headers, body())) as typeof data
     } catch (err) {
@@ -75,6 +86,7 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
       this.sendTemperature = false
       data = (await post(this.fetchFn, url, headers, body())) as typeof data
     }
+    report(this.onUsage, this.cfg.model, req, data.usage?.prompt_tokens, data.usage?.completion_tokens)
     return parseJson(data.choices?.[0]?.message?.content ?? '')
   }
 }
@@ -83,6 +95,7 @@ export class AnthropicLlmClient implements LlmClient {
   constructor(
     private readonly cfg: { apiKey: string; model: string },
     private readonly fetchFn: typeof fetch = fetch,
+    private readonly onUsage?: LlmUsageSink,
   ) {}
 
   async completeJson(req: LlmRequest): Promise<unknown> {
@@ -91,7 +104,8 @@ export class AnthropicLlmClient implements LlmClient {
       'https://api.anthropic.com/v1/messages',
       { 'x-api-key': this.cfg.apiKey, 'anthropic-version': '2023-06-01' },
       { model: this.cfg.model, max_tokens: 2000, temperature: 0, system: req.system, messages: [{ role: 'user', content: req.user }] },
-    )) as { content?: { type: string; text?: string }[] }
+    )) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } }
+    report(this.onUsage, this.cfg.model, req, data.usage?.input_tokens, data.usage?.output_tokens)
     return parseJson(data.content?.find((c) => c.type === 'text')?.text ?? '')
   }
 }

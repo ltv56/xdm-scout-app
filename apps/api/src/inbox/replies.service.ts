@@ -4,6 +4,7 @@ import { ApiUsage, Prospect } from '../discovery/entities'
 import { PRICES } from '../discovery/pricing'
 import { JobsService } from '../jobs/jobs.service'
 import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
+import { withMeter } from '../llm/with-meter'
 import { addDoNotContact } from '../dnc/add-do-not-contact'
 import { Contact, Draft, SendAttempt } from '../sending/entities'
 import { X_CLIENT, XClient } from '../x/x-client'
@@ -18,7 +19,7 @@ const FAST_EVERY = 30 * MIN
 const SLOW_EVERY = 3 * HOUR
 const STOP_AFTER = 72 * HOUR
 
-type Polled = { contactId: number; attemptId: number; xUserId: string; campaignId: number; sentAt: Date; readAt: Date | null }
+type Polled = { contactId: number; attemptId: number; xUserId: string; campaignId: number; source: 'search' | 'call'; sentAt: Date; readAt: Date | null }
 
 @Injectable()
 export class RepliesService {
@@ -73,7 +74,7 @@ export class RepliesService {
     const [newest] = await this.x.getConversation(p.xUserId, 1)
     if (newest) await this.ds.getRepository(ApiUsage).save({ campaignId: p.campaignId, kind: 'dm_event', count: 1, costMicros: PRICES.dm_event })
     if (newest && !newest.fromMe && newest.createdAt >= p.sentAt) {
-      const { replyClass, classBy } = await classifyReply(this.llm, newest.text)
+      const { replyClass, classBy } = await classifyReply(withMeter(this.llm, { campaignId: p.campaignId, lane: p.source }), newest.text)
       await this.ds.transaction(async (em) => {
         const res = await em
           .createQueryBuilder()
@@ -100,7 +101,7 @@ export class RepliesService {
       .innerJoin(Prospect, 'p', 'p.id = d.prospectId')
       .leftJoin(Reply, 'r', 'r.contactId = c.id')
       .where("a.status = 'sent' AND r.id IS NULL")
-      .select(['c.id AS contactId', 'a.id AS attemptId', 'c.xUserId AS xUserId', 'p.campaignId AS campaignId', 'a.updatedAt AS sentAt', 'c.repliesReadAt AS readAt'])
+      .select(['c.id AS contactId', 'a.id AS attemptId', 'c.xUserId AS xUserId', 'p.campaignId AS campaignId', 'p.source AS source', 'a.updatedAt AS sentAt', 'c.repliesReadAt AS readAt'])
       .orderBy('a.id', 'DESC')
       .getRawMany<Polled>()
     const byContact = new Map<number, Polled>()

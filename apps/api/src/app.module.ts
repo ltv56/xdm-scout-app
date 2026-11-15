@@ -32,6 +32,8 @@ import { RepliesService } from './inbox/replies.service'
 import { JobsService } from './jobs/jobs.service'
 import { DECISION_CLIENT } from './decisions/review-decisions'
 import { AI_ENV_VARS, createDecisionClient, createLlmClient } from './llm/ai-config'
+import { LlmUsageService } from './llm/llm-usage.service'
+import type { LlmUsageSink } from './llm/llm-client'
 import { LLM_CLIENT, LlmClient } from './llm/llm-client'
 import { RetentionService } from './retention/retention.service'
 import { CampaignDraftsController } from './review/campaign-drafts.controller'
@@ -53,6 +55,9 @@ import { LiveXClient } from './x/live-x-client'
 import { X_CLIENT, XClient } from './x/x-client'
 
 const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) => [k, config.get<string>(k, '')]))
+
+// Token counts go to llm_usage without ever failing the model call.
+const meter = (usage: LlmUsageService): LlmUsageSink => (u) => void usage.record(u).catch((err: unknown) => console.error('llm usage not saved', err))
 
 @Module({
   imports: [
@@ -114,6 +119,7 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) 
     FunnelService,
     ActivityService,
     SendSettingsService,
+    LlmUsageService,
     ReviewSummaryService,
     {
       provide: PreflightService,
@@ -122,13 +128,13 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) 
     },
     {
       provide: LLM_CLIENT,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService): LlmClient => createLlmClient(aiEnv(config)),
+      inject: [ConfigService, LlmUsageService],
+      useFactory: (config: ConfigService, usage: LlmUsageService): LlmClient => createLlmClient(aiEnv(config), meter(usage)),
     },
     {
       provide: DECISION_CLIENT,
-      inject: [ConfigService, LLM_CLIENT],
-      useFactory: (config: ConfigService, llm: LlmClient) => createDecisionClient(aiEnv(config), llm),
+      inject: [ConfigService, LLM_CLIENT, LlmUsageService],
+      useFactory: (config: ConfigService, llm: LlmClient, usage: LlmUsageService) => createDecisionClient(aiEnv(config), llm, meter(usage)),
     },
     {
       provide: X_CLIENT,

@@ -160,6 +160,13 @@ describe('draft generation', () => {
     expect(drafts.map((d) => d.status)).toEqual(['superseded', 'pending'])
   })
 
+  it('labels the model call with the campaign and the lane of the person', async () => {
+    const p = await seed()
+    const llm = new FakeLlmClient(cannedHandler)
+    await service(llm).generate(p.id, now)
+    expect(llm.calls[0].meter).toEqual({ campaignId: p.campaignId, lane: 'search' })
+  })
+
   it('sends the prompt only the opening, verified claims and the profile', async () => {
     const p = await seed()
     await ds.getRepository(Claim).save({ prospectId: p.id, side: 'for', text: 'Seems senior', evidenceIds: [], status: 'inferred' })

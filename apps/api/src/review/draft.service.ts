@@ -5,6 +5,7 @@ import { Campaign, Prospect } from '../discovery/entities'
 import { Claim, Evidence } from '../fit/entities'
 import { JobsService } from '../jobs/jobs.service'
 import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
+import { withMeter } from '../llm/with-meter'
 import { KnownUser } from '../known/known-user.entity'
 import { Contact, DoNotContact, Draft, SenderAccount, XUser } from '../sending/entities'
 import { apiSendBlock } from '../sending/sending.service'
@@ -139,7 +140,7 @@ export class DraftService {
       profile: { intro: profile.intro, programs: [offered(profile, campaign?.programId ?? null)], signer: profile.signer },
       ...(reviewerNote && { reviewer_note: reviewerNote }),
     })
-    const asked = await this.ask(user, allowed)
+    const asked = await this.ask(withMeter(this.llm, { campaignId: prospect.campaignId, lane: prospect.source }), user, allowed)
     // The opener is made in code from the display name, never by the model, and varies by person.
     const person = await this.ds.getRepository(XUser).findOneBy({ xUserId: prospect.xUserId })
     const opener: StoredSentence = { text: greetingFor(person?.name, prospect.xUserId + (reviewerNote ?? ''), 'en', profile.frame?.greeting ?? null), source: { type: 'greeting' } }
@@ -198,10 +199,10 @@ export class DraftService {
     return parsed.data.sentences.map((s) => s.text.trim())
   }
 
-  private async ask(user: string, allowed: Set<string>): Promise<StoredSentence[]> {
+  private async ask(llm: LlmClient, user: string, allowed: Set<string>): Promise<StoredSentence[]> {
     let lastError = ''
     for (let attempt = 0; attempt < 2; attempt++) {
-      const parsed = draftOutput.safeParse(await this.llm.completeJson({ task: 'draft', system: DRAFT_SYSTEM, user }))
+      const parsed = draftOutput.safeParse(await llm.completeJson({ task: 'draft', system: DRAFT_SYSTEM, user }))
       if (parsed.success) {
         return parsed.data.sentences.map((s) => ({ text: s.text.trim(), source: cleanSource(s.source, allowed) }))
       }

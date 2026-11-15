@@ -6,6 +6,7 @@ import { Reply } from '../inbox/reply.entity'
 import { AttemptStatus, Draft, SendAttempt } from '../sending/entities'
 import { createTestDataSource } from '../test/db'
 import { seedDraft, sha } from '../test/seed'
+import { LlmUsageService } from '../llm/llm-usage.service'
 import { FunnelService } from './funnel.service'
 
 let ds: DataSource
@@ -54,11 +55,27 @@ describe('FunnelService', () => {
     await usage('post', 40_000)
     await usage('dm_event', 20_000)
     const { lanes, totalMicros } = await service.get(1)
-    expect(lanes.map((l) => [l.costMicros, l.costPerConversationMicros])).toEqual([
-      [100_000, 100_000],
-      [20_000, 20_000],
+    expect(lanes.map((l) => [l.costMicros, l.llmCostMicros, l.costPerConversationMicros])).toEqual([
+      [100_000, 0, 100_000],
+      [20_000, 0, 20_000],
     ])
     expect(totalMicros).toBe(120_000)
+  })
+
+  it('adds the model cost of each lane, and counts it in the cost per conversation', async () => {
+    await person('202', 'search', { status: 'sent', replyClass: 'Interested' })
+    await person('205', 'call', { status: 'sent', replyClass: 'Question' })
+    await usage('profile', 60_000)
+    const llm = new LlmUsageService(ds)
+    await llm.record({ model: 'gpt-5-nano', task: 'fit', inputTokens: 1_000_000, outputTokens: 0, meter: { campaignId: 1, lane: 'search' } })
+    await llm.record({ model: 'gpt-5-nano', task: 'draft', inputTokens: 2_000_000, outputTokens: 0, meter: { campaignId: 1, lane: 'call' } })
+    await llm.record({ model: 'gpt-5-nano', task: 'draft', inputTokens: 1_000_000, outputTokens: 0, meter: { campaignId: 2, lane: 'call' } })
+    const { lanes, totalMicros, llmMicros } = await service.get(1)
+    expect(lanes.map((l) => [l.costMicros, l.llmCostMicros, l.costPerConversationMicros])).toEqual([
+      [60_000, 50_000, 110_000],
+      [0, 100_000, 100_000],
+    ])
+    expect([llmMicros, totalMicros]).toEqual([150_000, 210_000])
   })
 
   it('has no cost per conversation before the first conversation', async () => {

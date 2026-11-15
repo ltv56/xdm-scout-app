@@ -24,7 +24,7 @@ export default function StatusStrip({ campaignId }: { campaignId: number | null 
         </span>
       </span>
       {b.campaignCostMicros !== null && (
-        <span title="Estimated from the calls made for this campaign. Exact figures are in the X Developer Console.">
+        <span title="Estimated from the X calls and model tokens of this campaign. Exact figures are in the X Developer Console and the model vendor's dashboard.">
           Est. cost <span className="font-semibold text-ink">{money(b.campaignCostMicros)}</span>
         </span>
       )}

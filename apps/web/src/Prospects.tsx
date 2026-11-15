@@ -202,6 +202,16 @@ const RELATIONSHIP_OPTIONS: { id: RelationshipFilter; label: string }[] = [
   { id: 'cold', label: 'Cold' },
 ]
 
+type LandsInFilter = NonNullable<Prospect['landsIn']> | 'unknown' | 'any'
+
+const LANDS_IN_OPTIONS: { id: LandsInFilter; label: string }[] = [
+  { id: 'any', label: 'All' },
+  { id: 'inbox', label: LANDS_IN_LABEL.inbox },
+  { id: 'requests', label: LANDS_IN_LABEL.requests },
+  { id: 'cant_receive', label: LANDS_IN_LABEL.cant_receive },
+  { id: 'unknown', label: 'Unknown' },
+]
+
 export type Filter = 'all' | 'ready' | 'drafted' | 'not_a_fit'
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -214,6 +224,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 export default function Prospects({ campaignId, onReview, initialFilter = 'all' }: { campaignId: number; onReview: () => void; initialFilter?: Filter }) {
   const [filter, setFilter] = useState<Filter>(initialFilter)
   const [relationship, setRelationship] = useState<RelationshipFilter>('any')
+  const [landsIn, setLandsIn] = useState<LandsInFilter>('any')
   const [sortKey, setSortKey] = useState<SortKey>('default')
   const [dir, setDir] = useState<Dir>('desc')
   const { data, error, isLoading } = useQuery<Prospect[]>({
@@ -236,7 +247,8 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
     not_a_fit: (p) => p.fit === 'not_a_fit',
   }
   const byRelationship = (p: Prospect) => relationship === 'any' || p.relationship === relationship
-  const shown = sortProspects(data.filter((p) => matches[filter](p) && byRelationship(p)), sortKey, dir)
+  const byLandsIn = (p: Prospect) => landsIn === 'any' || (p.landsIn ?? 'unknown') === landsIn
+  const shown = sortProspects(data.filter((p) => matches[filter](p) && byRelationship(p) && byLandsIn(p)), sortKey, dir)
 
   return (
     <div className="pb-16">
@@ -260,6 +272,16 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
           <span className="shrink-0 text-muted">Relationship</span>
           <select value={relationship} onChange={(e) => setRelationship(e.target.value as RelationshipFilter)} className={`${field} min-w-0 flex-1 py-1.5 sm:w-auto sm:flex-none`}>
             {RELATIONSHIP_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex w-full items-center gap-2 sm:w-auto">
+          <span className="shrink-0 text-muted" title={LANDS_IN_HINT}>Likely lands in</span>
+          <select value={landsIn} onChange={(e) => setLandsIn(e.target.value as LandsInFilter)} className={`${field} min-w-0 flex-1 py-1.5 sm:w-auto sm:flex-none`}>
+            {LANDS_IN_OPTIONS.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>

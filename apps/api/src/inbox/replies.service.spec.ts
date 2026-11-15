@@ -128,6 +128,15 @@ describe('checkNow', () => {
 })
 
 describe('read', () => {
+  it('labels the classifier call with the campaign and the lane of the person', async () => {
+    const calls: unknown[] = []
+    replies = new RepliesService(ds, x, new JobsService(ds), new FakeLlmClient((req) => (calls.push(req.meter), llmAnswer)))
+    const { contactId } = await seedSent('201', new Date('2026-11-14T00:00:00Z'))
+    x.priorMessage('201', 'Sounds good, tell me more', new Date('2026-11-14T00:40:00Z'))
+    await replies.read(contactId, new Date('2026-11-14T01:00:00Z'))
+    expect(calls).toEqual([{ campaignId: 1, lane: 'search' }])
+  })
+
   it('stores nothing when the newest message is ours, and remembers the read', async () => {
     const now = new Date('2026-11-14T01:00:00Z')
     const { contactId } = await seedSent('201', new Date('2026-11-14T00:00:00Z'))

@@ -1,3 +1,5 @@
+import type { LlmMeter } from '../llm/llm-client'
+
 export type DecisionCode = 'invitation' | 'no_sensitive' | 'no_familiarity' | 'one_person' | 'no_loaded_question' | 'claim_backed' | 'own_account'
 
 export interface DecisionAsk {
@@ -14,7 +16,8 @@ export interface DecisionAnswer extends DecisionAsk {
 }
 
 export interface DecisionClient {
-  decide(asks: DecisionAsk[]): Promise<DecisionAnswer[]>
+  // The meter says which campaign and lane pay for a model call; clients that call no metered model ignore it.
+  decide(asks: DecisionAsk[], meter?: LlmMeter): Promise<DecisionAnswer[]>
 }
 
 export class FixtureDecisionClient implements DecisionClient {

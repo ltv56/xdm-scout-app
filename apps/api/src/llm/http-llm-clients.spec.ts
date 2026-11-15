@@ -104,3 +104,35 @@ describe('AnthropicLlmClient', () => {
     })
   })
 })
+
+describe('token usage', () => {
+  it('OpenAI-compatible: reports prompt and completion tokens with the model and the meter of the request', async () => {
+    const { fetchFn } = fetchReturning(200, { choices: [{ message: { content: '{"a":1}' } }], usage: { prompt_tokens: 120, completion_tokens: 30 } })
+    const seen: unknown[] = []
+    const client = new OpenAiCompatibleLlmClient({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'gpt-5-nano' }, fetchFn, (u) => seen.push(u))
+    await client.completeJson({ ...req, meter: { campaignId: 4, lane: 'call' } })
+    expect(seen).toEqual([{ model: 'gpt-5-nano', task: 'fit', inputTokens: 120, outputTokens: 30, meter: { campaignId: 4, lane: 'call' } }])
+  })
+
+  it('Anthropic: reports input and output tokens', async () => {
+    const { fetchFn } = fetchReturning(200, { content: [{ type: 'text', text: '{"a":1}' }], usage: { input_tokens: 80, output_tokens: 12 } })
+    const seen: unknown[] = []
+    await new AnthropicLlmClient({ apiKey: 'k', model: 'claude-x' }, fetchFn, (u) => seen.push(u)).completeJson(req)
+    expect(seen).toEqual([{ model: 'claude-x', task: 'fit', inputTokens: 80, outputTokens: 12, meter: null }])
+  })
+
+  it('reports nothing when the API sends no usage, and does not fail the call', async () => {
+    const { fetchFn } = fetchReturning(200, { choices: [{ message: { content: '{"a":1}' } }] })
+    const seen: unknown[] = []
+    expect(await new OpenAiCompatibleLlmClient({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' }, fetchFn, (u) => seen.push(u)).completeJson(req)).toEqual({ a: 1 })
+    expect(seen).toEqual([])
+  })
+
+  it('a failing report does not fail the call', async () => {
+    const { fetchFn } = fetchReturning(200, { choices: [{ message: { content: '{"a":1}' } }], usage: { prompt_tokens: 1, completion_tokens: 1 } })
+    const client = new OpenAiCompatibleLlmClient({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' }, fetchFn, () => {
+      throw new Error('db down')
+    })
+    expect(await client.completeJson(req)).toEqual({ a: 1 })
+  })
+})

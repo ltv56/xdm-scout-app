@@ -5,7 +5,7 @@ import { LlmDecisionClient } from '../decisions/llm-decision-client'
 import { SystemOneDecisionClient } from '../decisions/system-one-decision-client'
 import { cannedHandler, FakeLlmClient } from './fake-llm-client'
 import { AnthropicLlmClient, OpenAiCompatibleLlmClient } from './http-llm-clients'
-import { LlmClient } from './llm-client'
+import { LlmClient, LlmUsageSink } from './llm-client'
 
 export type Keys = { google?: string; openRouter?: string; anthropic?: string; openai?: string; deepseek?: string }
 export type TextRoute = { provider: 'anthropic' | 'openai' | 'google' | 'openrouter' | 'deepseek'; model: string }
@@ -62,26 +62,26 @@ export const AI_ENV_VARS = ['GOOGLE_API_KEY', 'OPEN_ROUTER_API_KEY', 'ANTHROPIC_
 // LLM_API_KEY is the generic key; only the DeepSeek route falls back to it.
 const keysOf = (env: Env): Keys => ({ deepseek: env.DEEPSEEK_API_KEY ?? env.LLM_API_KEY, google: env.GOOGLE_API_KEY, openRouter: env.OPEN_ROUTER_API_KEY, anthropic: env.ANTHROPIC_API_KEY, openai: env.OPENAI_API_KEY })
 
-function buildLlm(route: TextRoute, keys: Keys): LlmClient {
-  if (route.provider === 'anthropic') return new AnthropicLlmClient({ apiKey: keys.anthropic ?? '', model: route.model })
+function buildLlm(route: TextRoute, keys: Keys, onUsage?: LlmUsageSink): LlmClient {
+  if (route.provider === 'anthropic') return new AnthropicLlmClient({ apiKey: keys.anthropic ?? '', model: route.model }, fetch, onUsage)
   const apiKey = ({ openai: keys.openai, google: keys.google, deepseek: keys.deepseek, openrouter: keys.openRouter }[route.provider]) ?? ''
-  return new OpenAiCompatibleLlmClient({ apiKey, model: route.model, baseUrl: BASE_URL[route.provider] })
+  return new OpenAiCompatibleLlmClient({ apiKey, model: route.model, baseUrl: BASE_URL[route.provider] }, fetch, onUsage)
 }
 
 // LLM_MODEL empty = the canned client, so the app runs without any key.
-export function createLlmClient(env: Env): LlmClient {
+export function createLlmClient(env: Env, onUsage?: LlmUsageSink): LlmClient {
   const keys = keysOf(env)
   const route = routeText(modelOf(env), keys)
-  return route ? buildLlm(route, keys) : new FakeLlmClient(cannedHandler)
+  return route ? buildLlm(route, keys, onUsage) : new FakeLlmClient(cannedHandler)
 }
 
 // DECISION_MODEL empty: ask the LLM if there is one, else answer from fixtures.
-export function createDecisionClient(env: Env, llm: LlmClient): DecisionClient {
+export function createDecisionClient(env: Env, llm: LlmClient, onUsage?: LlmUsageSink): DecisionClient {
   const keys = keysOf(env)
   const route = routeDecision(env.DECISION_MODEL ?? '', keys)
   if (!route) return modelOf(env) ? new LlmDecisionClient(llm, modelOf(env)) : new FixtureDecisionClient()
   if (route.kind === 'google-decision') return new GeminiDecisionClient({ apiKey: keys.google ?? '', model: route.model })
   if (route.kind === 'openai-decision') return new OpenAiDecisionClient({ apiKey: keys.openai ?? '', model: route.model })
   if (route.kind === 'system-one') return new SystemOneDecisionClient({ apiKey: keys.openRouter ?? '', model: route.model })
-  return new LlmDecisionClient(buildLlm(route.route, keys), route.route.model)
+  return new LlmDecisionClient(buildLlm(route.route, keys, onUsage), route.route.model)
 }

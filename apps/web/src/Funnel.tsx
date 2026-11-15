@@ -18,6 +18,7 @@ export default function Funnel({ campaignId }: { campaignId: number }) {
     ['Replied', (l) => l.replied],
     ['Conversations', (l) => l.conversations],
     ['X cost', (l) => money(l.costMicros)],
+    ['Model cost', (l) => money(l.llmCostMicros)],
     ['Per conversation', (l) => (l.costPerConversationMicros === null ? '–' : money(l.costPerConversationMicros))],
   ]
   return (
@@ -49,7 +50,7 @@ export default function Funnel({ campaignId }: { campaignId: number }) {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-muted">X cost is an estimate from the calls made for this campaign: {money(data.totalMicros)} so far. A conversation is a reply that is Interested or a Question.</p>
+      <p className="mt-2 text-xs text-muted">X cost is an estimate from the calls made for this campaign; model cost is priced from the tokens the model reported. {money(data.totalMicros)} so far, both together. A conversation is a reply that is Interested or a Question.</p>
     </section>
   )
 }

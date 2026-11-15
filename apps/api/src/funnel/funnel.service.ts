@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { ApiUsage, Prospect } from '../discovery/entities'
 import { Reply } from '../inbox/reply.entity'
+import { LlmUsageService } from '../llm/llm-usage.service'
 import { Draft, SendAttempt } from '../sending/entities'
 import type { Funnel, FunnelLane } from './contract'
 
@@ -38,6 +39,8 @@ export class FunnelService {
     const cost = { search: 0, call: 0 }
     for (const u of usage) cost[u.kind === 'dm_event' ? 'call' : 'search'] += Number(u.total)
 
+    const llm = await new LlmUsageService(this.ds).costByLane(campaignId)
+
     const lane = (name: FunnelLane['lane']): FunnelLane => {
       const mine = prospects.filter((p) => p.source === name)
       const count = (set: Set<number | null | undefined>) => mine.filter((p) => set.has(p.id)).length
@@ -51,10 +54,11 @@ export class FunnelService {
         replied: count(replied),
         conversations,
         costMicros: cost[name],
-        costPerConversationMicros: conversations ? Math.round(cost[name] / conversations) : null,
+        llmCostMicros: llm[name],
+        costPerConversationMicros: conversations ? Math.round((cost[name] + llm[name]) / conversations) : null,
       }
     }
     const lanes = [lane('search'), lane('call')].filter((l) => l.lane === 'search' || l.found > 0)
-    return { lanes, totalMicros: cost.search + cost.call }
+    return { lanes, totalMicros: cost.search + cost.call + llm.search + llm.call, llmMicros: llm.search + llm.call }
   }
 }

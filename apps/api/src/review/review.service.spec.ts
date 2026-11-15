@@ -11,6 +11,7 @@ import { hashContent } from '../sending/sending.service'
 import { Setting } from '../setting.entity'
 import { createTestDataSource } from '../test/db'
 import { FixtureDecisionClient } from '../decisions/decision-client'
+import { LlmDecisionClient } from '../decisions/llm-decision-client'
 import { reviewQueue } from './contract'
 import { DraftService } from './draft.service'
 import { ReviewController } from './review.controller'
@@ -139,6 +140,14 @@ describe('review queue', () => {
     expect(first).toMatchObject({ language: 'en', englishText: null })
     await ds.getRepository(Draft).update({ prospectId: mai.id }, { language: 'vi', englishText: 'Hi Mai!' })
     expect((await service().queue(1, now)).items[0]).toMatchObject({ language: 'vi', englishText: 'Hi Mai!' })
+  })
+
+  it('labels the decision calls with the campaign and the lane', async () => {
+    await seedPerson('mai')
+    const llm = new FakeLlmClient(() => ({ probability: 0.9 }))
+    await new ReviewService(ds, new LlmDecisionClient(llm)).queue(1, now)
+    expect(llm.calls.length).toBeGreaterThan(0)
+    expect(llm.calls.every((c) => c.meter?.campaignId === 1 && c.meter.lane === 'search')).toBe(true)
   })
 
   it('adds the model checks when a decision client is there, and none otherwise', async () => {

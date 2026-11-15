@@ -7,8 +7,11 @@ export type FunnelLane = {
   sent: number
   replied: number
   conversations: number
+  // What X billed for this lane; the model's cost is separate.
   costMicros: number
+  llmCostMicros: number
   costPerConversationMicros: number | null
 }
 
-export type Funnel = { lanes: FunnelLane[]; totalMicros: number }
+// totalMicros = X cost + model cost of the whole campaign; llmMicros is the model part.
+export type Funnel = { lanes: FunnelLane[]; totalMicros: number; llmMicros: number }

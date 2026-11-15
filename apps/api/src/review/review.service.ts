@@ -64,7 +64,8 @@ export class ReviewService {
     return Promise.all(
       shown.map(async (d) => {
         const item = this.item(d, ctx, now)
-        return this.decisions ? { ...item, decisions: await decisionsFor(this.decisions, item) } : item
+        const prospect = ctx.prospects.get(d.prospectId ?? 0)
+        return this.decisions ? { ...item, decisions: await decisionsFor(this.decisions, item, prospect && { campaignId: prospect.campaignId, lane: prospect.source }) } : item
       }),
     )
   }

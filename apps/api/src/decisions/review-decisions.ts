@@ -1,3 +1,4 @@
+import type { LlmMeter } from '../llm/llm-client'
 import { Decision, ReviewItem } from '../review/contract'
 import { bandOf } from './bands'
 import { calibrationFor } from './calibration'
@@ -32,8 +33,8 @@ function asks(item: Input): DecisionAsk[] {
   return out
 }
 
-export async function decisionsFor(client: DecisionClient, item: Input): Promise<Decision[]> {
-  const answers = await client.decide(asks(item))
+export async function decisionsFor(client: DecisionClient, item: Input, meter?: LlmMeter): Promise<Decision[]> {
+  const answers = await client.decide(asks(item), meter)
   return answers.map((a) => ({
     code: a.code,
     question: QUESTIONS[a.code].label,

@@ -53,6 +53,18 @@ afterAll(async () => {
 })
 
 describe('fit scoring', () => {
+  it('labels every model call with the campaign and the lane of the person', async () => {
+    const llm = llmWith(() => goodFit)
+    await new FitService(ds, llm).score(prospectId, now)
+    expect(llm.calls.length).toBeGreaterThan(1)
+    expect(llm.calls.every((c) => c.meter?.campaignId === 1 && c.meter.lane === 'search')).toBe(true)
+
+    await ds.getRepository(Prospect).update(prospectId, { source: 'call' })
+    const again = llmWith(() => goodFit)
+    await new FitService(ds, again).score(prospectId, now)
+    expect(again.calls.every((c) => c.meter?.lane === 'call')).toBe(true)
+  })
+
   it('stores the label, role, areas and opening, and marks claims Verified only when the cited evidence exists and a second check supports them', async () => {
     const llm = llmWith(() => goodFit, (claim) => claim !== 'Is hiring ML engineers')
     await new FitService(ds, llm).score(prospectId, now)
