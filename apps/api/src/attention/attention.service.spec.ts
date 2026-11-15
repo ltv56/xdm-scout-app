@@ -85,6 +85,23 @@ describe('AttentionService', () => {
     expect(items[0].goTo).toBe('inbox')
   })
 
+  it('lists a stop the model decided as one to confirm, and not one a rule or the operator decided', async () => {
+    const a = await seedAttempt('201', 'sent')
+    const b = await seedAttempt('202', 'sent')
+    const c = await seedAttempt('203', 'sent')
+    await reply(a, 'not for us', 'Not interested')
+    await reply(b, "please don't reach out again", 'Opt-out')
+    await reply(c, 'stop', 'Opt-out', { classBy: 'rule' })
+    const items = await service.list(1, NOW)
+    expect(items.map((i) => [i.kind, i.title, i.priority])).toEqual([
+      ['confirm_stop', 'u202', 1],
+      ['confirm_stop', 'u201', 2],
+    ])
+    expect(items[0].reason).toContain('Looks like a request to stop')
+    expect(items[1].reason).toContain('Looks like a decline')
+    expect(items[0].goTo).toBe('inbox')
+  })
+
   it('lists sends to check in X and failed sends with their reason', async () => {
     await seedAttempt('201', 'manual_unverified')
     await seedAttempt('202', 'needs_decision')

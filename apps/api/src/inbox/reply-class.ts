@@ -11,6 +11,10 @@ export const ENDS_CONTACT: ReplyClass[] = ['Not interested', 'Opt-out']
 // Nothing for the operator to do.
 export const NO_ACTION: ReplyClass[] = ['Not now', ...ENDS_CONTACT]
 
+// A stop the model decided is not closed or acted on until a person confirms it; Not now and rule-decided classes close themselves.
+export const closesItself = (replyClass: ReplyClass, classBy: ClassBy) => NO_ACTION.includes(replyClass) && (replyClass === 'Not now' || classBy !== 'llm')
+export const needsStopConfirm = (replyClass: ReplyClass | null, classBy: ClassBy | null) => replyClass !== null && ENDS_CONTACT.includes(replyClass) && classBy === 'llm'
+
 // Runs before the model so a wrong label never loses a stop request. "stop" alone is too wide ("can't stop thinking about it").
 const OPT_OUT =
   /\b(unsubscribe|remove me|take me off|leave me alone)\b|\b(stop|quit)\s+(messag|contact|dm|writ|send|spam|email|pitch)|\b(don.?t|do not|never)\s+(message|contact|dm|write|text|email)\b|^\W*stop\b(?!\s+by)|\bplease stop\b(?!\s+by)/i

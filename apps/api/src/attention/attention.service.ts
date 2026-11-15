@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { DataSource, In, IsNull, Not } from 'typeorm'
 import { Campaign, Prospect } from '../discovery/entities'
 import { InboxService } from '../inbox/inbox.service'
-import { NO_ACTION } from '../inbox/reply-class'
+import { needsStopConfirm, NO_ACTION } from '../inbox/reply-class'
 import { PreflightService } from '../preflight/preflight.service'
 import { Evidence } from '../fit/entities'
 import { Contact, Draft, SendAttempt, XUser } from '../sending/entities'
@@ -46,16 +46,28 @@ export class AttentionService {
   private async people(campaignId: number): Promise<AttentionItem[]> {
     const { replies, toCheck } = await this.inbox.checks(campaignId)
     const fromReplies = replies
-      .filter((r) => !r.handled && !(r.replyClass && NO_ACTION.includes(r.replyClass)))
-      .map<AttentionItem>((r) => ({
-        id: `reply-${r.replyId}`,
-        kind: 'reply',
-        priority: r.replyClass === 'Interested' ? 1 : 2,
-        title: r.handle,
-        reason: `${r.replyClass ?? 'Not sorted'}: ${r.theirText ? short(r.theirText) : 'replied in an encrypted chat'}`,
-        since: r.at,
-        goTo: 'inbox',
-      }))
+      .filter((r) => !r.handled && (needsStopConfirm(r.replyClass, r.classBy) || !(r.replyClass && NO_ACTION.includes(r.replyClass))))
+      .map<AttentionItem>((r) =>
+        needsStopConfirm(r.replyClass, r.classBy)
+          ? {
+              id: `reply-${r.replyId}`,
+              kind: 'confirm_stop',
+              priority: r.replyClass === 'Opt-out' ? 1 : 2,
+              title: r.handle,
+              reason: `${r.replyClass === 'Opt-out' ? 'Looks like a request to stop' : 'Looks like a decline'}: ${r.theirText ? short(r.theirText) : 'replied in an encrypted chat'} Confirm to put them on Do not contact.`,
+              since: r.at,
+              goTo: 'inbox',
+            }
+          : {
+              id: `reply-${r.replyId}`,
+              kind: 'reply',
+              priority: r.replyClass === 'Interested' ? 1 : 2,
+              title: r.handle,
+              reason: `${r.replyClass ?? 'Not sorted'}: ${r.theirText ? short(r.theirText) : 'replied in an encrypted chat'}`,
+              since: r.at,
+              goTo: 'inbox',
+            },
+      )
     const fromChecks = toCheck.map<AttentionItem>((c) => ({
       id: `check-${c.attemptId}`,
       kind: 'check',

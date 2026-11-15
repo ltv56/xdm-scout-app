@@ -7,7 +7,7 @@ import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
 import { addDoNotContact } from '../dnc/add-do-not-contact'
 import { Contact, Draft, SendAttempt } from '../sending/entities'
 import { X_CLIENT, XClient } from '../x/x-client'
-import { classifyReply, ENDS_CONTACT, NO_ACTION } from './reply-class'
+import { classifyReply, closesItself, ENDS_CONTACT } from './reply-class'
 import { Reply } from './reply.entity'
 
 const MIN = 60_000
@@ -79,10 +79,11 @@ export class RepliesService {
           .createQueryBuilder()
           .insert()
           .into(Reply)
-          .values({ contactId, attemptId: p.attemptId, xEventId: newest.eventId, text: newest.text, source: 'api', at: newest.createdAt, replyClass, classBy, handledAt: NO_ACTION.includes(replyClass) ? now : null })
+          .values({ contactId, attemptId: p.attemptId, xEventId: newest.eventId, text: newest.text, source: 'api', at: newest.createdAt, replyClass, classBy, handledAt: closesItself(replyClass, classBy) ? now : null })
           .orIgnore()
           .execute()
-        if (res.raw.affectedRows && ENDS_CONTACT.includes(replyClass)) {
+        // Only the keyword rule blocks a person on its own; a stop the model decided waits for a person to confirm it.
+        if (res.raw.affectedRows && classBy === 'rule' && ENDS_CONTACT.includes(replyClass)) {
           await addDoNotContact(em, { xUserId: p.xUserId, reason: `Replied: ${replyClass}`, source: 'reply' })
         }
       })

@@ -119,3 +119,27 @@ test('Inbox: Check now reads the open chats, and "They replied" records a reply 
   await replies.getByRole('button', { name: 'Check now' }).click()
   await expect(replies.getByRole('status')).toHaveText('No chats to check')
 })
+
+async function clearDoNotContact() {
+  const db = await createConnection(E2E_DATABASE_URL)
+  try {
+    await db.query('DELETE FROM do_not_contact')
+  } finally {
+    await db.end()
+  }
+}
+
+test('Inbox: a decline the model decided waits for a person before the sender is blocked', async ({ page }) => {
+  await clearDoNotContact()
+  await storeReply('Not for us, thanks', 'e2e-3', 'Not interested', 'llm')
+  await openInbox(page)
+
+  const reply = page.getByRole('region', { name: /^Replies/ }).getByRole('listitem').filter({ hasText: 'Not for us, thanks' })
+  await expect(reply.getByText('Looks like a decline.')).toBeVisible()
+  await expect(reply.getByText('Do not contact', { exact: true })).toHaveCount(0)
+
+  await reply.getByRole('button', { name: 'Confirm: put on Do not contact' }).click()
+  await expect(reply.getByText('Do not contact', { exact: true })).toBeVisible()
+  await expect(reply.getByText('Handled', { exact: true })).toBeVisible()
+  await expect(reply.getByRole('button', { name: 'Confirm: put on Do not contact' })).toHaveCount(0)
+})
