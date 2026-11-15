@@ -3,6 +3,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { Evidence } from '../fit/entities'
+import { Reply } from '../inbox/reply.entity'
 import { Job } from '../jobs/job.entity'
 import { Setting } from '../setting.entity'
 import { JobsService } from '../jobs/jobs.service'
@@ -275,6 +276,64 @@ describe('processAttempt with quoted posts', () => {
     expect(attempt.status).toBe('failed')
     expect(attempt.error).toContain('Could not check the posts this message quotes')
     expect(x.sendCalls).toBe(0)
+  })
+})
+
+describe('unconfirmed stop', () => {
+  const MSG = 'Confirm or dismiss their reply first'
+  const stopReply = (contactId: number, patch: Partial<Reply> = {}) =>
+    ds.getRepository(Reply).save({ contactId, attemptId: 0, xEventId: `r${Math.random()}`, text: 'no thanks', source: 'api', at: new Date(), replyClass: 'Not interested', classBy: 'llm', ...patch } as Reply)
+
+  it('approve refuses while a model-decided stop is unconfirmed', async () => {
+    const draft = await seedDraft()
+    await stopReply(draft.contactId)
+    await expect(service.approve(draft.id, sha(draft.content))).rejects.toThrow(MSG)
+    expect(await ds.getRepository(SendAttempt).count()).toBe(0)
+  })
+
+  it('approve also refuses the by-hand route', async () => {
+    const draft = await seedDraft()
+    await stopReply(draft.contactId, { replyClass: 'Opt-out' })
+    await expect(service.approve(draft.id, sha(draft.content), 'manual')).rejects.toThrow(MSG)
+  })
+
+  it('send refuses when the stop arrived after approval', async () => {
+    const draft = await seedDraft()
+    await service.approve(draft.id, sha(draft.content))
+    await stopReply(draft.contactId)
+    await expect(service.send(draft.id, sha(draft.content))).rejects.toThrow(MSG)
+    expect(await sendJobs()).toBe(0)
+  })
+
+  it('processAttempt cancels an attempt queued before the stop arrived', async () => {
+    const draft = await seedDraft()
+    const { attemptId } = await queued(draft)
+    await stopReply(draft.contactId)
+    await service.processAttempt(attemptId)
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'cancelled', error: MSG })
+    expect((await ds.getRepository(Contact).findOneByOrFail({ id: draft.contactId })).activeAttemptId).toBeNull()
+    expect(x.sendCalls).toBe(0)
+  })
+
+  it('confirming the stop lifts the block', async () => {
+    const draft = await seedDraft()
+    const reply = await stopReply(draft.contactId)
+    await ds.getRepository(Reply).update(reply.id, { classBy: 'operator' })
+    await expect(service.approve(draft.id, sha(draft.content))).resolves.toBeDefined()
+  })
+
+  it('marking the reply handled lifts the block', async () => {
+    const draft = await seedDraft()
+    const reply = await stopReply(draft.contactId)
+    await ds.getRepository(Reply).update(reply.id, { handledAt: new Date() })
+    await expect(service.approve(draft.id, sha(draft.content))).resolves.toBeDefined()
+  })
+
+  it('a rule-decided or Not now reply does not block', async () => {
+    const draft = await seedDraft()
+    await stopReply(draft.contactId, { classBy: 'rule' })
+    await stopReply(draft.contactId, { replyClass: 'Not now' })
+    await expect(service.approve(draft.id, sha(draft.content))).resolves.toBeDefined()
   })
 })
 

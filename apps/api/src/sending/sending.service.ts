@@ -1,8 +1,10 @@
 import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { createHash } from 'node:crypto'
-import { DataSource, EntityManager, LessThan } from 'typeorm'
+import { DataSource, EntityManager, IsNull, LessThan } from 'typeorm'
 import { Prospect } from '../discovery/entities'
 import { citedPostIds, DELETED_POST_REASON, recheckEvidence } from '../fit/evidence-recheck'
+import { Reply } from '../inbox/reply.entity'
+import { needsStopConfirm } from '../inbox/reply-class'
 import { JobsService } from '../jobs/jobs.service'
 import { DmMessage, SendDmResult, X_CLIENT, XClient, XRateLimitError, XUncertainError } from '../x/x-client'
 import { dailyCap, ensureCapLock, lockCap, usedToday } from './daily-cap'
@@ -10,6 +12,7 @@ import { Contact, DoNotContact, Draft, SendAttempt } from './entities'
 
 export const hashContent = (content: string) => createHash('sha256').update(content).digest('hex')
 
+const STOP_UNCONFIRMED = 'Confirm or dismiss their reply first'
 const STALE_SENDING_MS = 60_000
 const RECONCILE_EVERY_MS = 60_000
 const RECONCILE_GIVE_UP_MS = 10 * 60_000
@@ -90,8 +93,15 @@ export class SendingService {
     if (await em.exists(DoNotContact, { where: { xUserId: contact.xUserId } })) {
       throw new ForbiddenException('Recipient is on Do not contact')
     }
+    if (await this.hasUnconfirmedStop(em, contact.id)) throw new ConflictException(STOP_UNCONFIRMED)
     const blocked = route === 'api' ? apiSendBlock(contact, new Date()) : null
     if (blocked) throw new ForbiddenException(blocked)
+  }
+
+  // A stop the model decided has no effect until a person confirms it, but nothing new goes out meanwhile.
+  private async hasUnconfirmedStop(em: EntityManager, contactId: number) {
+    const replies = await em.find(Reply, { where: { contactId, handledAt: IsNull() } })
+    return replies.some((r) => needsStopConfirm(r.replyClass, r.classBy))
   }
 
   async processAttempt(attemptId: number, now = new Date()): Promise<void> {
@@ -109,6 +119,9 @@ export class SendingService {
     }
     if (await this.ds.getRepository(DoNotContact).existsBy({ xUserId: contact.xUserId })) {
       return this.release(attempt, contact.id, 'cancelled', 'Recipient is on Do not contact')
+    }
+    if (await this.hasUnconfirmedStop(this.ds.manager, contact.id)) {
+      return this.release(attempt, contact.id, 'cancelled', STOP_UNCONFIRMED)
     }
     const blocked = apiSendBlock(contact, now)
     if (blocked) return this.release(attempt, contact.id, 'cancelled', blocked)
