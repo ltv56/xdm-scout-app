@@ -25,6 +25,11 @@ describe('sender profile', () => {
     expect(await controller.get()).toBeNull()
   })
 
+  // A null answer is an empty HTTP body, which the web app cannot read as JSON, so the form never opened on a fresh install.
+  it('answers an empty profile to the web app before the first save', async () => {
+    expect(await controller.read()).toEqual({ intro: '', programs: [], signer: '', sampleMessages: [] })
+  })
+
   it('saves and reads back the profile', async () => {
     expect(await controller.save(profile)).toEqual(profile)
     expect(senderProfile.parse(await controller.get())).toEqual(profile)
