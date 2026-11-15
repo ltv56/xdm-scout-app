@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { CampaignLane, ReadyToDraft, ReviewQueue, SenderProfile, WriteDraftsResult } from '../../api/src/review/contract'
 import { getJson, postJson } from './api'
 import Funnel from './Funnel'
+import ReviewSummary from './ReviewSummary'
 import FitBadge from './FitBadge'
 import NeedsAttention from './NeedsAttention'
 import type { Filter as CandidateFilter, Prospect } from './Prospects'
@@ -307,6 +308,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo }: { 
       </section>
 
       <Funnel campaignId={campaignId} />
+      <ReviewSummary campaignId={campaignId} />
     </div>
   )
 }

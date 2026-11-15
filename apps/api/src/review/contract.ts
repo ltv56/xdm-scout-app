@@ -229,3 +229,6 @@ export type SkipBody = z.infer<typeof skipBody>
 export type RegenerateBody = z.infer<typeof regenerateBody>
 export type ManualBody = z.infer<typeof manualBody>
 export type ApproveResult = z.infer<typeof approveResult>
+
+// What reviewers did to the AI's drafts in one campaign. A skip reason is a SkipReason; 'other' when none was given.
+export type ReviewSummary = { approved: number; edited: number; skipped: { reason: string; count: number }[] }

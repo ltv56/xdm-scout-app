@@ -324,7 +324,7 @@ describe('dismissing a person', () => {
     expect(await service().ready(1, now)).toHaveLength(0)
     const signals = await ds.getRepository(ReviewSignal).find()
     expect(signals).toHaveLength(1)
-    expect(signals[0]).toMatchObject({ action: 'dismiss', reason: 'weak_opening' })
+    expect(signals[0]).toMatchObject({ action: 'dismiss', reason: 'weak_opening', campaignId: 1 })
     expect(JSON.stringify(signals[0])).not.toContain('u-mai')
   })
 

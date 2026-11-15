@@ -1,5 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common'
 import { DataSource, EntityManager, In } from 'typeorm'
+import { Prospect } from '../discovery/entities'
 import { addDoNotContact } from '../dnc/add-do-not-contact'
 import { Contact, Draft, SendAttempt } from '../sending/entities'
 import { hashContent, SendingService } from '../sending/sending.service'
@@ -143,8 +144,10 @@ export class ReviewActionsService {
     }
   }
 
-  private signal(action: SignalAction, draft: Draft, extra: { reason?: string | null; note?: string | null; finalText?: string | null }) {
+  private async signal(action: SignalAction, draft: Draft, extra: { reason?: string | null; note?: string | null; finalText?: string | null }) {
+    const prospect = draft.prospectId === null ? null : await this.ds.getRepository(Prospect).findOneBy({ id: draft.prospectId })
     return this.ds.getRepository(ReviewSignal).save({
+      campaignId: prospect?.campaignId ?? null,
       action,
       reason: extra.reason ?? null,
       note: extra.note ?? null,
