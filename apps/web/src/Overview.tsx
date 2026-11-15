@@ -129,7 +129,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo }: { 
           <p className="mt-1 text-sm text-muted">
             {sources || 'No sources yet'} · {run ? `last search ${ago(run.at)}` : 'no search yet'}
           </p>
-          <LaneLine lane={c} />
+          <LaneLine lane={c} campaignId={campaignId} />
         </div>
         <div>
           <button type="button" className={btnSecondary} disabled={search.isPending || waiting} onClick={() => search.mutate()}>
@@ -316,7 +316,12 @@ export default function Overview({ campaignId, onReview, onProspects, onGo }: { 
 const shortDay = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 
 // The program this campaign offers and its call post.
-function LaneLine({ lane: l }: { lane: CampaignLane }) {
+function LaneLine({ lane: l, campaignId }: { lane: CampaignLane; campaignId: number }) {
+  const qc = useQueryClient()
+  const check = useMutation({
+    mutationFn: () => postJson<{ attached: number; read: number; costMicros: number }>(`/campaigns/${campaignId}/inbound/check`),
+    onSuccess: () => Promise.all(['prospects', 'top-bar', 'funnel'].map((key) => qc.invalidateQueries({ queryKey: [key] }))),
+  })
   const profile = useQuery<SenderProfile>({ queryKey: ['sender-profile'], queryFn: () => getJson('/sender-profile'), retry: false })
   const program = profile.data?.programs.find((p) => p.id === l.programId)
   return (
@@ -329,6 +334,20 @@ function LaneLine({ lane: l }: { lane: CampaignLane }) {
             Call post
           </a>{' '}
           of {shortDay(l.callPostedAt)}, keyword “{l.callKeyword}”
+          {' · '}
+          <button type="button" className={btnLink} disabled={check.isPending} onClick={() => check.mutate()} title="Reads up to 10 recent DMs, about $0.01 each. The worker also checks every 30 minutes.">
+            Check now
+          </button>
+          {check.data && (
+            <span role="status" className="ml-2">
+              {check.data.attached === 0 ? 'No new answers' : `${check.data.attached} new ${check.data.attached === 1 ? 'answer' : 'answers'}`} · {check.data.read} read, {money(check.data.costMicros)}
+            </span>
+          )}
+          {check.error && (
+            <span role="alert" className="ml-2 font-medium text-block">
+              {check.error.message}
+            </span>
+          )}
         </>
       )}
     </p>

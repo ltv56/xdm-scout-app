@@ -7,6 +7,7 @@ const WHAT: Record<ActivityRow['kind'], string> = {
   dnc_added: 'Put on Do not contact',
   dnc_removed: 'Taken off Do not contact',
   known_added: 'Added to Known to the fund',
+  cap_changed: 'Daily send cap changed',
   known_removed: 'Removed from Known to the fund',
 }
 

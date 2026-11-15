@@ -5,6 +5,7 @@ import { DiscoveryService } from '../discovery/discovery.service'
 import { Campaign, Prospect } from '../discovery/entities'
 import { DraftService } from '../review/draft.service'
 import { FitService } from '../fit/fit.service'
+import { InboundLaneService } from '../inbound/inbound-lane.service'
 import { RepliesService } from '../inbox/replies.service'
 import { Job } from '../jobs/job.entity'
 import { cannedHandler, FakeLlmClient } from '../llm/fake-llm-client'
@@ -13,7 +14,7 @@ import { createTestDataSource } from '../test/db'
 import { seedDraft, sha } from '../test/seed'
 import { FakeXClient } from '../x/fake-x-client'
 import { XRateLimitError } from '../x/x-client'
-import { Contact, DoNotContact, SendAttempt } from './entities'
+import { Contact, DoNotContact, SendAttempt, SenderAccount } from './entities'
 import { SendingService } from './sending.service'
 import { Worker } from './worker'
 
@@ -32,7 +33,7 @@ beforeEach(async () => {
   x = new FakeXClient()
   const jobs = new JobsService(ds)
   service = new SendingService(ds, x, jobs)
-  worker = new Worker(jobs, service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), jobs), new RepliesService(ds, x, jobs, new FakeLlmClient(cannedHandler)))
+  worker = new Worker(jobs, service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), jobs), new RepliesService(ds, x, jobs, new FakeLlmClient(cannedHandler)), new InboundLaneService(ds, x, jobs))
 })
 
 afterAll(async () => {
@@ -62,7 +63,7 @@ describe('worker', () => {
 
   it('two workers racing on one job send one DM', async () => {
     await approve()
-    const other = new Worker(new JobsService(ds), service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), new JobsService(ds)), new RepliesService(ds, x, new JobsService(ds), new FakeLlmClient(cannedHandler)))
+    const other = new Worker(new JobsService(ds), service, new DiscoveryService(ds, x), new FitService(ds, new FakeLlmClient(cannedHandler)), new DraftService(ds, new FakeLlmClient(cannedHandler), new JobsService(ds)), new RepliesService(ds, x, new JobsService(ds), new FakeLlmClient(cannedHandler)), new InboundLaneService(ds, x, new JobsService(ds)))
     await Promise.all([worker.tick(new Date()), other.tick(new Date())])
     expect(x.sent).toHaveLength(1)
   })
@@ -249,5 +250,15 @@ describe('send outcomes', () => {
     expect(attempt.status).toBe('cancelled')
     expect(x.sendCalls).toBe(0)
     expect((await contactOf(attempt.contactId)).activeAttemptId).toBeNull()
+  })
+
+  it('an inbound_check job attaches the call DMs of its campaign', async () => {
+    await ds.getRepository(SenderAccount).save({ id: 1, xUserId: '100', handle: 'fund' })
+    const c = await ds.getRepository(Campaign).save({ name: 'c', keywords: [], handles: [], callKeyword: 'build', callPostedAt: new Date('2026-11-10T09:00:00Z') })
+    x.addInboundDm({ senderId: '200', handle: 'mina_builds', text: 'build', createdAt: new Date('2026-11-11T10:00:00Z') })
+    await new JobsService(ds).enqueue('inbound_check', { campaignId: c.id }, new Date())
+    expect(await worker.tick(new Date())).toBe(true)
+    expect(await ds.getRepository(Prospect).countBy({ campaignId: c.id, source: 'call' })).toBe(1)
+    expect((await ds.getRepository(Job).findOneByOrFail({ type: 'inbound_check' })).status).toBe('done')
   })
 })

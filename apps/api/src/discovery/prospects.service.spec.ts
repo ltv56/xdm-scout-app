@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { Claim, Evidence } from '../fit/entities'
-import { XUser } from '../sending/entities'
+import { Contact, SenderAccount, XUser } from '../sending/entities'
 import { createTestDataSource } from '../test/db'
 import { Campaign, Prospect, XPost } from './entities'
 import { ProspectsService } from './prospects.service'
@@ -109,5 +109,20 @@ describe('likely lands in', () => {
     await seen('1', true, { fit: 'strong' })
     await seen('2', false, { fit: 'weak', relationship: 'follower' })
     expect((await new ProspectsService(ds).list(1, now)).map((p) => p.handle)).toEqual(['u2', 'u1'])
+  })
+
+  it('shows the call DM of a call prospect and whether its invitation is confirmed', async () => {
+    await ds.getRepository(SenderAccount).save({ id: 1, xUserId: '100', handle: 'fund' })
+    const at = daysAgo(2)
+    await addProspect('1', { source: 'call', callEventId: 'in-1', callText: 'build', callAt: at })
+    await addProspect('2', { source: 'call', callEventId: 'in-2', callText: 'build too', callAt: at })
+    await addProspect('3')
+    await ds.getRepository(Contact).save({ senderAccountId: 1, xUserId: '1', relationshipContext: 'messaged_us' })
+    await ds.getRepository(Contact).save({ senderAccountId: 1, xUserId: '2', relationshipContext: 'messaged_us', recipientPermission: 'requested_dm', invitationEventId: 'in-2', invitationAt: at })
+
+    const byHandle = new Map((await new ProspectsService(ds).list(1, now)).map((p) => [p.handle, p.call]))
+    expect(byHandle.get('u1')).toEqual({ text: 'build', at, invitationConfirmed: false })
+    expect(byHandle.get('u2')).toEqual({ text: 'build too', at, invitationConfirmed: true })
+    expect(byHandle.get('u3')).toBeNull()
   })
 })

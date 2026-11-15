@@ -29,6 +29,7 @@ export interface Prospect {
   areas: string[]
   identityWarning: boolean
   landsIn: 'inbox' | 'requests' | 'cant_receive' | null
+  call: { text: string; at: string; invitationConfirmed: boolean } | null
   fundList: { name: string; kind: 'known' | 'warm'; event: string | null } | null
   opening: { type: string; summary: string | null; freshness: 'fresh' | 'stale' | 'expired'; url: string | null; date: string } | null
   claims: Claim[]
@@ -77,6 +78,36 @@ function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; camp
           {make.error.message}
         </span>
       )}
+    </div>
+  )
+}
+
+// A call-post answer: their DM is the invitation, but only the operator's click makes it count for sending.
+function InvitationControl({ p, campaignId }: { p: Prospect & { call: NonNullable<Prospect['call']> }; campaignId: number }) {
+  const qc = useQueryClient()
+  const confirm = useMutation({
+    mutationFn: () => postJson(`/campaigns/${campaignId}/prospects/${p.id}/invitation`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prospects', campaignId] }),
+  })
+  return (
+    <div className="mt-3 text-sm">
+      <p>
+        <span className="font-semibold">Their answer to your call post:</span> <span className="wrap-anywhere">“{p.call.text}”</span>
+      </p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {p.call.invitationConfirmed ? (
+          <span className="font-semibold text-ok">Invitation confirmed</span>
+        ) : (
+          <button type="button" className={btnSecondary} disabled={confirm.isPending} onClick={() => confirm.mutate()}>
+            Confirm invitation
+          </button>
+        )}
+        {confirm.error && (
+          <span role="alert" className="font-medium text-block">
+            {confirm.error.message}
+          </span>
+        )}
+      </p>
     </div>
   )
 }
@@ -310,6 +341,7 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
               <p className="mt-3 text-sm font-semibold text-muted">Dismissed</p>
             ) : (
               <>
+                {p.call && <InvitationControl p={{ ...p, call: p.call }} campaignId={campaignId} />}
                 <DraftControl p={p} campaignId={campaignId} inReview={inReview.has(p.handle)} onReview={onReview} />
                 {!inReview.has(p.handle) && (
                   <div className="mt-2">

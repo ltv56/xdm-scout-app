@@ -45,6 +45,8 @@ import { ReviewSummaryService } from './review/review-summary.service'
 import { ReviewService } from './review/review.service'
 import { SenderProfileController } from './review/sender-profile.controller'
 import { SendingService } from './sending/sending.service'
+import { SendSettingsController } from './sending/send-settings.controller'
+import { SendSettingsService } from './sending/send-settings.service'
 import { Worker } from './sending/worker'
 import { FakeXClient } from './x/fake-x-client'
 import { LiveXClient } from './x/live-x-client'
@@ -77,6 +79,7 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) 
     InboundLaneController,
     FunnelController,
     ActivityController,
+    SendSettingsController,
     ReviewSummaryController,
   ],
   providers: [
@@ -110,6 +113,7 @@ const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) 
     InboundLaneService,
     FunnelService,
     ActivityService,
+    SendSettingsService,
     ReviewSummaryService,
     {
       provide: PreflightService,

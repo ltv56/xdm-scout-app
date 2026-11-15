@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PreflightRow, PreflightStatus } from '../../api/src/preflight/contract'
 import { getJson } from './api'
+import DailyCap from './DailyCap'
 import DoNotContactList from './DoNotContactList'
 import KnownList from './KnownList'
 import { btnSecondary } from './ui'
@@ -49,6 +50,7 @@ export default function Settings() {
           ))}
         </ul>
       </section>
+      <DailyCap />
       <KnownList />
       <DoNotContactList />
     </div>
