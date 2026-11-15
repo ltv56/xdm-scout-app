@@ -6,7 +6,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true
   },
@@ -72,7 +72,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true
   },
@@ -138,7 +138,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true
   },
@@ -204,7 +204,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true
   },
@@ -1106,7 +1106,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1154,7 +1154,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1190,7 +1190,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1214,7 +1214,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1238,7 +1238,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1250,7 +1250,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1274,7 +1274,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1322,7 +1322,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1346,7 +1346,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1394,7 +1394,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1430,7 +1430,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1454,7 +1454,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1478,7 +1478,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1490,7 +1490,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1514,7 +1514,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -1562,7 +1562,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -3170,7 +3170,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -3182,7 +3182,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2
@@ -3386,7 +3386,7 @@
     "labels": {
       "invitation": true,
       "opt_out": false,
-      "reply_class": "Interested|Question"
+      "reply_class": "Interested"
     },
     "reviewed": true,
     "batch": 2

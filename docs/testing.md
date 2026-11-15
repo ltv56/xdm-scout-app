@@ -255,8 +255,13 @@ Measures `classifyReply` on the 196 DMs in `fixtures/eval/dms.json` that have a 
 cd apps/api
 npx tsc -p tsconfig.build.json
 node scripts/eval-replies.cjs                                   # dry run with the canned client
-LLM_MODEL=deepseek-chat DEEPSEEK_API_KEY=... node scripts/eval-replies.cjs --out report.md
+LLM_MODEL=deepseek-chat DEEPSEEK_API_KEY=... node scripts/eval-replies.cjs --half tune --out report.md
 ```
+
+- `--half tune|report|all`: the set has near-duplicates (the same DM with Thanks!, Cheers or a name added), so DMs are grouped into families (same label, text at least 85% alike once trailing courtesy is stripped) and the families alternate between tune and report inside each label. Change the prompt while looking at `tune` only, then run `report` once and quote that number.
+- Only the tune half lists its wrong DMs (id, group, label, answer, what the model said and how sure it was). The report half prints accuracy and the confusion table only.
+- The model does not answer identically on every run, so measure the baseline of the tune half twice before judging a prompt change.
+- `--mixed [--similar 0.6]` prints, without calling a model, the families whose DMs carry different labels. `--dist dist-old` runs a copy of the build made before a prompt change, so the old and new prompt can be compared on the same labels. `--set other.json` runs another set in the same format once and prints accuracy and the confusion table only; add `--list-wrong` to list its wrong DMs, which ends its use as a blind check.
 
 - A model name starting with `deepseek` uses `DEEPSEEK_API_KEY`, else `LLM_API_KEY`.
 - The dry run answers Unclear for everything the opt-out rule does not catch.

@@ -29,13 +29,22 @@ Answer with one JSON object: {"class": one of the classes above, "probability": 
 
 const answer = z.object({ class: z.enum(REPLY_CLASSES), probability: z.number().min(0).max(1) })
 
-export async function classifyReply(llm: LlmClient, text: string): Promise<{ replyClass: ReplyClass; classBy: ClassBy }> {
-  if (optOutRule(text)) return { replyClass: 'Opt-out', classBy: 'rule' }
+export type ReplyVerdict = { replyClass: ReplyClass; classBy: ClassBy }
+// said and probability are the model's own answer before the threshold; null when a rule decided or the answer was unusable.
+export type DetailedVerdict = ReplyVerdict & { said: ReplyClass | null; probability: number | null }
+
+export async function classifyReplyDetailed(llm: LlmClient, text: string): Promise<DetailedVerdict> {
+  if (optOutRule(text)) return { replyClass: 'Opt-out', classBy: 'rule', said: null, probability: null }
   for (let attempt = 0; attempt < 2; attempt++) {
     const parsed = answer.safeParse(await llm.completeJson({ task: 'reply', system: SYSTEM, user: JSON.stringify({ input: text }) }))
     if (!parsed.success) continue
     const sure = parsed.data.probability >= DEFAULT_THRESHOLDS.high
-    return { replyClass: sure ? parsed.data.class : 'Unclear', classBy: 'llm' }
+    return { replyClass: sure ? parsed.data.class : 'Unclear', classBy: 'llm', said: parsed.data.class, probability: parsed.data.probability }
   }
-  return { replyClass: 'Unclear', classBy: 'llm' }
+  return { replyClass: 'Unclear', classBy: 'llm', said: null, probability: null }
+}
+
+export async function classifyReply(llm: LlmClient, text: string): Promise<ReplyVerdict> {
+  const { replyClass, classBy } = await classifyReplyDetailed(llm, text)
+  return { replyClass, classBy }
 }
