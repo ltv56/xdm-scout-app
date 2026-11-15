@@ -48,7 +48,7 @@ const SEGMENTS = [
   { key: 'unscored', label: 'Not scored yet', bar: 'bg-raised ring-1 ring-inset ring-rule' },
 ] as const
 
-export default function Overview({ campaignId, onReview, onProspects, onGo }: { campaignId: number; onReview: () => void; onProspects: (filter: CandidateFilter) => void; onGo: (page: 'inbox' | 'profile' | 'overview') => void }) {
+export default function Overview({ campaignId, onReview, onProspects, onGo }: { campaignId: number; onReview: () => void; onProspects: (filter: CandidateFilter) => void; onGo: (page: 'inbox' | 'profile' | 'overview' | 'review') => void }) {
   const qc = useQueryClient()
   const [waitingFor, setWaitingFor] = useState<{ at: string | null } | null>(null)
   const [note, setNote] = useState<string | null>(null)

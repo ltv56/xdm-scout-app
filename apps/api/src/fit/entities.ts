@@ -23,6 +23,10 @@ export class Evidence {
 
   @Column({ type: 'datetime', precision: 3 })
   fetchedAt!: Date
+
+  // Set when X no longer has the post; the excerpt is cleared with it.
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  deletedAt!: Date | null
 }
 
 export type ClaimSide = 'for' | 'against' | 'unknown'

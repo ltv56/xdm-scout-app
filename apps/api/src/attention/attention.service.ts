@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common'
-import { DataSource } from 'typeorm'
+import { DataSource, In, IsNull, Not } from 'typeorm'
 import { Campaign, Prospect } from '../discovery/entities'
 import { InboxService } from '../inbox/inbox.service'
 import { NO_ACTION } from '../inbox/reply-class'
 import { PreflightService } from '../preflight/preflight.service'
+import { Evidence } from '../fit/entities'
 import { Contact, Draft, SendAttempt, XUser } from '../sending/entities'
+import type { StoredSentence } from '../review/checks'
 import type { AttentionItem } from './contract'
+
+const OUTSIDE_REPLY = 'Someone already replied outside xdm-scout'
 
 const usd = (micros: number) => `$${(micros / 1_000_000).toFixed(2)}`
 const short = (text: string) => (text.length > 120 ? `${text.slice(0, 117)}...` : text)
@@ -61,7 +65,7 @@ export class AttentionService {
       since: c.at,
       goTo: 'inbox',
     }))
-    return [...fromReplies, ...fromChecks, ...(await this.failed(campaignId))]
+    return [...fromReplies, ...fromChecks, ...(await this.failed(campaignId)), ...(await this.evidenceDeleted(campaignId))]
   }
 
   private async failed(campaignId: number): Promise<AttentionItem[]> {
@@ -75,15 +79,44 @@ export class AttentionService {
       .select(['a.id AS id', 'a.updatedAt AS at', 'c.xUserId AS xUserId', 'u.handle AS handle', 'a.error AS error'])
       .orderBy('a.id', 'ASC')
       .getRawMany<FailedRow>()
-    return rows.map((r) => ({
-      id: `failed-${r.id}`,
-      kind: 'failed',
-      priority: 2,
-      title: r.handle ?? r.xUserId,
-      reason: r.error ?? 'This message could not be sent.',
-      since: new Date(r.at).toISOString(),
-      goTo: 'inbox',
-    }))
+    return rows.map<AttentionItem>((r) => {
+      const outside = r.error?.startsWith(OUTSIDE_REPLY) ?? false
+      return {
+        id: `failed-${r.id}`,
+        kind: outside ? 'outside_reply' : 'failed',
+        priority: 2,
+        title: r.handle ?? r.xUserId,
+        reason: outside ? `${OUTSIDE_REPLY}. Read the conversation in X before sending anything.` : (r.error ?? 'This message could not be sent.'),
+        since: new Date(r.at).toISOString(),
+        goTo: 'inbox',
+      }
+    })
+  }
+
+  // A live draft quotes a post that X no longer has; the claim must go before the message can.
+  private async evidenceDeleted(campaignId: number): Promise<AttentionItem[]> {
+    const drafts = await this.ds
+      .createQueryBuilder(Draft, 'd')
+      .innerJoin(Prospect, 'p', 'p.id = d.prospectId AND p.campaignId = :campaignId', { campaignId })
+      .innerJoin(Contact, 'c', 'c.id = d.contactId')
+      .leftJoin(XUser, 'u', 'u.xUserId = c.xUserId')
+      .where("d.status IN ('pending', 'approved')")
+      .andWhere('d.sentences IS NOT NULL')
+      .select(['d.id AS id', 'd.sentences AS sentences', 'c.xUserId AS xUserId', 'u.handle AS handle'])
+      .orderBy('d.id', 'ASC')
+      .getRawMany<{ id: number; sentences: StoredSentence[] | string; xUserId: string; handle: string | null }>()
+    if (!drafts.length) return []
+    const cited = (d: (typeof drafts)[number]) => {
+      const sentences: StoredSentence[] = typeof d.sentences === 'string' ? JSON.parse(d.sentences) : d.sentences
+      return sentences.flatMap((s) => (s.source?.type === 'evidence' ? [s.source.evidenceId] : []))
+    }
+    const deleted = await this.ds.getRepository(Evidence).find({ where: { id: In([...new Set(drafts.flatMap(cited))]), deletedAt: Not(IsNull()) } })
+    const gone = new Map(deleted.map((e) => [e.id, e.deletedAt as Date]))
+    return drafts.flatMap((d) => {
+      const at = cited(d).map((id) => gone.get(id)).find(Boolean)
+      if (!at) return []
+      return [{ id: `evidence-${d.id}`, kind: 'evidence_deleted' as const, priority: 2 as const, title: d.handle ?? d.xUserId, reason: 'A post this draft quotes was deleted on X. Open the draft and fix or skip it.', since: at.toISOString(), goTo: 'review' as const }]
+    })
   }
 
   private async budget(campaignId: number): Promise<AttentionItem[]> {

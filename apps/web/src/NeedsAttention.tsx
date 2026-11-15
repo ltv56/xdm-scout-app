@@ -3,7 +3,7 @@ import type { AttentionItem } from '../../api/src/attention/contract'
 import { getJson } from './api'
 import { btnSecondary } from './ui'
 
-const OPEN: Record<NonNullable<AttentionItem['goTo']>, string> = { inbox: 'Open Inbox', profile: 'Open Profile', overview: 'Open' }
+const OPEN: Record<NonNullable<AttentionItem['goTo']>, string> = { inbox: 'Open Inbox', profile: 'Open Profile', overview: 'Open', review: 'Open Review' }
 
 function waiting(iso: string | null) {
   if (!iso) return null
