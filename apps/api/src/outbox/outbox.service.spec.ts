@@ -50,4 +50,17 @@ describe('OutboxService', () => {
     await attempt('201', 'approved')
     expect((await service.list(1)).items).toEqual([])
   })
+
+  it('does not show an approved hand-off as sent', async () => {
+    await attempt('201', 'manual_pending')
+    expect((await service.list(1)).items.map((i) => i.label)).toEqual(['Send in X'])
+  })
+
+  it('still reports work in flight when it is older than the newest 100 rows', async () => {
+    await attempt('300', 'queued')
+    for (let n = 0; n < 100; n++) await attempt(String(400 + n), 'sent')
+    const outbox = await service.list(1)
+    expect(outbox.items).toHaveLength(100)
+    expect(outbox.inFlight).toBe(true)
+  }, 30_000)
 })

@@ -8,7 +8,7 @@ const TONE: Record<OutboxItem['label'], Tone> = {
   Sending: 'warn',
   Checking: 'warn',
   Sent: 'ok',
-  'Sent by hand': 'done',
+  'Send in X': 'warn',
   'Check in X': 'warn',
   Failed: 'stop',
   Cancelled: 'done',

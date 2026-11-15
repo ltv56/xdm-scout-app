@@ -9,7 +9,7 @@ const LABEL: Partial<Record<AttemptStatus, OutboxItem['label']>> = {
   sending: 'Sending',
   unknown: 'Checking',
   sent: 'Sent',
-  manual_pending: 'Sent by hand',
+  manual_pending: 'Send in X',
   manual_unverified: 'Check in X',
   needs_decision: 'Check in X',
   failed: 'Failed',
@@ -22,16 +22,20 @@ const LIMIT = 100
 export class OutboxService {
   constructor(private readonly ds: DataSource) {}
 
-  async list(campaignId: number): Promise<Outbox> {
-    const rows = await this.ds
+  private attempts(campaignId: number) {
+    return this.ds
       .getRepository(SendAttempt)
       .createQueryBuilder('a')
       .innerJoin(Draft, 'd', 'd.id = a.draftId')
       .innerJoin(Prospect, 'p', 'p.id = d.prospectId AND p.campaignId = :campaignId', { campaignId })
       .innerJoin(Contact, 'c', 'c.id = a.contactId')
       .leftJoin(XUser, 'u', 'u.xUserId = c.xUserId')
-      .select(['a.id AS id', 'a.status AS status', 'a.route AS route', 'a.error AS error', 'a.updatedAt AS at', 'u.handle AS handle', 'c.xUserId AS xUserId'])
       .where('a.status <> :approved', { approved: 'approved' })
+  }
+
+  async list(campaignId: number): Promise<Outbox> {
+    const rows = await this.attempts(campaignId)
+      .select(['a.id AS id', 'a.status AS status', 'a.route AS route', 'a.error AS error', 'a.updatedAt AS at', 'u.handle AS handle', 'c.xUserId AS xUserId'])
       .orderBy('a.updatedAt', 'DESC')
       .addOrderBy('a.id', 'DESC')
       .limit(LIMIT)
@@ -44,6 +48,8 @@ export class OutboxService {
       error: r.error,
       at: new Date(r.at).toISOString(),
     }))
-    return { inFlight: rows.some((r) => IN_FLIGHT.includes(r.status)), items }
+    // Counted apart from the rows, so an old attempt still on its way is not hidden by the newest 100.
+    const inFlight = (await this.attempts(campaignId).andWhere('a.status IN (:...flying)', { flying: IN_FLIGHT }).getCount()) > 0
+    return { inFlight, items }
   }
 }

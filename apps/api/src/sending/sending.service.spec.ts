@@ -9,6 +9,7 @@ import { createTestDataSource } from '../test/db'
 import { seedDraft as seed, sha } from '../test/seed'
 import { FakeXClient } from '../x/fake-x-client'
 import { Contact, DoNotContact, Draft, SendAttempt } from './entities'
+import { DEFAULT_DAILY_CAP, dailyCap, sentToday } from './daily-cap'
 import { SendingService } from './sending.service'
 
 let ds: DataSource
@@ -233,5 +234,46 @@ describe('daily cap', () => {
     const first = await queued(await seedDraft('201', 'First'))
     await ds.getRepository(SendAttempt).update(first.attemptId, { status: 'sent', updatedAt: new Date(Date.now() - 2 * 86_400_000) })
     await expect(queued(await seedDraft('202', 'Second'))).resolves.toBeDefined()
+  })
+
+  it('two sends at once cannot pass the cap together', async () => {
+    await capAt(1)
+    const a = await seedDraft('201', 'First')
+    const b = await seedDraft('202', 'Second')
+    await service.approve(a.id, sha(a.content))
+    await service.approve(b.id, sha(b.content))
+    const results = await Promise.allSettled([service.send(a.id, sha(a.content)), service.send(b.id, sha(b.content))])
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    expect(await sendJobs()).toBe(1)
+  })
+
+  it('keeps counting an attempt that needs a decision, because X may have taken it', async () => {
+    await capAt(1)
+    const first = await queued(await seedDraft('201', 'First'))
+    await ds.getRepository(SendAttempt).update(first.attemptId, { status: 'needs_decision' })
+    const second = await seedDraft('202', 'Second')
+    await service.approve(second.id, sha(second.content))
+    await expect(service.send(second.id, sha(second.content))).rejects.toThrow('Daily send limit reached')
+  })
+
+  it('falls back to the default when the stored cap is not a number', async () => {
+    for (const bad of ['null', 'false', '""', '"abc"', '-1', '1.5']) {
+      await ds.query('REPLACE INTO settings (`key`, value) VALUES (?, ?)', ['send.dailyCap', bad])
+      expect(await dailyCap(ds.manager)).toBe(DEFAULT_DAILY_CAP)
+    }
+    await ds.getRepository(Setting).save({ key: 'send.dailyCap', value: '7' })
+    expect(await dailyCap(ds.manager)).toBe(7)
+    await ds.getRepository(Setting).save({ key: 'send.dailyCap', value: 0 })
+    expect(await dailyCap(ds.manager)).toBe(0)
+  })
+
+  it('a hand-sent message verified later still counts for the day it was reported', async () => {
+    const d = await seedDraft('201', 'Hand')
+    const { attemptId } = await service.approve(d.id, sha(d.content), 'manual')
+    await ds.getRepository(SendAttempt).update(attemptId, { status: 'manual_unverified', updatedAt: new Date(Date.now() - 2 * 86_400_000) })
+    await x.sendDm('201', d.content)
+    await service.verifyManual(attemptId)
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'sent' })
+    expect(await sentToday(ds.manager, new Date())).toBe(0)
   })
 })
