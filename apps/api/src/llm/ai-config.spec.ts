@@ -58,13 +58,6 @@ describe('createLlmClient with DeepSeek', () => {
   })
 })
 
-describe('createLlmClient with DeepSeek', () => {
-  it('reads the key from DEEPSEEK_API_KEY or LLM_API_KEY', () => {
-    expect(createLlmClient({ LLM_MODEL: 'deepseek-chat', DEEPSEEK_API_KEY: 'd' })).toBeInstanceOf(OpenAiCompatibleLlmClient)
-    expect(createLlmClient({ LLM_MODEL: 'deepseek-chat', LLM_API_KEY: 'd' })).toBeInstanceOf(OpenAiCompatibleLlmClient)
-  })
-})
-
 describe('routeDecision', () => {
   it('sends gemini-decision-1 to Google and System One models to OpenRouter', () => {
     expect(routeDecision('gemini-decision-1', all)).toEqual({ kind: 'google-decision', model: 'gemini-decision-1' })
