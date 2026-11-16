@@ -49,10 +49,22 @@ test('Inbox: messages sent by hand are checked in X, then marked sent or not sen
   await expect(cards).toHaveCount(2)
   await expect(cards.first().getByRole('link', { name: /^Open chat with @/ })).toHaveAttribute('href', /x\.com\/messages\/compose\?recipient_id=/)
 
+  // One Sent? button; asking opens a tick and a cross, and Escape closes them.
+  const ask = cards.first().getByRole('button', { name: 'Sent?', exact: true })
+  await expect(cards.first().getByRole('button', { name: 'It was sent' })).toHaveCount(0)
+  await ask.click()
+  const group = cards.first().getByRole('group', { name: 'Was it sent?' })
+  await expect(group.getByRole('button', { name: 'It was sent' })).toBeVisible()
+  await expect(group.getByRole('button', { name: 'It was not sent' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(group).toHaveCount(0)
+  await ask.click()
+
   await cards.first().getByRole('button', { name: 'It was sent' }).click()
   await expect(cards).toHaveCount(1)
   await expect(delivered.getByText('Confirmed by you')).toBeVisible()
 
+  await cards.first().getByRole('button', { name: 'Sent?', exact: true }).click()
   await cards.first().getByRole('button', { name: 'It was not sent' }).click()
   await expect(toCheck.getByText('Nothing to check.')).toBeVisible()
   await expect(delivered.getByRole('listitem')).toHaveCount(1)

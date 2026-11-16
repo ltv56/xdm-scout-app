@@ -197,6 +197,10 @@ export class SendAttempt {
   @Column({ type: 'text', nullable: true })
   error!: string | null
 
+  // How many identical messages of ours the chat held when a hand-send was verified: two or more means it went out twice.
+  @Column({ type: 'int', nullable: true })
+  copiesSeen!: number | null
+
   @CreateDateColumn()
   createdAt!: Date
 

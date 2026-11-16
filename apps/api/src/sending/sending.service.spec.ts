@@ -397,4 +397,14 @@ describe('daily cap', () => {
     expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'sent' })
     expect(await sentToday(ds.manager, new Date())).toBe(0)
   })
+
+  it('counts the identical messages it finds, so a second hand-send shows', async () => {
+    const d = await seedDraft('201', 'Hand')
+    const { attemptId } = await service.approve(d.id, sha(d.content), 'manual')
+    await ds.getRepository(SendAttempt).update(attemptId, { status: 'manual_unverified' })
+    await x.sendDm('201', d.content)
+    await x.sendDm('201', d.content)
+    await service.verifyManual(attemptId)
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'sent', copiesSeen: 2 })
+  })
 })

@@ -2,9 +2,10 @@ import { Injectable } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { Prospect } from '../discovery/entities'
 import { AttemptStatus, Contact, Draft, SendAttempt, XUser } from '../sending/entities'
+import { composeUrl } from '../review/review.service'
 import type { Outbox, OutboxItem } from './contract'
 
-const LABEL: Partial<Record<AttemptStatus, OutboxItem['label']>> = {
+export const LABEL: Partial<Record<AttemptStatus, OutboxItem['label']>> = {
   queued: 'Waiting to send',
   sending: 'Sending',
   unknown: 'Checking',
@@ -35,18 +36,21 @@ export class OutboxService {
 
   async list(campaignId: number): Promise<Outbox> {
     const rows = await this.attempts(campaignId)
-      .select(['a.id AS id', 'a.status AS status', 'a.route AS route', 'a.error AS error', 'a.updatedAt AS at', 'u.handle AS handle', 'c.xUserId AS xUserId'])
+      .select(['a.id AS id', 'a.status AS status', 'a.route AS route', 'a.error AS error', 'a.updatedAt AS at', 'a.draftId AS draftId', 'u.handle AS handle', 'c.xUserId AS xUserId', 'd.content AS content'])
       .orderBy('a.updatedAt', 'DESC')
       .addOrderBy('a.id', 'DESC')
       .limit(LIMIT)
-      .getRawMany<{ id: number; status: AttemptStatus; route: 'api' | 'manual'; error: string | null; at: Date; handle: string | null; xUserId: string }>()
+      .getRawMany<{ id: number; status: AttemptStatus; route: 'api' | 'manual'; error: string | null; at: Date; draftId: number; handle: string | null; xUserId: string; content: string }>()
     const items = rows.map<OutboxItem>((r) => ({
       attemptId: r.id,
+      draftId: r.draftId,
       handle: r.handle ?? r.xUserId,
       label: LABEL[r.status] ?? 'Checking',
       route: r.route,
       error: r.error,
       at: new Date(r.at).toISOString(),
+      openInX: r.status === 'manual_pending' ? composeUrl(r.xUserId, r.content) : null,
+      text: r.status === 'manual_pending' ? r.content : null,
     }))
     // Counted apart from the rows, so an old attempt still on its way is not hidden by the newest 100.
     const inFlight = (await this.attempts(campaignId).andWhere('a.status IN (:...flying)', { flying: IN_FLIGHT }).getCount()) > 0

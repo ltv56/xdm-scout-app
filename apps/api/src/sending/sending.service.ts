@@ -186,8 +186,9 @@ export class SendingService {
     const contact = await this.ds.getRepository(Contact).findOneByOrFail({ id: attempt.contactId })
     const messages = await this.x.getConversation(contact.xUserId, RECONCILE_READ_MAX)
     const since = Math.floor(attempt.createdAt.getTime() / 1000) * 1000
-    const found = messages.find((m) => m.fromMe && m.text === draft.content && m.createdAt.getTime() >= since)
-    if (found) await this.ds.getRepository(SendAttempt).update(attemptId, { status: 'sent', verifiedBy: 'api', xConversationId: found.conversationId, xEventId: found.eventId, updatedAt: attempt.updatedAt })
+    const copies = messages.filter((m) => m.fromMe && m.text === draft.content && m.createdAt.getTime() >= since)
+    const found = copies[0]
+    if (found) await this.ds.getRepository(SendAttempt).update(attemptId, { status: 'sent', verifiedBy: 'api', copiesSeen: copies.length, xConversationId: found.conversationId, xEventId: found.eventId, updatedAt: attempt.updatedAt })
   }
 
   async reconcile(attemptId: number, now: Date): Promise<void> {

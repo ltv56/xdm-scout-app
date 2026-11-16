@@ -1,8 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import type { Outbox as OutboxData, OutboxItem } from '../../api/src/outbox/contract'
-import { getJson } from './api'
+import { getJson, postJson } from './api'
 import EmptyState from './EmptyState'
-import { chip, tone, type Tone } from './ui'
+import { XLogo } from './icons'
+import { markOpened, wasOpened } from './opened'
+import SentCheck from './SentCheck'
+import { btnApprove, btnLink, chip, COPIED_NOTE, tone, type Tone } from './ui'
 import { useTopBar } from './useTopBar'
 
 const TONE: Record<OutboxItem['label'], Tone> = {
@@ -16,7 +20,7 @@ const TONE: Record<OutboxItem['label'], Tone> = {
   Cancelled: 'done',
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+const when = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 // Every send of the campaign. Refreshes every 5 s while something is on its way, every 30 s otherwise.
 export default function Outbox({ campaignId, onReview }: { campaignId: number; onReview: () => void }) {
@@ -26,6 +30,25 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
     refetchInterval: (q) => (q.state.data?.inFlight ? 5_000 : 30_000),
     retry: false,
   })
+  const qc = useQueryClient()
+  // Sent? after opening X: the worker then looks for the message in the chat; not sent puts the draft back in Review.
+  const sentByHand = useMutation({
+    mutationFn: ({ draftId, outcome }: { draftId: number; outcome: 'sent' | 'not_sent' }) => postJson(`/drafts/${draftId}/manual`, { outcome }),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['outbox', campaignId] }), qc.invalidateQueries({ queryKey: ['inbox-checks', campaignId] })]),
+  })
+  // Rows opened in X in this page; wasOpened covers the ones opened before a reload.
+  const [opened, setOpened] = useState<Set<number>>(() => new Set())
+  const isOpened = (draftId: number) => opened.has(draftId) || wasOpened(draftId)
+  // The row whose draft was just copied, to say so on screen.
+  const [copiedId, setCopiedId] = useState<number | null>(null)
+  const copy = (id: number, text: string | null) => {
+    if (!text) return
+    try {
+      void navigator.clipboard.writeText(text).then(() => setCopiedId(id), () => undefined)
+    } catch {
+      // No clipboard on this page: X still opens.
+    }
+  }
   const items = outbox.data?.items ?? []
   const topBar = useTopBar(campaignId).data
 
@@ -45,16 +68,48 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
         <p className="mt-3 text-sm text-block">Could not load the outbox.</p>
       ) : (
         <ul className="mt-3 divide-y divide-rule rounded-2xl border border-rule bg-paper">
-          {items.map((i) => (
-            <li key={i.attemptId} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 px-5 py-3.5">
+          {items.map((i, n) => (
+            <li key={i.attemptId} className="anim-fade-up flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-3.5" style={{ animationDelay: `${Math.min(n, 8) * 30}ms` }}>
               <div className="min-w-0">
-                <p className="text-sm font-semibold">@{i.handle}</p>
-                {i.error && <p className="text-sm text-muted">{i.error}</p>}
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <p className="text-sm font-semibold">@{i.handle}</p>
+                  <span key={i.label} className={`${chip} ${tone[TONE[i.label]].chip} anim-pop`}>{i.label}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted">{when(i.at)}</p>
+                {i.error && <p className="mt-1 text-sm text-muted">{i.error}</p>}
+                {i.label === 'Check in X' && i.route === 'manual' && !i.error && <p className="anim-fade-in mt-1 text-sm text-muted">Looking for your message in the chat. If it stays here, confirm it in Inbox.</p>}
+                {sentByHand.isError && sentByHand.variables?.draftId === i.draftId && <p role="alert" className="mt-1 text-sm text-block">{sentByHand.error.message}</p>}
+                {copiedId === i.attemptId && (
+                  <p role="status" className="anim-fade-in mt-1 text-sm text-ok">
+                    {COPIED_NOTE}
+                  </p>
+                )}
               </div>
-              <div className="flex items-center gap-3 text-xs text-muted">
-                <span>{when(i.at)}</span>
-                <span className={`${chip} ${tone[TONE[i.label]].chip}`}>{i.label}</span>
-              </div>
+              {i.openInX &&
+                (isOpened(i.draftId) ? (
+                  <div className="flex items-center gap-3">
+                    <a className={`${btnLink} text-xs`} href={i.openInX} target="_blank" rel="noreferrer" onClick={() => copy(i.attemptId, i.text)}>
+                      open again
+                    </a>
+                    <SentCheck pending={sentByHand.isPending} onAnswer={(outcome) => sentByHand.mutate({ draftId: i.draftId, outcome })} />
+                  </div>
+                ) : (
+                  <a
+                    className={`${btnApprove} gap-2`}
+                    href={i.openInX}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open chat on X"
+                    onClick={() => {
+                      markOpened(i.draftId)
+                      setOpened((cur) => new Set(cur).add(i.draftId))
+                      copy(i.attemptId, i.text)
+                    }}
+                  >
+                    Open chat on
+                    <XLogo className="size-3.5" />
+                  </a>
+                ))}
             </li>
           ))}
         </ul>

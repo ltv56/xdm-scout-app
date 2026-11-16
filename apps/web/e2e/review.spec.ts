@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
   expect(await openPendingDraft(page)).toBe(true)
 })
 
-test('Review: reading a draft, the source of a sentence, and approving it', async ({ page }) => {
+test('Review: reading a draft, the source of a sentence, approving it, and Open chat on X also copying it', async ({ page, context }) => {
   const heading = page.getByRole('heading', { level: 2 })
   await expect(page.getByText('Open chat with @')).toBeDisabled()
 
@@ -35,8 +35,23 @@ test('Review: reading a draft, the source of a sentence, and approving it', asyn
   await expect(page.getByRole('region', { name: 'Evidence' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Approve', exact: true }).click()
-  await expect(page.getByRole('link', { name: /^Open chat with @/ })).toHaveAttribute('href', /x\.com\/messages\/compose/)
+  const link = page.getByRole('link', { name: /^Open chat with @/ })
+  await expect(link).toHaveAttribute('href', /x\.com\/messages\/compose/)
   await expect(heading).toBeVisible()
+
+  // Opening X also puts the draft on the clipboard, to paste if X does not fill it in.
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await context.route('https://x.com/**', (route) => route.abort())
+  const readClipboard = () => page.evaluate(() => navigator.clipboard.readText())
+  await page.getByRole('button', { name: 'Copy', exact: true }).click()
+  const draft = await readClipboard()
+  expect(draft.length).toBeGreaterThan(20)
+  await page.evaluate(() => navigator.clipboard.writeText('something else'))
+  const [popup] = await Promise.all([context.waitForEvent('page'), link.click()])
+  await popup.close()
+  await expect.poll(readClipboard).toBe(draft)
+  await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Draft copied' })).toBeVisible()
 })
 
 test('Review: Skip asks for a reason and moves on', async ({ page }) => {

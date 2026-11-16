@@ -15,11 +15,11 @@ export default function Funnel({ campaignId }: { campaignId: number }) {
     ['Replied', sum(data, (l) => l.replied)],
   ] as const
   return (
-    <section aria-label="Results so far" className="mt-12">
+    <section aria-label="Results so far" className="mt-10 rounded-2xl bg-paper px-6 py-6">
       <h2 className="text-base font-semibold">Results so far</h2>
       <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {tiles.map(([label, n]) => (
-          <li key={label} className="rounded-xl border border-rule bg-paper px-4 py-3">
+          <li key={label} className="rounded-xl bg-raised px-4 py-3 shadow-soft">
             <p className="text-sm text-muted">{label}</p>
             <p className={`mt-1 text-2xl font-semibold leading-none tabular-nums ${n === 0 ? 'text-muted' : ''}`}>{n}</p>
           </li>

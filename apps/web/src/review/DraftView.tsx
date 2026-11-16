@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import XLink from '../XLink'
 import type { EvidenceItem, ReviewItem } from '../../../api/src/review/contract'
 import FitBadge from '../FitBadge'
 import { AlertTriangle, CheckCircle, MinusCircle, XCircle, XLogo } from '../icons'
@@ -55,11 +56,7 @@ function EvidenceList({ evidence, stale, active, onHover, onPick }: {
               {shortDate(e.postedAt) && ` · ${shortDate(e.postedAt)}`}
             </span>
             {stale && e.kind === 'post' && isOld(e.postedAt) && <span className={`${chip} ${tone.warn.chip}`}>Old post</span>}
-            {e.url && (
-              <a className="underline underline-offset-4" href={e.url} target="_blank" rel="noreferrer">
-                Open on X
-              </a>
-            )}
+            {e.url && <XLink href={e.url} label="Open on X" />}
           </p>
         </li>
       ))}
@@ -236,7 +233,7 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
             </section>
           </div>
 
-          <aside ref={aside} className="scroll-thin min-w-0 space-y-8 px-5 pb-8 sm:px-12 lg:overflow-y-auto lg:border-l lg:border-rule lg:px-9 lg:py-6">
+          <aside ref={aside} className="scroll-thin min-w-0 space-y-6 px-5 pb-8 sm:px-12 lg:overflow-y-auto lg:border-l lg:border-rule lg:px-9 lg:py-6 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-rule [&>section:not(:first-child)]:pt-6">
             <PersonFacts prospect={p} />
             <section aria-label="Evidence">
               <h3 className="mb-3 text-sm font-semibold">Why this opening</h3>

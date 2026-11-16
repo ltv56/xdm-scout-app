@@ -198,4 +198,11 @@ describe('API-verified', () => {
     await sending.reconcile(attempt.id, new Date())
     expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attempt.id })).toMatchObject({ status: 'sent', verifiedBy: 'api' })
   })
+
+  it('says how many copies of a message are in the chat, so a second send shows', async () => {
+    const { attempt } = await seedAttempt(1, '301', 'sent')
+    expect((await inbox.checks(1)).delivered.map((d) => d.copies)).toEqual([1])
+    await ds.getRepository(SendAttempt).update(attempt.id, { copiesSeen: 3 })
+    expect((await inbox.checks(1)).delivered.map((d) => d.copies)).toEqual([3])
+  })
 })

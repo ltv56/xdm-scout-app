@@ -2,8 +2,9 @@ import 'reflect-metadata'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { Claim, Evidence } from '../fit/entities'
-import { Contact, SenderAccount, XUser } from '../sending/entities'
+import { Contact, Draft, SendAttempt, SenderAccount, XUser } from '../sending/entities'
 import { createTestDataSource } from '../test/db'
+import { seedDraft, sha } from '../test/seed'
 import { Campaign, Prospect, XPost } from './entities'
 import { ProspectsService } from './prospects.service'
 
@@ -36,6 +37,18 @@ describe('prospects list', () => {
 
     const list = await new ProspectsService(ds).list(1, now)
     expect(list.map((p) => p.handle)).toEqual(['u4', 'u2', 'u5', 'u1', 'u3'])
+  })
+
+  it('says where a person stands in the Outbox, and nothing for a send that failed or never started', async () => {
+    for (const [id, status] of [['1', 'manual_pending'], ['2', 'sent'], ['3', 'failed']] as const) {
+      const prospect = await addProspect(id)
+      const draft = await seedDraft(ds, id, `Hi ${id}`)
+      await ds.getRepository(Draft).update(draft.id, { prospectId: prospect.id })
+      await ds.getRepository(SendAttempt).save({ contactId: draft.contactId, draftId: draft.id, route: 'manual', status, contentHash: sha(draft.content) })
+    }
+    await addProspect('4')
+    const rows = await new ProspectsService(ds).list(1, now)
+    expect(Object.fromEntries(rows.map((r) => [r.handle, r.outbox]))).toEqual({ u1: 'Send in X', u2: 'Sent', u3: null, u4: null })
   })
 
   it('labels opening freshness and attaches claims with their evidence links', async () => {

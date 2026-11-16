@@ -11,5 +11,17 @@
   ],
   "9007": [
     { "id": "970001", "text": "Released our tactile grasping benchmark and the first results.", "createdAt": "2026-11-10T08:00:00Z" }
+  ],
+  "2120553122561204224": [
+    { "id": "920001", "text": "Just released a small toolkit for teaching a robot arm new tasks from a few demos.", "createdAt": "2026-11-12T09:00:00Z" },
+    { "id": "920002", "text": "Looking for feedback on my open-source gripper simulator.", "createdAt": "2026-11-10T09:00:00Z" }
+  ],
+  "2121285683042234368": [
+    { "id": "930001", "text": "Shipped a tracing tool for LLM agents today, open to early testers.", "createdAt": "2026-11-12T09:00:00Z" },
+    { "id": "930002", "text": "Writing up what I learned about evaluating agent tool calls.", "createdAt": "2026-11-10T09:00:00Z" }
+  ],
+  "2121297366301204480": [
+    { "id": "940001", "text": "New preprint: dexterous manipulation from 50 demonstrations, code and data released.", "createdAt": "2026-11-12T09:00:00Z" },
+    { "id": "940002", "text": "We are running a small reading group on embodied AI in Ho Chi Minh City.", "createdAt": "2026-11-10T09:00:00Z" }
   ]
 }

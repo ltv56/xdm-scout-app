@@ -67,3 +67,16 @@ test('Dismiss is out of the way: behind a menu button, with a confirmation, and 
   await expect(row.getByText('Dismissed')).toBeVisible()
   await expect(row.getByRole('button', { name: 'Draft a message' })).toHaveCount(0)
 })
+
+test('A person already in the Outbox says so instead of offering a draft', async ({ page, request }) => {
+  await page.route('**/api/campaigns/*/prospects', async (route) => {
+    const response = await route.fetch()
+    const people = await response.json()
+    for (const p of people) if (p.handle === 'tomas_agents') p.outbox = 'Send in X'
+    await route.fulfill({ response, json: people })
+  })
+  const row = await openCandidates(page, request)
+  await expect(row.getByText('In Outbox · Send in X')).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Draft a message' })).toHaveCount(0)
+  await expect(row.getByRole('button', { name: 'Open in Review' })).toHaveCount(0)
+})

@@ -5,7 +5,8 @@ import { ENDS_CONTACT, needsStopConfirm, REPLY_CLASSES, type ClassBy, type Reply
 import { getJson, postJson } from './api'
 import EmptyState from './EmptyState'
 import { XLogo } from './icons'
-import { btnApprove, btnSecondary, btnToolbar, card, chip, money, tone, type Tone } from './ui'
+import SentCheck from './SentCheck'
+import { btnApprove, btnLink, btnSecondary, card, chip, money, tone, type Tone } from './ui'
 
 const REASON: Record<CheckItem['reason'], string> = {
   sent_by_hand: "You marked this as sent in X. X's API can't see messages in encrypted chats, so check it there.",
@@ -97,7 +98,7 @@ function CheckCard({ item, campaignId }: { item: CheckItem; campaignId: number }
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['inbox-checks', campaignId] }), qc.invalidateQueries({ queryKey: ['review-queue'] })]),
   })
   return (
-    <li className={`${card} p-5`} aria-label={`@${item.handle}`}>
+    <li className={`${card} anim-fade-up p-5`} aria-label={`@${item.handle}`}>
       <Person item={item} />
       <p className="mt-2 text-sm">{REASON[item.reason]}</p>
       <blockquote className="mt-3 whitespace-pre-line rounded-xl bg-rail px-4 py-3 text-sm">{item.text}</blockquote>
@@ -106,12 +107,7 @@ function CheckCard({ item, campaignId }: { item: CheckItem; campaignId: number }
           <XLogo className="mr-2 size-4" />
           Open chat with @{item.handle}
         </a>
-        <button type="button" className={btnSecondary} disabled={confirm.isPending} onClick={() => confirm.mutate('sent')}>
-          It was sent
-        </button>
-        <button type="button" className={btnSecondary} disabled={confirm.isPending} onClick={() => confirm.mutate('not_sent')}>
-          It was not sent
-        </button>
+        <SentCheck pending={confirm.isPending} onAnswer={confirm.mutate} />
       </div>
       {confirm.error && (
         <p role="alert" className="mt-2 text-sm font-medium text-block">
@@ -220,7 +216,7 @@ function CheckNow({ campaignId }: { campaignId: number }) {
           {check.error.message}
         </span>
       )}
-      <button type="button" className={btnToolbar} disabled={check.isPending} onClick={() => check.mutate()} title="Each chat read costs about $0.01">
+      <button type="button" className={btnLink} disabled={check.isPending} onClick={() => check.mutate()} title="Each chat read costs about $0.01">
         Check now
       </button>
     </span>
@@ -241,10 +237,11 @@ function DeliveredRow({ item, campaignId }: { item: DeliveredItem; campaignId: n
         {item.replied ? (
           <span className={`${chip} ${tone.ok.chip}`}>Replied</span>
         ) : (
-          <button type="button" className={btnToolbar} disabled={replied.isPending} onClick={() => replied.mutate()}>
+          <button type="button" className={btnLink} disabled={replied.isPending} onClick={() => replied.mutate()}>
             They replied
           </button>
         )}
+        {item.copies > 1 && <span className={`${chip} ${tone.warn.chip}`}>Sent {item.copies} times</span>}
         <span className={`${chip} ${byApi ? tone.ok.chip : tone.done.chip}`} title={byApi ? 'X returned this message through its API' : 'You checked the chat in X'}>
           {byApi ? 'Seen by X API' : 'Confirmed by you'}
         </span>

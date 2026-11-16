@@ -15,7 +15,7 @@ Operate surface: a reviewer clears about ten drafts in one sitting and must see 
 Defined in `src/index.css`.
 - Surfaces: `paper` #f5f5f7 (page), `raised` white (panel), `rail` quiet fills.
 - Text: `ink` #1d1d1f, `muted` #63636b. All text pairs are at least 4.5:1.
-- Accent near-black #1d1d1f: the primary action, the active tab and the focus ring. No blue anywhere; colour means status only. Text greens and reds are `ok` #087529 and `block` #c42318 (at least 4.5:1 on their tints).
+- Accent near-black #1d1d1f: the one primary action of a screen, the active tab and the focus ring. A second action is outlined in ink (`btnOutline`), a quiet one is a grey fill. No blue or purple anywhere; colour means status only. Text greens and reds are `ok` #087529 and `block` #c42318 (at least 4.5:1 on their tints).
 - Status colors follow the usual meaning: `ok` green (Ready, criteria met), warn yellow (check, ink text on a lemon fill), block red (fix, not a fit). Fresh tinted fills; status is always written as a word.
 - Fit: green #34c759 (strong), yellow #ffcc00 (possible), grey (weak), red (not a fit), dashed grey (not scored). Shapes differ too: full circle, half circle, empty ring, ring with a slash, dashed ring.
 

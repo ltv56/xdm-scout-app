@@ -7,5 +7,8 @@
   { "id": "9006", "handle": "pasta_daily", "name": "Pasta Daily", "bio": "Recipes every day.", "followers": 310, "receivesYourDm": true },
   { "id": "9101", "handle": "sea_robotics_lab", "name": "SEA Robotics Lab", "bio": "University robotics lab in Singapore.", "followers": 2100, "receivesYourDm": true },
   { "id": "9102", "handle": "ai_builders_sg", "name": "AI Builders SG", "bio": "Community of AI builders in Southeast Asia.", "followers": 6400, "receivesYourDm": true },
-  { "id": "9007", "handle": "dm_closed", "name": "Kai Ono", "bio": "Robotics researcher, grasping and tactile sensing.", "followers": 3100, "receivesYourDm": false }
+  { "id": "9007", "handle": "dm_closed", "name": "Kai Ono", "bio": "Robotics researcher, grasping and tactile sensing.", "followers": 3100, "receivesYourDm": false },
+  { "id": "2120553122561204224", "handle": "b_evil56", "name": "Bao Le (test account B)", "bio": "Building open-source robotics tools and robot learning demos. Test account of the project owner.", "followers": 120, "receivesYourDm": true },
+  { "id": "2121285683042234368", "handle": "bevil75", "name": "Chi Tran (test account C)", "bio": "LLM agents for developer tools. Test account of the project owner.", "followers": 340, "receivesYourDm": true },
+  { "id": "2121297366301204480", "handle": "dnawi56", "name": "Dung Nguyen (test account D)", "bio": "Embodied AI research and open-source demos. Test account of the project owner.", "followers": 560, "receivesYourDm": true }
 ]

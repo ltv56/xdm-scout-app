@@ -10,7 +10,7 @@ import Select from './Select'
 import Spinner from './Spinner'
 import XLink from './XLink'
 import { deliveryNote, LANDS_IN_HINT, LANDS_IN_LABEL, RELATIONSHIP_LABEL, SKIP_LABEL, SKIP_REASONS } from './review/labels'
-import { btnLink, btnSecondary } from './ui'
+import { btnLink, btnOutline, btnSecondary, chip, tone } from './ui'
 
 interface Claim {
   side: 'for' | 'against' | 'unknown'
@@ -32,6 +32,8 @@ export interface Prospect {
   relationship: 'messaged_us' | 'follower' | 'engaged' | 'adjacent' | 'cold'
   status: 'new' | 'shortlisted' | 'dismissed'
   scoring: boolean
+  // Where this person's send stands in the Outbox ("Send in X", "Sent"...), or null when nothing was sent.
+  outbox: string | null
   role: string | null
   areas: string[]
   identityWarning: boolean
@@ -64,14 +66,12 @@ function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; camp
   })
   const why = p.fit === null ? 'Not scored yet' : p.fit === 'not_a_fit' ? 'Not a fit' : !p.opening || p.opening.freshness === 'expired' ? 'No reason to reach out yet' : null
 
+  if (p.outbox) return null
   if (inReview || make.isSuccess) {
     return (
-      <p className="flex items-center gap-3 text-sm">
-        <span className="font-semibold">Draft written</span>
-        <button type="button" className={btnLink} onClick={onReview}>
-          Open in Review
-        </button>
-      </p>
+      <button type="button" className={btnOutline} onClick={onReview}>
+        Open in Review
+      </button>
     )
   }
   return (
@@ -327,7 +327,8 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
     <div className="pb-16">
       <h1 className="text-[28px] font-bold leading-tight">Candidates</h1>
       <p className="mt-1 text-sm text-muted">The people this campaign found, best fit first. Review holds only the ones with a draft.</p>
-      <div role="group" aria-label="Show" className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-5 rounded-2xl bg-paper p-4">
+      <div role="group" aria-label="Show" className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.id}
@@ -382,27 +383,32 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
         </button>
       </div>
       <CandidateActions campaignId={campaignId} unscored={data.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length} scoring={data.filter((p) => p.scoring).length} ready={data.filter(isReady).length} />
+      </div>
       <p className="sr-only" role="status">
         {shown.length === 1 ? '1 candidate shown' : `${shown.length} candidates shown`}
       </p>
       {shown.length === 0 && <p className="mt-6 text-sm text-muted">Nobody in this list.</p>}
-      <ul className="mt-4">
+      <ul className="mt-5 space-y-1">
         {shown.map((p, i) => (
-          <li key={p.id} className="anim-fade-up border-b border-rule py-5" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
+          <li key={p.id} className="anim-fade-up rounded-2xl px-5 py-5 even:bg-paper" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <a className="min-w-0 text-[17px] font-semibold wrap-anywhere hover:underline" href={`https://x.com/${p.handle}`} target="_blank" rel="noreferrer">
+                  {p.name} <span className="text-sm font-normal text-muted">@{p.handle}</span>
+                </a>
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted">
                   <FitBadge fit={p.fit} />
-                  <a className="min-w-0 text-base font-semibold wrap-anywhere hover:underline" href={`https://x.com/${p.handle}`} target="_blank" rel="noreferrer">
-                    {p.name} <span className="font-normal text-muted">@{p.handle}</span>
-                  </a>
-                </div>
-                <p className="mt-1 text-sm text-muted">{metaLine(p)}</p>
+                  <span aria-hidden="true">·</span>
+                  <span>{metaLine(p)}</span>
+                </p>
               </div>
               {p.status === 'dismissed' ? (
                 <span className="text-sm font-semibold text-muted">Dismissed</span>
               ) : (
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex shrink-0 items-center gap-3">
+                  {(p.outbox || inReview.has(p.handle)) && (
+                    <span key={p.outbox ?? 'draft'} className={`${chip} anim-pop ${p.outbox ? tone[p.outbox === 'Sent' ? 'ok' : 'warn'].chip : tone.ok.chip}`}>{p.outbox ? `In Outbox · ${p.outbox}` : 'Draft written'}</span>
+                  )}
                   {p.fit === null ? <ScoreControl p={p} campaignId={campaignId} /> : <DraftControl p={p} campaignId={campaignId} inReview={inReview.has(p.handle)} onReview={onReview} />}
                   {!inReview.has(p.handle) && <DismissControl p={p} campaignId={campaignId} />}
                 </div>
@@ -426,20 +432,21 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
             </div>
             )}
 
-            <p className="mt-3 max-w-[80ch] text-sm text-muted">{p.bio}</p>
+            <p className="mt-2.5 line-clamp-2 max-w-[80ch] text-sm text-muted">{p.bio}</p>
 
             {p.fit && (
-              <div className="mt-3 max-w-[80ch] border-l-2 border-rule pl-3 text-[15px]">
+              <div className="mt-3 max-w-[80ch] border-l-2 border-rule pl-3">
                 {p.opening && p.opening.freshness !== 'expired' ? (
                   <>
-                    <span className="font-semibold">Opening ({p.opening.type}):</span> {p.opening.summary}{' '}
-                    {p.opening.freshness === 'stale' && <span className="font-medium text-warn">Stale</span>}{' '}
-                    {p.opening.url && (
-                      <XLink href={p.opening.url} label="Open the post on X" />
-                    )}
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted">Opening · {p.opening.type}</p>
+                    <p className="mt-0.5 text-[15px]">
+                      {p.opening.summary}{' '}
+                      {p.opening.freshness === 'stale' && <span className="font-medium text-warn">Stale</span>}{' '}
+                      {p.opening.url && <XLink href={p.opening.url} label="Open the post on X" />}
+                    </p>
                   </>
                 ) : (
-                  <span className="text-muted">No reason to reach out yet</span>
+                  <span className="text-sm text-muted">No reason to reach out yet</span>
                 )}
               </div>
             )}

@@ -101,10 +101,6 @@ test('First run: a tip sits in the margin outside the card and changes by itself
 
   await page.clock.fastForward(8000)
   await expect.poll(() => tip.innerText()).not.toBe(first)
-
-  // On a laptop there is no room beside the card, so it is left out.
-  await page.setViewportSize({ width: 1280, height: 800 })
-  await expect(tip).toBeHidden()
 })
 
 test('First run: a step slides in from the right going on and from the left going back', async ({ page }) => {

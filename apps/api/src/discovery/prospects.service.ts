@@ -4,7 +4,8 @@ import { Claim, Evidence } from '../fit/entities'
 import { openingFreshness } from '../fit/fit.service'
 import { KnownUser } from '../known/known-user.entity'
 import { Job } from '../jobs/job.entity'
-import { Contact, XUser } from '../sending/entities'
+import { LABEL } from '../outbox/outbox.service'
+import { Contact, Draft, SendAttempt, XUser } from '../sending/entities'
 import { Prospect, XPost } from './entities'
 import { LANDS_IN_RANK, landsIn } from './lands-in'
 
@@ -32,6 +33,7 @@ export class ProspectsService {
     const fundLists = new Map((await this.ds.getRepository(KnownUser).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((k) => [k.xUserId, k]))
     const contacts = new Map((await this.ds.getRepository(Contact).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((c) => [c.xUserId, c]))
     const lastPosts = await this.lastPostDates(prospects.map((p) => p.xUserId))
+    const outbox = await this.outboxLabels(prospects.map((p) => p.id))
     const scoring = await this.openScoreJobs(prospects.map((p) => p.id))
 
     const rows = prospects.map((p) => {
@@ -58,6 +60,7 @@ export class ProspectsService {
         seedCount: p.seedCount,
         status: p.status,
         scoring: scoring.has(p.id),
+        outbox: outbox.get(p.id) ?? null,
         fit: p.fit,
         role: p.role,
         areas: p.areas ?? [],
@@ -83,6 +86,23 @@ export class ProspectsService {
     })
 
     return rows
+  }
+
+  // Where the newest send of each person stands in the Outbox. A send that failed or was cancelled leaves them uncontacted.
+  private async outboxLabels(ids: number[]) {
+    const labels = new Map<number, string>()
+    if (!ids.length) return labels
+    const drafts = await this.ds.getRepository(Draft).findBy({ prospectId: In(ids) })
+    const attempts = drafts.length ? await this.ds.getRepository(SendAttempt).findBy({ draftId: In(drafts.map((d) => d.id)) }) : []
+    const prospectOf = new Map(drafts.map((d) => [d.id, d.prospectId]))
+    for (const a of attempts.sort((x, y) => x.id - y.id)) {
+      const prospectId = prospectOf.get(a.draftId)
+      if (prospectId === undefined || prospectId === null) continue
+      const label = a.status === 'failed' || a.status === 'cancelled' ? undefined : LABEL[a.status]
+      if (label) labels.set(prospectId, label)
+      else labels.delete(prospectId)
+    }
+    return labels
   }
 
   // Candidates with a score job waiting for the worker or running.

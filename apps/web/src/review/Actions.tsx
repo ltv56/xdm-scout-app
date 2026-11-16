@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReviewItem, SkipReason } from '../../../api/src/review/contract'
 import { patchJson, postJson } from '../api'
 import { Check, Copy, Globe, Pencil, Refresh, XLogo } from '../icons'
-import { btnLink, btnSecondary, btnToolbar, btnApprove, field, tone } from '../ui'
+import { btnLink, btnSecondary, btnToolbar, btnApprove, COPIED_NOTE, field, tone } from '../ui'
+import { markOpened, wasOpened } from '../opened'
+import SentCheck from '../SentCheck'
 import MoreMenu from './MoreMenu'
 import { blockers, deliveryNote, LANDS_IN_HINT, LANGUAGE_NAME, SKIP_LABEL, SKIP_REASONS, verdict, type Verdict } from './labels'
 import { useSwipe } from './useSwipe'
@@ -98,8 +100,8 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   const [note, setNote] = useState('')
   const [reason, setReason] = useState<SkipReason>('not_fit')
   const [copied, setCopied] = useState(false)
-  // True once they copied the text or opened X: the next question is whether they sent it.
-  const [asked, setAsked] = useState(false)
+  // True once they opened X: the next question is whether they sent it.
+  const [asked, setAsked] = useState(() => item.status === 'approved' && wasOpened(item.draftId))
   const [confirmDnc, setConfirmDnc] = useState(false)
   const firstField = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
 
@@ -129,11 +131,18 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   const main = item.prospect.mainLanguage
   const other = main && main !== 'en' ? main : item.language !== 'en' ? item.language : null
 
-  const copyText = () =>
-    navigator.clipboard.writeText(item.text).then(() => {
-      setCopied(true)
-      if (handoff) setAsked(true)
-    })
+  // Copying is not opening X: the Sent? step starts only when the chat is opened.
+  const copyText = () => navigator.clipboard.writeText(item.text).then(() => setCopied(true))
+  // Also put the draft on the clipboard: X fills the text in only when the sender has set a Chat passcode.
+  const openInX = () => {
+    markOpened(item.draftId)
+    setAsked(true)
+    try {
+      void navigator.clipboard.writeText(item.text).then(() => setCopied(true), () => undefined)
+    } catch {
+      // No clipboard on this page: X still opens.
+    }
+  }
   const bar = `${btnToolbar} inline-flex items-center gap-1.5`
 
   const tools = (
@@ -260,8 +269,15 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
               Send from xdm-scout
             </button></span>
           )}
-          {handoff && item.openInXUrl ? (
-            <a className={`${btnApprove} ${xBtn}`} href={item.openInXUrl} target="_blank" rel="noreferrer" onClick={() => setAsked(true)}>
+          {handoff && item.openInXUrl && asked ? (
+            <>
+              <SentCheck pending={m.manual.isPending} onAnswer={(outcome) => m.manual.mutate(outcome)} />
+              <a className={`${btnLink} text-xs`} href={item.openInXUrl} target="_blank" rel="noreferrer" onClick={openInX}>
+                open again
+              </a>
+            </>
+          ) : handoff && item.openInXUrl ? (
+            <a className={`${btnApprove} ${xBtn}`} href={item.openInXUrl} target="_blank" rel="noreferrer" onClick={openInX}>
               <XLogo className="size-4" />
               Open chat with @{handle} on X
             </a>
@@ -273,16 +289,10 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
           )}
           {!handoff && <span className="text-sm text-muted">Available after you approve.</span>}
           {handoff && byApp && !asked && <span className="text-sm text-muted">Connect your X account in Account to send from here.</span>}
-          {handoff && asked && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:ml-auto">
-              <p className="text-sm font-semibold">Did you send it to @{handle}?</p>
-              <button type="button" className={btnApprove} disabled={m.manual.isPending} onClick={() => m.manual.mutate('sent')}>
-                Yes
-              </button>
-              <button type="button" className={btnSecondary} disabled={m.manual.isPending} onClick={() => m.manual.mutate('not_sent')}>
-                No
-              </button>
-            </div>
+          {handoff && copied && (
+            <span role="status" className="anim-fade-in text-sm text-ok">
+              {COPIED_NOTE}
+            </span>
           )}
         </div>
         <ErrorLine error={m.manual.error} />

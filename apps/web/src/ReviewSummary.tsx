@@ -13,7 +13,7 @@ export default function ReviewSummary({ campaignId }: { campaignId: number }) {
   const skipped = s.skipped.reduce((n, r) => n + r.count, 0)
 
   return (
-    <section aria-label="What reviewers changed" className="mt-12">
+    <section aria-label="What reviewers changed" className="mt-10 border-t border-rule pt-8">
       <h2 className="text-lg font-bold">What reviewers changed</h2>
       <ul className="mt-3 space-y-1 text-sm">
         <li>

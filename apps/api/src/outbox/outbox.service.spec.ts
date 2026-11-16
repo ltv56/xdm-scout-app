@@ -56,6 +56,18 @@ describe('OutboxService', () => {
     expect((await service.list(1)).items.map((i) => i.label)).toEqual(['Send in X'])
   })
 
+  it('gives a hand-off the link that opens X with the draft and the text to copy, and nothing for other sends', async () => {
+    const pending = await attempt('201', 'manual_pending')
+    await attempt('202', 'sent')
+    const { items } = await service.list(1)
+    const hand = items.find((i) => i.handle === 'u201')!
+    expect(hand.draftId).toBe(pending.draftId)
+    expect(hand.text).toBe('Hi 201')
+    expect(hand.openInX).toBe('https://x.com/messages/compose?recipient_id=201&text=Hi%20201')
+    const sent = items.find((i) => i.handle === 'u202')!
+    expect([sent.text, sent.openInX]).toEqual([null, null])
+  })
+
   it('still reports work in flight when it is older than the newest 100 rows', async () => {
     await attempt('300', 'queued')
     for (let n = 0; n < 100; n++) await attempt(String(400 + n), 'sent')

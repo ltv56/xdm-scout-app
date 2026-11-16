@@ -24,10 +24,10 @@ export default function OnboardingTips({ className = '' }: { className?: string 
   const tip = TIPS[at]
   return (
     <aside aria-label="Tip" className={className}>
-      <div className="rounded-3xl bg-accent px-7 py-6 text-accent-ink">
+      <div className="rounded-2xl bg-accent px-5 py-3 text-accent-ink min-[1640px]:rounded-3xl min-[1640px]:px-7 min-[1640px]:py-6">
         <div key={at} className="tip-in">
-          <p className="text-base font-semibold">{tip.title}</p>
-          <p className="mt-2 text-base leading-snug opacity-90">{tip.body}</p>
+          <p className="text-sm font-semibold min-[1640px]:text-base">{tip.title}</p>
+          <p className="mt-0.5 text-sm leading-snug opacity-90 min-[1640px]:mt-2 min-[1640px]:text-base">{tip.body}</p>
         </div>
       </div>
     </aside>

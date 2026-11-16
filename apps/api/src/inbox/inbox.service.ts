@@ -9,7 +9,7 @@ import { Reply } from './reply.entity'
 
 const TO_CHECK: AttemptStatus[] = ['manual_unverified', 'needs_decision']
 
-type Row = { id: number; status: AttemptStatus; verifiedBy: 'api' | 'operator' | null; at: Date; xUserId: string; handle: string | null; name: string | null; text: string; replied: number | string }
+type Row = { id: number; status: AttemptStatus; verifiedBy: 'api' | 'operator' | null; copiesSeen: number | null; at: Date; xUserId: string; handle: string | null; name: string | null; text: string; replied: number | string }
 type ReplyRow = {
   replyId: number
   theirText: string | null
@@ -38,7 +38,7 @@ export class InboxService {
       .innerJoin(Contact, 'c', 'c.id = a.contactId')
       .leftJoin(XUser, 'u', 'u.xUserId = c.xUserId')
       .where('a.status IN (:...statuses)', { statuses: [...TO_CHECK, 'sent'] })
-      .select(['a.id AS id', 'a.status AS status', 'a.verifiedBy AS verifiedBy', 'a.updatedAt AS at', 'c.xUserId AS xUserId', 'u.handle AS handle', 'u.name AS name', 'd.content AS text'])
+      .select(['a.id AS id', 'a.status AS status', 'a.verifiedBy AS verifiedBy', 'a.copiesSeen AS copiesSeen', 'a.updatedAt AS at', 'c.xUserId AS xUserId', 'u.handle AS handle', 'u.name AS name', 'd.content AS text'])
       .addSelect('EXISTS (SELECT 1 FROM replies r WHERE r.contactId = c.id)', 'replied')
       .orderBy('a.id', 'ASC')
       .getRawMany<Row>()
@@ -52,7 +52,7 @@ export class InboxService {
     const delivered: DeliveredItem[] = rows
       .filter((r) => r.status === 'sent')
       .reverse()
-      .map((r) => ({ ...person(r), verifiedBy: r.verifiedBy ?? 'api', replied: Number(r.replied) === 1 }))
+      .map((r) => ({ ...person(r), verifiedBy: r.verifiedBy ?? 'api', replied: Number(r.replied) === 1, copies: r.copiesSeen ?? 1 }))
     return { replies: await this.replies(campaignId), toCheck, delivered }
   }
 

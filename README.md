@@ -55,6 +55,8 @@ The reset refuses unless `X_MODE=fake` and the database name contains `sandbox` 
 
 ## Hosted sandbox
 
+A running copy: https://xdm-scout.duckdns.org (fake X, canned model answers, no login; anyone can change its data).
+
 The same sandbox (fake X, canned model answers) on a server with a domain and HTTPS. Only Caddy listens on 80 and 443; MySQL has no published port. It has no login: do not point it at a real X account.
 
 On a Linux server with Docker, and a domain that already points to its IP:

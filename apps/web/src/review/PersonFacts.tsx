@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import XLink from '../XLink'
 import type { Decision, ReviewItem } from '../../../api/src/review/contract'
 import { CheckCircle, ChevronDown, QuestionCircle, XCircle } from '../icons'
 import { activeLabel, LANGUAGE_NAME, shortDate } from './labels'
@@ -83,11 +84,7 @@ function CriterionPanel({ criterion }: { criterion: Prospect['criteria'][number]
                     {e.kind === 'bio' ? 'Their bio' : e.kind === 'inbound_dm' ? 'Their message to you' : e.kind === 'fund_list' ? 'Your list' : 'Their post'}
                     {shortDate(e.postedAt) && ` · ${shortDate(e.postedAt)}`}
                   </span>
-                  {e.url && (
-                    <a className="underline underline-offset-4" href={e.url} target="_blank" rel="noreferrer">
-                      Open on X
-                    </a>
-                  )}
+                  {e.url && <XLink href={e.url} label="Open on X" />}
                 </p>
               </li>
             ))}
@@ -123,7 +120,7 @@ export function PersonFacts({ prospect }: { prospect: Prospect }) {
         {prospect.mainLanguage && <Fact label="Writes mostly in" value={LANGUAGE_NAME[prospect.mainLanguage]} />}
       </dl>
       {prospect.bio && (
-        <div className="mt-5">
+        <div className="mt-5 border-t border-rule pt-4">
           <p className="text-sm text-muted">Bio</p>
           <p className="mt-0.5 text-sm leading-snug">“{prospect.bio}”</p>
         </div>

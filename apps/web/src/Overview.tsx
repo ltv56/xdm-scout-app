@@ -116,7 +116,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
         </div>
         {run && (
           <div className="sm:text-right">
-            <button type="button" className={btnSecondary} disabled={search.isPending || waiting} onClick={() => search.mutate()}>
+            <button type="button" className={btnPrimary} disabled={search.isPending || waiting} onClick={() => search.mutate()}>
               {waiting ? 'Searching…' : 'Search again'}
             </button>
             <p className="mt-1 text-xs text-muted">
@@ -243,7 +243,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
       )}
 
       {people.length > 0 && (
-      <section aria-label="What we found" className="mt-12">
+      <section aria-label="What we found" className="mt-10 border-t border-rule pt-8">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold">What we found</h2>
           <button type="button" className={btnLink} onClick={() => onProspects('all')}>
@@ -271,7 +271,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
       )}
 
       {top.length > 0 && (
-        <section aria-label="Best matches" className="mt-12">
+        <section aria-label="Best matches" className="mt-10 rounded-2xl bg-paper px-6 py-6">
           <h2 className="text-base font-semibold">Best matches and why</h2>
           <ul className="mt-3">
             {top.map((p) => (
@@ -294,7 +294,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
       )}
 
       {run && (
-        <section aria-label="Last search" className="mt-12">
+        <section aria-label="Last search" className="mt-10 border-t border-rule pt-8">
           <details>
             <summary className="cursor-pointer text-sm">
               <span className="font-semibold">Last search</span>{' '}
