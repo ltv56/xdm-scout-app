@@ -53,12 +53,22 @@ import { SendSettingsService } from './sending/send-settings.service'
 import { Worker } from './sending/worker'
 import { FakeXClient } from './x/fake-x-client'
 import { LiveXClient } from './x/live-x-client'
+import { lazyChatReader } from './x/chat-wiring'
 import { X_CLIENT, XClient } from './x/x-client'
 
 const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) => [k, config.get<string>(k, '')]))
 
 // Token counts go to llm_usage without ever failing the model call.
 const meter = (usage: LlmUsageService): LlmUsageSink => (u) => void usage.record(u).catch((err: unknown) => console.error('llm usage not saved', err))
+
+function liveClient(config: ConfigService, auth: AuthService): XClient {
+  const keysFile = config.get('XCHAT_KEYS_FILE', '')
+  if (!keysFile) return new LiveXClient(() => auth.session())
+  const self: { client?: LiveXClient } = {}
+  const chat = lazyChatReader(keysFile, config.get('TOKEN_KEY', ''), (path) => self.client!.getJson(path))
+  self.client = new LiveXClient(() => auth.session(), fetch, chat)
+  return self.client
+}
 
 @Module({
   imports: [
@@ -142,7 +152,7 @@ const meter = (usage: LlmUsageService): LlmUsageSink => (u) => void usage.record
       provide: X_CLIENT,
       inject: [ConfigService, AuthService],
       useFactory: (config: ConfigService, auth: AuthService): XClient =>
-        config.get('X_MODE', 'fake') === 'live' ? new LiveXClient(() => auth.session()) : FakeXClient.fromFixtures(),
+        config.get('X_MODE', 'fake') === 'live' ? liveClient(config, auth) : FakeXClient.fromFixtures(),
     },
   ],
 })

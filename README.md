@@ -55,20 +55,30 @@ The reset refuses unless `X_MODE=fake` and the database name contains `sandbox` 
 
 ## First walkthrough
 
-1. Open http://localhost:3000. Avatar menu (top right) > Profile > Use sandbox account connects the fake sender.
-2. Profile > Sender profile: write one line about the fund, add a program and the name that signs the messages. Drafts need these.
-3. Start your first campaign. For the fake X use keywords `robotics, llm, embodied` and handles `mina_builds, tomas_agents, lena_embodied, robotco, private_dev, pasta_daily, nobody_here`.
-4. Overview > Run first search, then Score them. Three people from the list are found and scored; the organization, the protected account and the off-topic one are skipped, and the page says why.
-5. Overview > Write drafts. Each draft sentence shows the post or profile line that backs it.
-6. Review: read each draft, fix or approve it. A claim with no backing needs your confirmation.
-7. Approved drafts for people who messaged you first go out through the API from Review. Everyone else is sent with Open in X, and you mark it as sent.
-8. Outbox lists every send. Inbox shows replies and sends to check. Needs attention (top of Overview) collects what waits for you. Results so far (Overview) shows counts per step and the cost of a conversation.
+Open the app (http://localhost:3000, or http://localhost:3040 with Docker). The first screen has three steps.
 
-Avatar menu > Settings has the Setup check, the Do not contact list and the Known to the fund lists.
+1. Connect the account that sends: Use sandbox account.
+2. Tell us about the fund: who you are, what you offer (a program name, link and one sentence), and the name that signs the messages. Drafts need these.
+3. Start your first campaign: give it a name and Create campaign. The keywords are pre-filled, and with the fake X the handles, seeds and queries stay empty (the example people from `fixtures/` are used).
+4. Overview > Run first search. It finds 3 people and skips 4; the page says why.
+5. Candidates > Score all, then Write drafts. Each card shows the opening post and why the person fits.
+6. Review: read each draft, point at a sentence to see the post or profile line behind it, edit or Approve. A claim with no backing needs your confirmation.
+7. Sending: a draft for a person who messaged you first goes out through the API when you approve it. Everyone else shows Send it in X: Open chat opens X with the text filled in, you send it there and mark it as sent. In the sandbox nothing leaves the machine.
+8. Messages > Outbox lists every send and its state; Messages > Inbox shows replies and sends to check. Needs attention (Overview) collects what waits for you.
+
+Avatar menu (top right) > Profile edits the sender profile; Settings has the Setup check, the daily cap, the Do not contact list and the Known to the fund lists.
 
 ## Live mode
 
 Live mode uses `gpt-6-luna` for reply classes and checks unless `LLM_MODEL` says otherwise, and needs `OPENAI_API_KEY`. The prompts are tuned and measured on it. Another LLM works through the same interface, but run the reply eval on it first (`docs/testing.md`).
+
+Replies written in X Chat (encrypted) are read only if the sender's chat keys are saved once and `XCHAT_KEYS_FILE` is set in `.env`. With `X_MODE=live` and `TOKEN_KEY` in `.env`, from the repo root:
+
+```bash
+X_USER_ID=<sender id> X_TOKEN_FILE=<json with access_token> XCHAT_KEYS_FILE=.local/chat-keys.enc node --env-file=.env apps/api/scripts/xchat-export-keys.mjs
+```
+
+It asks for the sender's Chat passcode at a hidden prompt, one try only (X allows about 20 wrong guesses). Without the keys the Inbox misses replies in encrypted chats: `docs/limitations.md`.
 
 Sending from a real X account needs an X app and a few keys: see `docs/x-app-setup.md`. Manual checks against the real X are in `docs/testing.md`.
 
