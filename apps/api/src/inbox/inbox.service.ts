@@ -1,4 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { DataSource, In, IsNull } from 'typeorm'
 import { Prospect } from '../discovery/entities'
 import { addDoNotContact } from '../dnc/add-do-not-contact'
@@ -28,7 +29,10 @@ const openInX = (xUserId: string) => `https://x.com/messages/compose?recipient_i
 
 @Injectable()
 export class InboxService {
-  constructor(private readonly ds: DataSource) {}
+  constructor(
+    private readonly ds: DataSource,
+    @Optional() private readonly config?: ConfigService,
+  ) {}
 
   async checks(campaignId: number): Promise<InboxChecks> {
     const rows = await this.ds
@@ -37,7 +41,7 @@ export class InboxService {
       .innerJoin(Prospect, 'p', 'p.id = d.prospectId AND p.campaignId = :campaignId', { campaignId })
       .innerJoin(Contact, 'c', 'c.id = a.contactId')
       .leftJoin(XUser, 'u', 'u.xUserId = c.xUserId')
-      .where('a.status IN (:...statuses)', { statuses: [...TO_CHECK, 'sent'] })
+      .where('a.status IN (:...statuses)', { statuses: [...TO_CHECK, 'sent', 'manual_pending'] })
       .select(['a.id AS id', 'a.status AS status', 'a.verifiedBy AS verifiedBy', 'a.copiesSeen AS copiesSeen', 'a.updatedAt AS at', 'c.xUserId AS xUserId', 'u.handle AS handle', 'u.name AS name', 'd.content AS text'])
       .addSelect('EXISTS (SELECT 1 FROM replies r WHERE r.contactId = c.id)', 'replied')
       .orderBy('a.id', 'ASC')
@@ -53,7 +57,9 @@ export class InboxService {
       .filter((r) => r.status === 'sent')
       .reverse()
       .map((r) => ({ ...person(r), verifiedBy: r.verifiedBy ?? 'api', replied: Number(r.replied) === 1, copies: r.copiesSeen ?? 1 }))
-    return { replies: await this.replies(campaignId), toCheck, delivered }
+    const waiting = rows.filter((r) => r.status === 'manual_pending').length
+    const readsChats = !!this.config?.get<string>('XCHAT_KEYS_FILE', '')
+    return { replies: await this.replies(campaignId), toCheck, delivered, waiting, readsChats }
   }
 
   async markHandled(replyId: number): Promise<void> {

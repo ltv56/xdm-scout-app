@@ -185,13 +185,14 @@ export class FakeXClient implements XClient {
     return this.record(recipientId, text, false, createdAt)
   }
 
-  deliverSilently(recipientId: string, text: string, createdAt: Date) {
-    this.record(recipientId, text, true, createdAt)
+  // eventId: X Chat gives messages a UUID instead of a numeric id.
+  deliverSilently(recipientId: string, text: string, createdAt: Date, eventId?: string) {
+    this.record(recipientId, text, true, createdAt, eventId)
   }
 
-  private record(recipientId: string, text: string, fromMe: boolean, createdAt: Date) {
+  private record(recipientId: string, text: string, fromMe: boolean, createdAt: Date, eventId?: string) {
     this.counter += 1
-    const message = { recipientId, conversationId: `${'1'.repeat(19)}-${recipientId.padStart(19, '0')}`, eventId: `e-${this.counter}`, text, fromMe, createdAt, seq: this.counter }
+    const message = { recipientId, conversationId: `${'1'.repeat(19)}-${recipientId.padStart(19, '0')}`, eventId: eventId ?? `e-${this.counter}`, text, fromMe, createdAt, seq: this.counter }
     this.messages.push(message)
     return message
   }

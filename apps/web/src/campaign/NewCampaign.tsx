@@ -28,7 +28,7 @@ interface Props {
 const DEFAULT_NAME = 'AI and robotics builders'
 const DEFAULT_KEYWORDS = ['robotics', 'embodied AI', 'LLM', 'AI agents', 'developer tools', 'AI infrastructure']
 // The people the fake X knows. Used only in the sandbox, so the first search has someone to find.
-const SANDBOX_HANDLES = ['mina_builds', 'tomas_agents', 'lena_embodied', 'robotco', 'private_dev', 'pasta_daily', 'nobody_here']
+const SANDBOX_HANDLES = ['mina_builds', 'tomas_agents', 'lena_embodied', 'robotco', 'private_dev', 'nobody_here']
 
 const Star = () => (
   <span aria-hidden className="ml-0.5 text-block">

@@ -42,6 +42,10 @@ describe('greetingFor', () => {
     }
   })
 
+  it('never says "Hi there" before a name, which reads like a mass mailing', () => {
+    for (const s of seeds) expect(greetingFor('Mai Tran', s)).not.toMatch(/^Hi there Mai/)
+  })
+
   it('has a version without a name', () => {
     for (const s of seeds) {
       const g = greetingFor('Acme Labs', s)

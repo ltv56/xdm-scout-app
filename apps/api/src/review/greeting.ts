@@ -36,7 +36,6 @@ const NAMED: Record<GreetingLanguage, ((n: string) => string)[]> = {
     (n) => `Hey ${n}!`,
     (n) => `Hi ${n}, hope your week is going well.`,
     (n) => `Hello ${n}, hope you are doing well.`,
-    (n) => `Hi there ${n}!`,
   ],
   vi: [
     (n) => `Chào ${n}!`,

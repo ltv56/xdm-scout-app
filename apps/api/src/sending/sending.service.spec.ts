@@ -426,10 +426,18 @@ describe('hand-send watch', () => {
     expect(x.conversationReads).toHaveLength(1)
     const [next] = await watchJobs()
     expect(next.payload).toEqual({ attemptId, step: 1, fromMs: start.getTime() })
-    expect(next.runAt.getTime()).toBe(start.getTime() + 3 * MIN)
+    expect(next.runAt.getTime()).toBe(start.getTime() + MIN)
 
     await service.verifyManual(attemptId, next.runAt, 1, start.getTime())
-    expect((await watchJobs())[1].runAt.getTime()).toBe(start.getTime() + 10 * MIN)
+    expect((await watchJobs())[1].runAt.getTime()).toBe(start.getTime() + 3 * MIN)
+  })
+
+  it('checks for the last time 12 hours after the chat was opened', async () => {
+    const { attemptId } = await handOff()
+    await service.verifyManual(attemptId, new Date(), 9, start.getTime())
+    const [last] = await watchJobs()
+    expect(last.payload).toEqual({ attemptId, step: 10, fromMs: start.getTime() })
+    expect(last.runAt.getTime()).toBe(start.getTime() + 12 * 60 * MIN)
   })
 
   it('stops once the message is in the chat, and marks it sent', async () => {
@@ -440,9 +448,17 @@ describe('hand-send watch', () => {
     expect(await watchJobs()).toHaveLength(0)
   })
 
+  it('marks a hand-send sent when X Chat gives the message a UUID id', async () => {
+    const { d, attemptId } = await handOff()
+    const chatId = '539c2026-2d4a-4d8f-86ac-613fc0320e33'
+    x.deliverSilently('201', d.content, new Date(), chatId)
+    await service.verifyManual(attemptId, new Date(), 0, Date.now())
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'sent', xEventId: chatId })
+  })
+
   it('gives up after the last check and leaves the question to a person', async () => {
     const { attemptId } = await handOff('manual_unverified')
-    await service.verifyManual(attemptId, new Date(), 6, start.getTime())
+    await service.verifyManual(attemptId, new Date(), 10, start.getTime())
     expect(await watchJobs()).toHaveLength(0)
     expect((await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).status).toBe('manual_unverified')
   })

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CheckItem, DeliveredItem, InboxChecks, ReplyItem } from '../../../api/src/inbox/contract'
 import { ENDS_CONTACT, needsStopConfirm, REPLY_CLASSES, type ClassBy, type ReplyClass } from '../../../api/src/inbox/reply-class'
 import { getJson, postJson } from '../api'
+import { plural } from '../format'
 import EmptyState from '../ui/EmptyState'
 import { XLogo } from '../ui/icons'
 import SentCheck from './SentCheck'
@@ -30,17 +31,32 @@ export default function Inbox({ campaignId, onReview }: { campaignId: number; on
 
   if (checks.isLoading) return <p role="status" className="text-sm text-muted">Loading…</p>
   if (checks.error || !checks.data) return <p role="alert" className="text-sm font-medium text-block">{checks.error?.message ?? 'Inbox not available'}</p>
-  const { replies, toCheck, delivered } = checks.data
+  const { replies, toCheck, delivered, waiting, readsChats } = checks.data
   const open = replies.filter((r) => !r.handled).length
+  const looking = `Looking for ${plural(waiting, 'message')} you sent by hand in the chat.`
 
   if (!replies.length && !toCheck.length && !delivered.length) {
+    if (waiting > 0) return <EmptyState title="Waiting for your messages" text={`${looking} Replies show here after that.`} />
     return <EmptyState title="No replies yet" text="The app checks each chat for 3 days after a send." action={{ label: 'Go to Review', onClick: onReview }} />
   }
 
   return (
     <div className="max-w-3xl">
       <h1 className="text-[28px] font-bold leading-tight">Inbox</h1>
-      <section aria-labelledby="replies-heading" className="mt-8">
+      {toCheck.length > 0 && (
+        <section aria-labelledby="check-heading" className="mt-8">
+          <h2 id="check-heading" className="text-lg font-semibold">
+            Check in X
+            <span className="ml-2 rounded-full bg-accent px-2 py-0.5 align-middle text-xs font-semibold text-accent-ink">{toCheck.length}</span>
+          </h2>
+          <ul className="mt-4 space-y-4">
+            {toCheck.map((item) => (
+              <CheckCard key={item.attemptId} item={item} campaignId={campaignId} />
+            ))}
+          </ul>
+        </section>
+      )}
+      <section aria-labelledby="replies-heading" className={toCheck.length > 0 ? 'mt-10' : 'mt-8'}>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h2 id="replies-heading" className="text-lg font-semibold">
             Replies
@@ -48,6 +64,7 @@ export default function Inbox({ campaignId, onReview }: { campaignId: number; on
           </h2>
           <CheckNow campaignId={campaignId} />
         </div>
+        {waiting > 0 && <p className="mt-1 text-sm text-muted">{looking}</p>}
         {replies.length === 0 ? (
           <p className="mt-2 text-sm text-muted">No replies yet. The app checks each chat for 3 days after a send.</p>
         ) : (
@@ -58,30 +75,15 @@ export default function Inbox({ campaignId, onReview }: { campaignId: number; on
           </ul>
         )}
       </section>
-      <section aria-labelledby="check-heading" className="mt-10">
-        <h2 id="check-heading" className="text-lg font-semibold">
-          Check in X
-          {toCheck.length > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 align-middle text-xs font-semibold text-accent-ink">{toCheck.length}</span>}
-        </h2>
-        {toCheck.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Nothing to check. Every message you sent is accounted for.</p>
-        ) : (
-          <ul className="mt-4 space-y-4">
-            {toCheck.map((item) => (
-              <CheckCard key={item.attemptId} item={item} campaignId={campaignId} />
-            ))}
-          </ul>
-        )}
-      </section>
       {delivered.length > 0 && (
       <section aria-labelledby="delivered-heading" className="mt-10">
         <h2 id="delivered-heading" className="text-lg font-semibold">Delivered</h2>
         {(
           <>
-            <p className="mt-1 text-sm text-muted">Replies in encrypted chats don't reach the app. If someone answered in X, mark it here.</p>
+            <p className="mt-1 text-sm text-muted">{readsChats ? 'Replies are read from each chat, encrypted ones too.' : "Replies in encrypted chats don't reach the app. If someone answered in X, mark it here."}</p>
             <ul className="mt-3 divide-y divide-rule">
               {delivered.map((d) => (
-                <DeliveredRow key={d.attemptId} item={d} campaignId={campaignId} />
+                <DeliveredRow key={d.attemptId} item={d} campaignId={campaignId} canMark={!readsChats} />
               ))}
             </ul>
           </>
@@ -145,7 +147,7 @@ function ReplyCard({ item, campaignId }: { item: ReplyItem; campaignId: number }
         </span>
       </div>
       {item.theirText === null ? (
-        <p className="mt-3 text-sm">They replied in an encrypted chat. Read it in X.</p>
+        <p className="mt-3 text-sm">You marked that they replied. Read it in X.</p>
       ) : (
         <blockquote className="mt-3 whitespace-pre-line rounded-xl border border-rule px-4 py-3 text-sm">{item.theirText}</blockquote>
       )}
@@ -224,11 +226,13 @@ function CheckNow({ campaignId }: { campaignId: number }) {
   )
 }
 
-function DeliveredRow({ item, campaignId }: { item: DeliveredItem; campaignId: number }) {
+// canMark: only when the app cannot read encrypted chats itself; otherwise a reply is recorded only once it is read.
+function DeliveredRow({ item, campaignId, canMark }: { item: DeliveredItem; campaignId: number; canMark: boolean }) {
   const qc = useQueryClient()
   const replied = useMutation({
     mutationFn: () => postJson(`/send-attempts/${item.attemptId}/replied`, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inbox-checks', campaignId] }),
+    // The app may have read the reply a moment earlier; then there is nothing to report, just show it.
+    onSettled: () => qc.invalidateQueries({ queryKey: ['inbox-checks', campaignId] }),
   })
   const byApi = item.verifiedBy === 'api'
   return (
@@ -238,16 +242,18 @@ function DeliveredRow({ item, campaignId }: { item: DeliveredItem; campaignId: n
         {item.replied ? (
           <span className={`${chip} ${tone.ok.chip}`}>Replied</span>
         ) : (
-          <button type="button" className={btnLink} disabled={replied.isPending} onClick={() => replied.mutate()}>
-            They replied
-          </button>
+          canMark && (
+            <button type="button" className={btnLink} disabled={replied.isPending} onClick={() => replied.mutate()}>
+              They replied
+            </button>
+          )
         )}
         {item.copies > 1 && <span className={`${chip} ${tone.warn.chip}`}>Sent {item.copies} times</span>}
         <span className={`${chip} ${byApi ? tone.ok.chip : tone.done.chip}`} title={byApi ? 'X returned this message through its API' : 'You checked the chat in X'}>
           {byApi ? 'Seen by X API' : 'Confirmed by you'}
         </span>
       </span>
-      {replied.error && (
+      {replied.error && !/already recorded/i.test(replied.error.message) && (
         <p role="alert" className="w-full text-sm font-medium text-block">
           {replied.error.message}
         </p>

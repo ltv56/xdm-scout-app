@@ -22,6 +22,7 @@ export class AuthController {
   }
 
   @Get('callback')
+  @Redirect()
   async callback(@Query('code') code?: string, @Query('state') state?: string) {
     if (!code || !state) throw new BadRequestException('Missing code or state')
     try {
@@ -29,7 +30,8 @@ export class AuthController {
     } catch (err) {
       throw new BadRequestException(err instanceof Error ? err.message : 'OAuth failed')
     }
-    return 'X account connected. You can close this tab.'
+    // Relative, so it lands on whichever host X sent the browser back to (Vite in dev, the API itself when hosted).
+    return { url: '/#profile' }
   }
 
   // Only with X_MODE=fake: a made-up sender so drafts work without logging in to X.

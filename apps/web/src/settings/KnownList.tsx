@@ -9,8 +9,8 @@ import { plural } from '../format'
 function summary(r: ImportResult) {
   const parts = [`Added ${plural(r.added, 'person', 'people')}`]
   if (r.alreadyKnown) parts.push(`${r.alreadyKnown} already on the list`)
-  if (r.notFound.length) parts.push(`not found on X: ${r.notFound.map((h) => `@${h}`).join(', ')}`)
-  if (r.invalid.length) parts.push(`not a handle, skipped: ${r.invalid.join(', ')}`)
+  if (r.notFound.length) parts.push(`Not found on X: ${r.notFound.map((h) => `@${h}`).join(', ')}`)
+  if (r.invalid.length) parts.push(`Not a handle, skipped: ${r.invalid.join(', ')}`)
   return `${parts.join('. ')}.`
 }
 
@@ -20,12 +20,14 @@ export default function KnownList() {
   const [handles, setHandles] = useState('')
   const [warm, setWarm] = useState(false)
   const [event, setEvent] = useState('')
+  const [fileName, setFileName] = useState<string | null>(null)
   const list = useQuery<KnownPerson[]>({ queryKey: ['known-users'], queryFn: () => getJson('/known-users'), retry: false })
   const done = () => qc.invalidateQueries({ queryKey: ['known-users'] })
   const add = useMutation({
     mutationFn: () => postJson<ImportResult>('/known-users/import', { listName, handles, ...(warm && { kind: 'warm', event }) }),
     onSuccess: () => {
       setHandles('')
+      setFileName(null)
       void done()
     },
   })
@@ -54,13 +56,25 @@ export default function KnownList() {
             Handles, one per line or a CSV with the handle in the first column
           </label>
           <textarea id="known-handles" className={`${field} h-28`} value={handles} onChange={(e) => setHandles(e.target.value)} />
-          <input
-            type="file"
-            accept=".csv,text/csv,text/plain"
-            aria-label="Load a CSV file"
-            className="mt-1 text-xs"
-            onChange={(e) => void e.target.files?.[0]?.text().then(setHandles)}
-          />
+          {/* The browser's own file box does not match the app, so a styled label opens the hidden input. */}
+          <div className="mt-2 flex items-center gap-3">
+            <label className={`${btnSecondary} cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink`}>
+              Load a CSV file
+              <input
+                type="file"
+                accept=".csv,text/csv,text/plain"
+                aria-label="Load a CSV file"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setFileName(file.name)
+                  void file.text().then(setHandles)
+                }}
+              />
+            </label>
+            {fileName && <span className="text-xs text-muted">{fileName}</span>}
+          </div>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={warm} onChange={(e) => setWarm(e.target.checked)} />

@@ -72,7 +72,7 @@ Start the API and the worker with `X_MODE=fake`. Profiles come from `fixtures/pr
 
 ```
 curl -XPOST localhost:3001/api/campaigns -H 'content-type: application/json' \
-  -d '{"name":"robotics demo","keywords":["robotics","llm","embodied"],"handles":["mina_builds","@tomas_agents","lena_embodied","robotco","private_dev","pasta_daily","nobody_here"]}'
+  -d '{"name":"robotics demo","keywords":["robotics","llm","embodied"],"handles":["mina_builds","@tomas_agents","lena_embodied","robotco","private_dev","nobody_here"]}'
 curl -XPOST localhost:3001/api/campaigns/1/discover
 # the worker picks the job up within a few seconds; wait until lastDiscovery is set
 curl localhost:3001/api/campaigns/1
@@ -93,7 +93,7 @@ docker exec xdm-scout-db-1 mysql -uxdm -pxdm xdm -e "SELECT campaignId, kind, co
 - `costMicros` is in millionths of a dollar. Prices are in `apps/api/src/discovery/pricing.ts`.
 - `budgetUsd` on the campaign (default 1) caps the spend. Discovery stops when the next profile reads or a full 15-post read does not fit, keeps what it has, and the skipped handles get reason `budget`.
 - Prospects: `mina_builds`, `tomas_agents`, `lena_embodied`.
-- Skipped: `robotco` (organization), `private_dev` (protected), `pasta_daily` (bio has no keyword), `nobody_here` (not found).
+- Skipped: `robotco` (organization), `private_dev` (protected), `nobody_here` (not found). Handles you name skip the keyword check on the bio; people from seeds and search do not.
 - A body without `name` or `keywords`, or with no `handles`, `seeds` or `queries`: `400`.
 
 From seed accounts (fake mode, `fixtures/following.json`):

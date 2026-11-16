@@ -46,7 +46,7 @@ describe('receives_your_dm is stored as X reported it', () => {
 })
 
 describe('discovery from a handle list', () => {
-  it('dedupes handles and keeps only people who pass the rules', async () => {
+  it('dedupes handles and keeps only people who pass the rules; a handle you named needs no keyword in the bio', async () => {
     await ds.getRepository(DoNotContact).save({ xUserId: '6', reason: 'stop', source: 'reply' })
     await ds.getRepository(SenderAccount).save({ id: 1, xUserId: '100', handle: 'a' })
     await ds.getRepository(XUser).save({ xUserId: '7', handle: 'talked' })
@@ -57,12 +57,11 @@ describe('discovery from a handle list', () => {
     const result = await discovery.run(campaign.id, now)
 
     const prospects = await ds.getRepository(Prospect).find({ order: { xUserId: 'ASC' } })
-    expect(prospects.map((p) => p.xUserId)).toEqual(['1', '2'])
-    expect(result.added).toBe(2)
+    expect(prospects.map((p) => p.xUserId)).toEqual(['1', '2', '5'])
+    expect(result.added).toBe(3)
     expect(Object.fromEntries(result.skipped.map((s) => [s.handle, s.reason]))).toEqual({
       acme: 'organization',
       locked: 'protected',
-      chef: 'off-topic',
       stopped: 'do-not-contact',
       talked: 'already-contacted',
     })
@@ -122,16 +121,13 @@ describe('discovery from a handle list', () => {
   })
 
   it('stores the last run with skipped handles and reasons on the campaign', async () => {
-    const campaign = await newCampaign(['alice', 'chef', 'ghost'])
+    const campaign = await newCampaign(['alice', 'ghost'])
     await discovery.run(campaign.id, now)
     const saved = await ds.getRepository(Campaign).findOneByOrFail({ id: campaign.id })
     expect(saved.lastDiscovery).toMatchObject({
       at: now.toISOString(),
       added: 1,
-      skipped: [
-        { handle: 'ghost', reason: 'not-found' },
-        { handle: 'chef', reason: 'off-topic' },
-      ],
+      skipped: [{ handle: 'ghost', reason: 'not-found' }],
     })
   })
 

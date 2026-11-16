@@ -122,6 +122,10 @@ export class AuthService {
         grant_type: 'refresh_token',
         refresh_token: decryptToken(locked.refreshTokenEnc, this.cfg.tokenKey),
         client_id: this.cfg.clientId,
+      }).catch((err: Error) => {
+        // X answers 400 or 401 when the refresh token is used up or revoked; only a new login helps.
+        if (/returned 40[01]/.test(err.message)) throw new Error('X login expired. Reconnect the X account on Profile.')
+        throw err
       })
       this.applyTokens(locked, tokens)
       await em.save(locked)

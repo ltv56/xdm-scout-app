@@ -58,6 +58,19 @@ describe('LiveXClient.sendDm', () => {
     await expect(client.sendDm('200', 'Hi')).rejects.toBeInstanceOf(XUncertainError)
   })
 
+  it('reports a failed login as itself, not as an uncertain send, and calls X for nothing', async () => {
+    let called = false
+    const fetchFn = (async () => {
+      called = true
+      return json(201, {})
+    }) as typeof fetch
+    const client = new LiveXClient(async () => Promise.reject(new Error('X login expired. Reconnect the X account on Profile.')), fetchFn)
+    const err = await client.sendDm('200', 'Hi').catch((e: unknown) => e)
+    expect(err).not.toBeInstanceOf(XUncertainError)
+    expect((err as Error).message).toContain('Reconnect')
+    expect(called).toBe(false)
+  })
+
   it('treats other 4xx as a definite failure, not uncertain', async () => {
     const { client } = clientWith(() => json(400, { title: 'Invalid Request' }))
     const err = await client.sendDm('200', 'Hi').catch((e: unknown) => e)

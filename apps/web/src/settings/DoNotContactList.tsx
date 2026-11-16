@@ -3,6 +3,7 @@ import { ProfileLink } from '../ui/XLink'
 import { useState } from 'react'
 import type { DncPerson } from '../../../api/src/dnc/contract'
 import { getJson, postJson } from '../api'
+import { day } from '../format'
 import { btnPrimary, btnSecondary, field } from '../ui/ui'
 
 const SOURCE: Record<string, string> = { operator: 'You marked them', csv: 'Imported list' }
@@ -24,7 +25,7 @@ function Row({ p }: { p: DncPerson }) {
             @{p.handle}
           </ProfileLink>
           <p className="text-sm text-muted">
-            {p.reason} · {SOURCE[p.source] ?? p.source} · {new Date(p.since).toLocaleDateString()}
+            {p.reason} · {SOURCE[p.source] ?? p.source} · {day(p.since)}
           </p>
         </div>
         {!open && (

@@ -11,7 +11,7 @@ import type { Filter as CandidateFilter, Prospect } from '../candidates/Prospect
 import { Search } from '../ui/icons'
 import { verdict } from '../review/labels'
 import { btnLink, btnPrimary, btnSecondary, money } from '../ui/ui'
-import { ago, plural } from '../format'
+import { ago, day, plural } from '../format'
 
 interface DiscoveryRun {
   at: string
@@ -373,7 +373,7 @@ function SearchUses({ campaign: c, className = '' }: { campaign: Campaign; class
       'None set'
     ),
   ])
-  rows.push(['Offers', program ? `${program.name}${program.deadline ? `, closes ${shortDay(program.deadline)}` : ''}` : 'No program chosen'])
+  rows.push(['Offers', program ? `${program.name}${program.deadline ? `, closes ${day(program.deadline)}` : ''}` : 'No program chosen'])
 
   return (
     <section aria-label="What this search uses" className={`w-full max-w-xl rounded-2xl border border-rule bg-paper px-5 py-4 text-left ${className}`}>
@@ -390,7 +390,6 @@ function SearchUses({ campaign: c, className = '' }: { campaign: Campaign; class
   )
 }
 
-const shortDay = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 
 // The program this campaign offers and its call post.
 function LaneLine({ lane: l, campaignId }: { lane: CampaignLane; campaignId: number }) {
@@ -403,14 +402,14 @@ function LaneLine({ lane: l, campaignId }: { lane: CampaignLane; campaignId: num
   const program = profile.data?.programs.find((p) => p.id === l.programId)
   return (
     <p className="mt-1 text-sm text-muted">
-      {program ? `Offers ${program.name}${program.deadline ? `, closes ${shortDay(program.deadline)}` : ''}` : 'No program chosen'}
+      {program ? `Offers ${program.name}${program.deadline ? `, closes ${day(program.deadline)}` : ''}` : 'No program chosen'}
       {l.callPostUrl && l.callPostedAt && (
         <>
           {' · '}
           <a className="underline underline-offset-4" href={l.callPostUrl} target="_blank" rel="noreferrer">
             Call post
           </a>{' '}
-          of {shortDay(l.callPostedAt)}, keyword “{l.callKeyword}”
+          of {day(l.callPostedAt)}, keyword “{l.callKeyword}”
           {' · '}
           <button type="button" className={btnLink} disabled={check.isPending} onClick={() => check.mutate()} title="Reads up to 10 recent DMs, about $0.01 each. The worker also checks every 30 minutes.">
             Check now

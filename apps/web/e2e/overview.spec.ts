@@ -20,8 +20,8 @@ test('Before the first search the Overview is one card with the search button', 
   await expect(uses).toContainText('Offers')
 
   // The handles that did not fit are one hover away.
-  await uses.getByText('+3 more').hover()
-  await expect(page.getByRole('tooltip')).toContainText('@private_dev, @pasta_daily, @nobody_here')
+  await uses.getByText('+2 more').hover()
+  await expect(page.getByRole('tooltip')).toContainText('@private_dev, @nobody_here')
   await expect(card).toContainText('budget')
   await expect(card.getByRole('button', { name: 'Run first search' })).toBeVisible()
 

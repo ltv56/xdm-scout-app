@@ -21,7 +21,7 @@ const INVITATION_MAX_AGE_MS = 30 * 86_400_000
 const RECONCILE_READ_MAX = 10
 const MIN = 60_000
 // A hand-send is looked for soon after the chat is opened, then less often: each read costs.
-export const WATCH_AT_MS = [1, 3, 10, 30, 120, 480, 1440].map((m) => m * MIN)
+export const WATCH_AT_MS = [0.5, 1, 3, 5, 10, 30, 60, 120, 240, 480, 720].map((m) => m * MIN)
 
 // X allows automated DMs only to people who asked for them, so the API path needs a confirmed, recent invitation.
 export function apiSendBlock(contact: Contact, now: Date): string | null {

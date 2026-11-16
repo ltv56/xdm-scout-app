@@ -66,7 +66,7 @@ test('Inbox: messages sent by hand are checked in X, then marked sent or not sen
 
   await cards.first().getByRole('button', { name: 'Sent?', exact: true }).click()
   await cards.first().getByRole('button', { name: 'It was not sent' }).click()
-  await expect(toCheck.getByText('Nothing to check.')).toBeVisible()
+  await expect(toCheck).toHaveCount(0)
   await expect(delivered.getByRole('listitem')).toHaveCount(1)
 })
 
@@ -126,7 +126,7 @@ test('Inbox: Check now reads the open chats, and "They replied" records a reply 
   await delivered.getByRole('button', { name: 'They replied' }).click()
   await expect(delivered.getByText('Replied', { exact: true })).toHaveCount(2)
   const encrypted = replies.getByRole('listitem').first()
-  await expect(encrypted.getByText('They replied in an encrypted chat. Read it in X.')).toBeVisible()
+  await expect(encrypted.getByText('You marked that they replied. Read it in X.')).toBeVisible()
   await pick(page, encrypted.getByRole('combobox', { name: /^Class/ }), /^Question/)
   await expect(encrypted.getByTitle('Set by you')).toHaveText('Question')
 
@@ -156,4 +156,20 @@ test('Inbox: a decline the model decided waits for a person before the sender is
   await expect(reply.getByText('Do not contact', { exact: true })).toBeVisible()
   await expect(reply.getByText('Handled', { exact: true })).toBeVisible()
   await expect(reply.getByRole('button', { name: 'Confirm: put on Do not contact' })).toHaveCount(0)
+})
+
+test('Inbox: while hand-sends are looked for it says so, and with chat keys a reply is never marked by hand', async ({ page, request }) => {
+  const id = await campaignId(request)
+  const sent = { attemptId: 1, handle: 'tomas_agents', name: 'Tomas', text: 'Hi Tomas', at: '2026-11-16T18:00:00Z', verifiedBy: 'api', replied: false, copies: 1 }
+  let body: Record<string, unknown> = { replies: [], toCheck: [], delivered: [], waiting: 2, readsChats: true }
+  await page.route('**/api/inbox/checks*', (r) => r.fulfill({ json: { campaignId: id, ...body } }))
+  await openInbox(page)
+  await expect(page.getByRole('region', { name: 'Waiting for your messages' })).toContainText('Looking for 2 messages you sent by hand in the chat.')
+
+  body = { ...body, delivered: [sent], waiting: 0 }
+  await page.reload()
+  const delivered = page.getByRole('region', { name: 'Delivered' })
+  await expect(delivered).toContainText('Replies are read from each chat, encrypted ones too.')
+  await expect(delivered.getByRole('button', { name: 'They replied' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: /^Check in X/ })).toHaveCount(0)
 })

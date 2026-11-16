@@ -30,6 +30,8 @@ export class SenderProfileController {
     const message = [
       { text: 'Saw your post about shipping v2 of your eval harness.', source: { type: 'evidence' as const, evidenceId: 'sample' } },
       { text: profile.intro, source: { type: 'sender_profile' as const, field: 'intro' as const } },
+      // The opt-out line answers a question, so the sample asks one about the first program.
+      { text: `Would ${profile.programs[0]?.name ?? 'an intro'} be useful to you?`, source: { type: 'sender_profile' as const, field: 'program' as const } },
       { text: 'No worries if not.', source: { type: 'opt_out' as const } },
     ]
     const greeting = { text: greetingFor('Mai', 'sample', 'en', profile.frame?.greeting ?? null), source: { type: 'greeting' as const } }

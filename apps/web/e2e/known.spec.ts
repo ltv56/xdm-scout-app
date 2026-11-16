@@ -20,8 +20,8 @@ test('Handles pasted into Known to the fund are listed, and can be taken off aga
   await section.getByLabel(/^Handles/).fill('handle\n@mina_builds\nnobody_known\nnot a handle\n')
   await section.getByRole('button', { name: 'Add to the list' }).click()
   await expect(section).toContainText('Added 1 person.')
-  await expect(section).toContainText('not found on X: @nobody_known')
-  await expect(section).toContainText('not a handle, skipped: not a handle')
+  await expect(section).toContainText('Not found on X: @nobody_known')
+  await expect(section).toContainText('Not a handle, skipped: not a handle')
   await expect(section.getByRole('listitem')).toContainText('@mina_builds · Portfolio')
 
   await section.getByRole('button', { name: 'Remove' }).click()

@@ -3,7 +3,7 @@ import { expect, type APIRequestContext } from '@playwright/test'
 export const CAMPAIGN = {
   name: 'robotics demo',
   keywords: ['robotics', 'llm', 'embodied'],
-  handles: ['mina_builds', '@tomas_agents', 'lena_embodied', 'robotco', 'private_dev', 'pasta_daily', 'nobody_here'],
+  handles: ['mina_builds', '@tomas_agents', 'lena_embodied', 'robotco', 'private_dev', 'nobody_here'],
 }
 
 const PROFILE = {

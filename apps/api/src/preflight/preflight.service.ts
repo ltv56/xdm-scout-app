@@ -100,7 +100,11 @@ export class PreflightService {
     const s = await this.auth.status(mode)
     if (!s.connected) return { ...base, status: 'fail', detail: 'Not connected', fix: 'Open Profile and connect the X account.' }
     if (s.missingScopes.length) return { ...base, status: 'fail', detail: `@${s.handle} is missing permissions`, fix: `Reconnect on Profile to grant: ${s.missingScopes.join(', ')}.` }
-    if (s.tokenExpiresAt && s.tokenExpiresAt.getTime() < Date.now()) return { ...base, status: 'warn', detail: `@${s.handle}, access token expired`, fix: 'It renews itself on the next send; reconnect on Profile if sends fail.' }
+    // An expired token is fine only if X still takes the refresh token, so try it now (the token call is free).
+    if (mode === 'live' && s.tokenExpiresAt && s.tokenExpiresAt.getTime() < Date.now()) {
+      const refused = await this.auth.session().then(() => null, (err: Error) => err.message)
+      if (refused) return { ...base, status: 'fail', detail: `@${s.handle}, login expired`, fix: refused }
+    }
     return { ...base, status: 'ok', detail: `@${s.handle}` }
   }
 

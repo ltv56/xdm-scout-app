@@ -41,6 +41,16 @@ describe('OpenAiCompatibleLlmClient', () => {
     for (const model of ['gpt-5-nano', 'openai/gpt-5-mini', 'o4-mini']) expect(await bodyFor(model)).not.toHaveProperty('temperature')
   })
 
+  it('caps the answer length on OpenRouter, which otherwise holds credit for the model maximum', async () => {
+    const bodyFor = async (baseUrl: string) => {
+      const { fetchFn, calls } = fetchReturning(200, { choices: [{ message: { content: '{}' } }] })
+      await new OpenAiCompatibleLlmClient({ baseUrl, apiKey: 'k', model: 'deepseek/deepseek-chat' }, fetchFn).completeJson(req)
+      return JSON.parse(String(calls[0].init.body))
+    }
+    expect((await bodyFor('https://openrouter.ai/api/v1')).max_tokens).toBe(8000)
+    expect(await bodyFor('https://api.openai.com/v1')).not.toHaveProperty('max_tokens')
+  })
+
   it('accepts JSON wrapped in a code fence', async () => {
     const { fetchFn } = fetchReturning(200, { choices: [{ message: { content: '```json\n{"a":1}\n```' } }] })
     const client = new OpenAiCompatibleLlmClient({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' }, fetchFn)

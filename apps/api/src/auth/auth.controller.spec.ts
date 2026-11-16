@@ -39,3 +39,10 @@ describe('AuthController status', () => {
     expect(seen).toEqual(['fake'])
   })
 })
+
+describe('AuthController callback', () => {
+  it('goes back to Profile in the app once the account is connected', async () => {
+    const auth = { handleCallback: async () => undefined } as unknown as AuthService
+    expect(await new AuthController(auth, mode('live')).callback('code', 'state')).toEqual({ url: '/#profile' })
+  })
+})

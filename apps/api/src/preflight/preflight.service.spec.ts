@@ -53,6 +53,15 @@ describe('PreflightService.run (what the operator sees)', () => {
     expect(r.status).toBe('fail')
     expect(r.fix).toContain('dm.write')
   })
+
+  it('live mode with an expired token tries a refresh: fail when X refuses it, ok when it works', async () => {
+    const all = 'tweet.read users.read follows.read dm.read dm.write offline.access'
+    await ds.getRepository(SenderAccount).save({ xUserId: '100', handle: 'leviath', accessTokenEnc: 'a', refreshTokenEnc: 'r', tokenExpiresAt: new Date(Date.now() - 60_000), scope: all })
+    auth.session = async () => Promise.reject(new Error('X login expired. Reconnect the X account on Profile.'))
+    expect(row(await make({ X_MODE: 'live' }).run(), 'x_account')).toMatchObject({ status: 'fail', fix: 'X login expired. Reconnect the X account on Profile.' })
+    auth.session = async () => ({ userId: '100', token: 'fresh' })
+    expect(row(await make({ X_MODE: 'live' }).run(), 'x_account')).toMatchObject({ status: 'ok' })
+  })
 })
 
 describe('PreflightService.details (for whoever installed it)', () => {

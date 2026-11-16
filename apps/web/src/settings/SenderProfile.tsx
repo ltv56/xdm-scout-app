@@ -188,7 +188,7 @@ function ProfileForm({ profile }: { profile: Profile }) {
 
       <fieldset>
         <legend className="text-sm font-medium">Messages in your own voice (optional, up to 3)</legend>
-        <p className="mt-1 text-xs text-muted">Drafts copy their tone, never their sentences.</p>
+        <p className="mt-1 text-xs text-muted">Drafts copy the tone of these messages, never the sentences themselves.</p>
         {samples.map((s, i) => (
           <textarea
             key={i}

@@ -70,6 +70,8 @@ describe('sender profile', () => {
     const preview = await controller.preview({ ...profile, frame })
     expect(preview.text.split('\n')).toEqual(['Dear Mai,', expect.any(String), 'Ignore this if it is not for you.', 'Write to vinh@genaifund.ai'])
     expect(framePreview.parse(preview)).toEqual(preview)
+    // The opt-out answers a question, so the sample asks one.
+    expect(preview.text.split('\n')[1]).toMatch(/Would Intro to investors be useful to you\?$/)
     expect(await controller.get()).toBeNull()
   })
 })

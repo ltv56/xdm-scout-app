@@ -89,9 +89,11 @@ export class DiscoveryService {
     if (!(await this.addFromSeeds(campaign, seedUsers, seedIds, candidates, now, seedReport))) stoppedByBudget = true
     if (!(await this.addFromSearch(campaign, seedIds, candidates, now))) stoppedByBudget = true
 
+    // People you named by handle are your choice: the keyword check only sorts what seeds and search bring in.
+    const named = new Set(handles.flatMap((h) => known.get(h)?.xUserId ?? []))
     const kept: Candidate[] = []
     for (const c of candidates.values()) {
-      const reason = await this.skipReason(c.user, campaign.keywords)
+      const reason = await this.skipReason(c.user, named.has(c.user.xUserId) ? null : campaign.keywords)
       if (reason) skipped.push({ handle: c.handle, reason })
       else kept.push(c)
     }
@@ -213,14 +215,15 @@ export class DiscoveryService {
     return this.ds.getRepository(ApiUsage).save({ campaignId, kind, count, costMicros: count * unit })
   }
 
-  private async skipReason(user: XUser, keywords: string[]): Promise<SkipReason | null> {
+  // keywords null: skip the bio check (a handle the operator named).
+  private async skipReason(user: XUser, keywords: string[] | null): Promise<SkipReason | null> {
     if (user.isProtected) return 'protected'
     if (user.orgType) return 'organization'
     if (await this.ds.getRepository(DoNotContact).existsBy({ xUserId: user.xUserId })) return 'do-not-contact'
     if (await this.ds.getRepository(KnownUser).existsBy({ xUserId: user.xUserId, kind: 'known' })) return 'known-to-fund'
     if (await this.wasContacted(user.xUserId)) return 'already-contacted'
     const bio = (user.bio ?? '').toLowerCase()
-    if (!keywords.some((k) => bio.includes(k.toLowerCase()))) return 'off-topic'
+    if (keywords && !keywords.some((k) => bio.includes(k.toLowerCase()))) return 'off-topic'
     return null
   }
 

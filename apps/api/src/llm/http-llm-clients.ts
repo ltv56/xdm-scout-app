@@ -72,6 +72,8 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
     const body = () => ({
       model: this.cfg.model,
       ...(this.sendTemperature && !fixedTemperature(this.cfg.model) && { temperature: 0 }),
+      // OpenRouter holds credit for the model's full output length when none is given (65k tokens on some).
+      ...(/openrouter\.ai/i.test(this.cfg.baseUrl) && { max_tokens: 8000 }),
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: req.system },

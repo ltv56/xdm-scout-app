@@ -1,5 +1,8 @@
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
+// '17 Nov', the date style used across the app.
+export const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+
 export const handle = (item: string) => item.replace(/^@/, '').toLowerCase()
 
 export function ago(iso: string) {

@@ -15,7 +15,7 @@ export class Reply {
   attemptId!: number
 
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 32, nullable: true })
+  @Column({ type: 'varchar', length: 64, nullable: true })
   xEventId!: string | null
 
   @Column({ type: 'text', nullable: true })

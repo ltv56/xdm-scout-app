@@ -24,7 +24,8 @@ export const replyItem = z.object({
   doNotContact: z.boolean(),
   openInX: z.string(),
 })
-export const inboxChecks = z.object({ replies: z.array(replyItem), toCheck: z.array(checkItem), delivered: z.array(deliveredItem) })
+// waiting: hand-sends the worker is still looking for in the chat. readsChats: replies in encrypted X Chat are read too.
+export const inboxChecks = z.object({ replies: z.array(replyItem), toCheck: z.array(checkItem), delivered: z.array(deliveredItem), waiting: z.number(), readsChats: z.boolean() })
 
 export const replyClassBody = z.object({ replyClass: z.enum(REPLY_CLASSES) })
 

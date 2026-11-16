@@ -222,12 +222,14 @@ export class LiveXClient implements XClient {
   }
 
   private async call(path: string, method: 'GET' | 'POST', body?: unknown): Promise<Response> {
+    // Outside the try: a failed login means nothing went to X, so it must not read as an uncertain send.
+    const { token } = await this.getSession()
     let res: Response
     try {
       res = await this.fetchFn(BASE + path, {
         method,
         headers: {
-          Authorization: `Bearer ${(await this.getSession()).token}`,
+          Authorization: `Bearer ${token}`,
           ...(body !== undefined && { 'Content-Type': 'application/json' }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),

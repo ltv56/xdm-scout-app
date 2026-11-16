@@ -12,11 +12,12 @@ test('The top bar says Sandbox and stays quiet about the daily cap while it is f
   await expect(bar).not.toContainText('Sent today')
 })
 
-test('The top bar leaves the cost out and warns when the worker stopped', async ({ page }) => {
+test('In live mode the top bar has no mode tag, leaves the cost out and warns when the worker stopped', async ({ page }) => {
   await page.route('**/api/top-bar*', (r) => r.fulfill({ json: { mode: 'live', sentToday: 3, dailyCap: 25, workerRunning: false, campaignCostMicros: 40000 } }))
   await page.goto('/')
   const bar = page.getByLabel('Status')
-  await expect(bar).toContainText('LIVE')
+  await expect(bar).not.toContainText('LIVE')
+  await expect(bar).not.toContainText('SANDBOX')
   await expect(bar).not.toContainText('Sent today')
   await expect(bar).not.toContainText('Est. cost')
   await expect(page.getByText('Worker stopped: nothing is being sent or read')).toBeVisible()

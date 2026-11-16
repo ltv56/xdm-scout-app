@@ -79,7 +79,7 @@ export class Contact {
   recipientPermission!: RecipientPermission
 
   // The inbound DM the operator confirmed as an invitation; API sending depends on it.
-  @Column({ type: 'varchar', length: 32, nullable: true })
+  @Column({ type: 'varchar', length: 64, nullable: true })
   invitationEventId!: string | null
 
   @Column({ type: 'datetime', precision: 3, nullable: true })
@@ -181,7 +181,7 @@ export class SendAttempt {
   @Column({ type: 'varchar', length: 64, nullable: true })
   xConversationId!: string | null
 
-  @Column({ type: 'varchar', length: 32, nullable: true })
+  @Column({ type: 'varchar', length: 64, nullable: true })
   xEventId!: string | null
 
   // How we know a sent message arrived: seen through X's API, or the operator checked in X.

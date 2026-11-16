@@ -146,7 +146,7 @@ export class Prospect {
   @Column({ type: 'varchar', length: 8, default: 'search' })
   source!: 'search' | 'call'
 
-  @Column({ type: 'varchar', length: 32, nullable: true })
+  @Column({ type: 'varchar', length: 64, nullable: true })
   callEventId!: string | null
 
   @Column({ type: 'varchar', length: 512, nullable: true })

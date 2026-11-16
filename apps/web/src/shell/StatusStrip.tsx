@@ -54,7 +54,7 @@ export default function StatusStrip({ campaignId, onSearchDone = () => {} }: { c
 
   return (
     <div aria-label="Status" className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-      <span className={`${chip} ${b.mode === 'live' ? tone.stop.chip : tone.done.chip}`}>{b.mode === 'live' ? 'LIVE' : 'SANDBOX'}</span>
+      {b.mode !== 'live' && <span className={`${chip} ${tone.done.chip}`}>SANDBOX</span>}
       <SearchChip campaignId={campaignId} onView={onSearchDone} />
       {reached && (
         <span className={`${chip} ${tone.stop.chip} whitespace-nowrap`} title="Nothing more goes out through the API today. Change the cap in Settings.">

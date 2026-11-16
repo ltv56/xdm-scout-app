@@ -57,6 +57,19 @@ describe('checks', () => {
     expect(res.toCheck[0]).toMatchObject({ handle: 'u201', text: 'Hi 201', openInX: 'https://x.com/messages/compose?recipient_id=201' })
     expect(res.delivered.map((d) => [d.handle, d.verifiedBy])).toEqual([['u203', 'api']])
   })
+
+  it('counts the hand-sends still being looked for, so an empty Inbox can say it is waiting', async () => {
+    await seedAttempt(1, '201', 'manual_pending')
+    await seedAttempt(1, '202', 'manual_pending')
+    await seedAttempt(2, '203', 'manual_pending')
+    expect((await inbox.checks(1)).waiting).toBe(2)
+  })
+
+  it('says whether replies in encrypted chats are read, which is when chat keys are set', async () => {
+    const config = (vars: Record<string, string>) => ({ get: (k: string, d = '') => vars[k] ?? d }) as never
+    expect((await new InboxService(ds, config({})).checks(1)).readsChats).toBe(false)
+    expect((await new InboxService(ds, config({ XCHAT_KEYS_FILE: '.local/chat-keys.enc' })).checks(1)).readsChats).toBe(true)
+  })
 })
 
 describe('replies', () => {

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CampaignSummary, ReviewQueue as Queue, SenderProfile as Profile } from '../../api/src/review/contract'
 import { getJson } from './api'
 import Account from './settings/Account'
@@ -14,6 +14,7 @@ import Onboarding from './onboarding/Onboarding'
 import Overview from './overview/Overview'
 import Prospects, { type Filter as CandidateFilter } from './candidates/Prospects'
 import ReviewQueue from './review/ReviewQueue'
+import { readRoute, writeRoute } from './route'
 import Settings from './settings/Settings'
 import TooltipLayer from './ui/TooltipLayer'
 import StatusStrip from './shell/StatusStrip'
@@ -34,17 +35,25 @@ const TABS = [
 ] as const
 type Tab = (typeof TABS)[number]['id']
 
+const isTab = (page: string | null): page is Tab => TABS.some((t) => t.id === page)
+const isMessagesTab = (sub: string | null): sub is MessagesTab => sub === 'inbox' || sub === 'outbox'
+
 export default function App() {
-  const [tab, setTab] = useState<Tab>('overview')
-  const [messagesTab, setMessagesTab] = useState<MessagesTab>('inbox')
+  const [start] = useState(readRoute)
+  const [tab, setTab] = useState<Tab>(isTab(start.page) ? start.page : 'overview')
+  const [messagesTab, setMessagesTab] = useState<MessagesTab>(isMessagesTab(start.sub) ? start.sub : 'inbox')
   const [candidateFilter, setCandidateFilter] = useState<CandidateFilter>('all')
-  const [campaignId, setCampaignId] = useState<number | null>(null)
+  const [campaignId, setCampaignId] = useState<number | null>(start.campaignId)
   const [creating, setCreating] = useState(false)
   const health = useQuery<Health>({ queryKey: ['health'], queryFn: () => getJson('/health') })
   const campaigns = useQuery<CampaignSummary[]>({ queryKey: ['campaigns'], queryFn: () => getJson('/campaigns') })
 
   const list = campaigns.data ?? []
-  const active = campaignId ?? list[0]?.id ?? null
+  // A campaign named in the URL that no longer exists falls back to the newest one.
+  const active = list.find((c) => c.id === campaignId)?.id ?? list[0]?.id ?? null
+  useEffect(() => {
+    if (campaigns.isSuccess) writeRoute(active, tab, tab === 'messages' ? messagesTab : undefined)
+  }, [campaigns.isSuccess, active, tab, messagesTab])
   const queue = useQuery<Queue>({
     queryKey: ['review-queue', active],
     queryFn: () => getJson(`/review-queue?campaignId=${active}`),

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import XLink from '../ui/XLink'
 import type { Decision, ReviewItem } from '../../../api/src/review/contract'
 import { CheckCircle, ChevronDown, QuestionCircle, XCircle } from '../ui/icons'
+import { day } from '../format'
 import { activeLabel, LANGUAGE_NAME, shortDate } from './labels'
 
 type Prospect = ReviewItem['prospect']
@@ -33,7 +34,6 @@ const CONTRIBUTION = {
   other: 'Other',
 }
 
-const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 const count = (n: number) => n.toLocaleString('en-US')
 
 function Fact({ label, value, note }: { label: string; value: string; note?: string }) {

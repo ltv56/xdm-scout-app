@@ -128,7 +128,7 @@ describe('manual outcome', () => {
     await expect(actions.manual(d.id, 'sent', now)).rejects.toBeInstanceOf(ConflictException)
   })
 
-  it('opening the chat starts one watch a minute later, however often it is opened', async () => {
+  it('opening the chat starts one watch half a minute later, however often it is opened', async () => {
     const d = await seedDraft()
     const { attemptId } = await actions.approve(d.id, body(d), now)
     expect(await actions.opened(d.id, now)).toEqual({ watching: true })
@@ -136,14 +136,14 @@ describe('manual outcome', () => {
     const jobs = await ds.getRepository(Job).findBy({ type: 'verify_manual' })
     expect(jobs).toHaveLength(1)
     expect(jobs[0].payload).toEqual({ attemptId, step: 0, fromMs: now.getTime() })
-    expect(jobs[0].runAt.getTime()).toBe(now.getTime() + 60_000)
+    expect(jobs[0].runAt.getTime()).toBe(now.getTime() + 30_000)
   })
 
   it('"I sent it" during a watch checks now instead of starting a second watch', async () => {
     const d = await seedDraft()
     await actions.approve(d.id, body(d), now)
     await actions.opened(d.id, now)
-    const later = new Date(now.getTime() + 30_000)
+    const later = new Date(now.getTime() + 10_000)
     await actions.manual(d.id, 'sent', later)
     const jobs = await ds.getRepository(Job).findBy({ type: 'verify_manual' })
     expect(jobs).toHaveLength(1)

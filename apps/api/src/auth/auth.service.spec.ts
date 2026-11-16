@@ -23,7 +23,10 @@ beforeEach(async () => {
   ]
   const fetchFn = async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(url), body: String(init?.body ?? '') })
-    if (String(url).endsWith('/2/oauth2/token')) return json(200, tokenResponses.shift())
+    if (String(url).endsWith('/2/oauth2/token')) {
+      const next = tokenResponses.shift()
+      return next ? json(200, next) : json(400, { error: 'invalid_request' })
+    }
     if (String(url).endsWith('/2/users/me')) return json(200, { data: { id: '100', username: 'leviath' } })
     return json(404, {})
   }
@@ -99,6 +102,13 @@ describe('AuthService', () => {
     const [a, b] = await Promise.all([service.session(), service.session()])
     expect([a.token, b.token]).toEqual(['access-2', 'access-2'])
     expect(calls.filter((c) => c.body.includes('grant_type=refresh_token'))).toHaveLength(1)
+  })
+
+  it('asks for a reconnect when X refuses the refresh token', async () => {
+    await connect()
+    await ds.getRepository(SenderAccount).update({ xUserId: '100' }, { tokenExpiresAt: new Date(Date.now() + 30_000) })
+    tokenResponses = []
+    await expect(service.session()).rejects.toThrow('X login expired. Reconnect the X account on Profile.')
   })
 
   it('fails clearly when no account is connected', async () => {
