@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { DecisionAnswer, DecisionAsk, DecisionClient } from './decision-client'
+import { fetchWithRetry } from '../llm/retry'
 import { errorCode } from './http-error'
 import { QUESTIONS } from './questions'
 
@@ -35,7 +36,7 @@ export class HttpDecisionClient implements DecisionClient {
   }
 
   private async one(ask: DecisionAsk): Promise<DecisionAnswer> {
-    const res = await this.fetchFn(this.adapter.url(this.config.baseUrl), {
+    const res = await fetchWithRetry(this.fetchFn, this.adapter.url(this.config.baseUrl), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...this.adapter.headers(this.config.apiKey) },
       body: JSON.stringify(this.adapter.body(this.model, ask)),

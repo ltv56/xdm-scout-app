@@ -1,4 +1,5 @@
 import type { StoredSentence } from '../review/checks'
+import type { Decision } from '../review/contract'
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from 'typeorm'
 
 @Entity('sender_accounts')
@@ -142,6 +143,13 @@ export class Draft {
   // The English sentences, kept so a translated draft can go back to them with their sources.
   @Column({ type: 'json', nullable: true })
   englishSentences!: StoredSentence[] | null
+
+  // Model check answers, kept with a hash of what was asked so a reload does not ask again.
+  @Column({ type: 'json', nullable: true })
+  decisions!: Decision[] | null
+
+  @Column({ type: 'char', length: 64, nullable: true })
+  decisionsKey!: string | null
 }
 
 export type AttemptStatus =

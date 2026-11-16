@@ -150,6 +150,22 @@ describe('review queue', () => {
     expect(llm.calls.every((c) => c.meter?.campaignId === 1 && c.meter.lane === 'search')).toBe(true)
   })
 
+  it('asks the model once per draft text: a reload reuses the answers, an edit asks again', async () => {
+    const p = await seedPerson('mai')
+    const llm = new FakeLlmClient(() => ({ probability: 0.9 }))
+    const review = new ReviewService(ds, new LlmDecisionClient(llm))
+    await review.queue(1, now)
+    const first = llm.calls.length
+    expect(first).toBeGreaterThan(0)
+    await review.queue(1, now)
+    await review.one((await ds.getRepository(Draft).findOneByOrFail({ prospectId: p.id })).id, now)
+    expect(llm.calls.length).toBe(first)
+    const draft = await ds.getRepository(Draft).findOneByOrFail({ prospectId: p.id })
+    await ds.getRepository(Draft).update(draft.id, { content: `${draft.content} Thanks.`, sentences: [...draft.sentences!, { text: 'Thanks.', source: null }] })
+    await review.queue(1, now)
+    expect(llm.calls.length).toBeGreaterThan(first)
+  })
+
   it('adds the model checks when a decision client is there, and none otherwise', async () => {
     await seedPerson('mai')
     expect((await service().queue(1, now)).items[0].decisions).toEqual([])

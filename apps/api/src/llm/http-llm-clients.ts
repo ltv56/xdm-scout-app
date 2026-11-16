@@ -1,4 +1,5 @@
 import { LlmClient, LlmRequest, LlmUsageSink } from './llm-client'
+import { fetchWithRetry } from './retry'
 
 const TIMEOUT_MS = 60_000
 
@@ -13,7 +14,7 @@ function parseJson(text: string): unknown {
 }
 
 async function post(fetchFn: typeof fetch, url: string, headers: Record<string, string>, body: unknown) {
-  const res = await fetchFn(url, {
+  const res = await fetchWithRetry(fetchFn, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
@@ -54,8 +55,8 @@ async function apiMessage(res: Response): Promise<string> {
   }
 }
 
-// OpenAI reasoning models reject any temperature but the default.
-const fixedTemperature = (model: string) => /^(openai\/)?(gpt-5|o\d)/i.test(model)
+// OpenAI reasoning models reject any temperature but the default; dropped by name, as LiteLLM and the AI SDK do.
+const fixedTemperature = (model: string) => /^(openai\/)?(gpt-5|gpt-6|o\d)/i.test(model)
 
 export class OpenAiCompatibleLlmClient implements LlmClient {
   constructor(
@@ -74,9 +75,9 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
   async completeJson(req: LlmRequest): Promise<unknown> {
     const url = `${this.cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`
     const headers = { Authorization: `Bearer ${this.cfg.apiKey}` }
-    const body = () => ({
+    const body = (withTemperature: boolean) => ({
       model: this.cfg.model,
-      ...(this.sendTemperature && !fixedTemperature(this.cfg.model) && { temperature: 0 }),
+      ...(withTemperature && { temperature: 0 }),
       // OpenRouter holds credit for the model's full output length when none is given (65k tokens on some).
       ...(/openrouter\.ai/i.test(this.cfg.baseUrl) && { max_tokens: 8000 }),
       response_format: { type: 'json_object' },
@@ -86,12 +87,14 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
       ],
     })
     let data: { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } }
+    // Decided per call: calls in flight together may all hear the refusal after the first one turned it off.
+    const withTemperature = this.sendTemperature && !fixedTemperature(this.cfg.model)
     try {
-      data = (await post(this.fetchFn, url, headers, body())) as typeof data
+      data = (await post(this.fetchFn, url, headers, body(withTemperature))) as typeof data
     } catch (err) {
-      if (!(this.sendTemperature && err instanceof HttpError && err.status === 400 && /temperature/i.test(err.detail))) throw err
+      if (!(withTemperature && err instanceof HttpError && err.status === 400 && /temperature/i.test(err.detail))) throw err
       this.sendTemperature = false
-      data = (await post(this.fetchFn, url, headers, body())) as typeof data
+      data = (await post(this.fetchFn, url, headers, body(false))) as typeof data
     }
     report(this.onUsage, this.cfg.model, req, data.usage?.prompt_tokens, data.usage?.completion_tokens)
     return parseJson(data.choices?.[0]?.message?.content ?? '')

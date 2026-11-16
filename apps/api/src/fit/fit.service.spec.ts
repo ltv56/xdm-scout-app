@@ -85,6 +85,23 @@ describe('fit scoring', () => {
     expect(llm.calls.filter((c) => c.task === 'verify')).toHaveLength(3)
   })
 
+  it('checks the claims and the criteria at the same time, not one after another', async () => {
+    await ds.getRepository(Campaign).update(1, { criteria: ['Builds robots'] })
+    let open = 0
+    let most = 0
+    const llm = {
+      completeJson: async (req: LlmRequest) => {
+        if (req.task === 'fit') return { ...goodFit, criteria: [{ status: 'met', evidence_ids: ['post:910001'] }] }
+        most = Math.max(most, ++open)
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        open--
+        return { supported: true }
+      },
+    }
+    await new FitService(ds, llm).score(prospectId, now)
+    expect(most).toBe(4)
+  })
+
   it('stores evidence rows with the original text, link and date', async () => {
     await new FitService(ds, llmWith(() => goodFit)).score(prospectId, now)
     const e = await ds.getRepository(Evidence).findOneByOrFail({ id: 'post:910001' })

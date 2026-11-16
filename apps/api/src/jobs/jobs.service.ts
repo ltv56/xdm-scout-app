@@ -10,19 +10,22 @@ export class JobsService {
     await em.save(Job, { type, payload, runAt })
   }
 
-  claimNext(now: Date): Promise<Job | null> {
+  claimNext(now: Date, types?: string[]): Promise<Job | null> {
     return this.ds.transaction(async (em) => {
-      const job = await em
+      const q = em
         .createQueryBuilder(Job, 'j')
         .setLock('pessimistic_write')
         .setOnLocked('skip_locked')
         .where("j.status = 'pending' AND j.runAt <= :now", { now })
+      if (types) q.andWhere('j.type IN (:...types)', { types })
+      const job = await q
         .orderBy('j.runAt')
         .addOrderBy('j.id')
         .limit(1)
         .getOne()
       if (!job) return null
-      await em.update(Job, job.id, { status: 'running' })
+      job.attempts += 1
+      await em.update(Job, job.id, { status: 'running', attempts: job.attempts })
       return job
     })
   }

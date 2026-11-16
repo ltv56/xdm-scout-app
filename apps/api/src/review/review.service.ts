@@ -3,7 +3,7 @@ import { DataSource, In } from 'typeorm'
 import { CriterionResult, Prospect, XPost } from '../discovery/entities'
 import { landsIn } from '../discovery/lands-in'
 import { DecisionClient } from '../decisions/decision-client'
-import { decisionsFor, DECISION_CLIENT } from '../decisions/review-decisions'
+import { decisionsFor, decisionsKey, DECISION_CLIENT } from '../decisions/review-decisions'
 import { Evidence } from '../fit/entities'
 import { Contact, Draft, SendAttempt, SenderAccount, XUser } from '../sending/entities'
 import { apiSendBlock, hashContent } from '../sending/sending.service'
@@ -51,6 +51,11 @@ export class ReviewService {
     return (await this.render([draft], live.some((d) => d.id === draft.id) ? live : [...live, draft], prospects, now))[0]
   }
 
+  // Asks the model checks ahead of Review, so opening it does not wait on them.
+  async warm(draftId: number) {
+    if (this.decisions) await this.one(draftId)
+  }
+
   private async liveDrafts(campaignId: number) {
     const prospects = await this.ds.getRepository(Prospect).findBy({ campaignId })
     const live = prospects.length
@@ -64,10 +69,17 @@ export class ReviewService {
     return Promise.all(
       shown.map(async (d) => {
         const item = this.item(d, ctx, now)
-        const prospect = ctx.prospects.get(d.prospectId ?? 0)
-        return this.decisions ? { ...item, decisions: await decisionsFor(this.decisions, item, prospect && { campaignId: prospect.campaignId, lane: prospect.source }) } : item
+        return this.decisions ? { ...item, decisions: await this.decisionsOf(this.decisions, d, item, ctx.prospects.get(d.prospectId ?? 0)) } : item
       }),
     )
+  }
+
+  private async decisionsOf(client: DecisionClient, draft: Draft, item: ReviewItem, prospect: Prospect | undefined) {
+    const key = decisionsKey(item)
+    if (draft.decisions && draft.decisionsKey === key) return draft.decisions
+    const decisions = await decisionsFor(client, item, prospect && { campaignId: prospect.campaignId, lane: prospect.source })
+    await this.ds.getRepository(Draft).update(draft.id, { decisions, decisionsKey: key })
+    return decisions
   }
 
   private item(draft: Draft, ctx: Context, now: Date): ReviewItem {

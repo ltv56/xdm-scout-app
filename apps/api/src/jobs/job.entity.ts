@@ -20,6 +20,9 @@ export class Job {
   @Column({ type: 'varchar', length: 16, default: 'pending' })
   status!: JobStatus
 
+  @Column({ type: 'int', default: 0 })
+  attempts!: number
+
   @Column({ type: 'text', nullable: true })
   error!: string | null
 

@@ -38,7 +38,7 @@ describe('OpenAiCompatibleLlmClient', () => {
       return JSON.parse(String(calls[0].init.body))
     }
     expect((await bodyFor('m1')).temperature).toBe(0)
-    for (const model of ['gpt-5-nano', 'openai/gpt-5-mini', 'o4-mini']) expect(await bodyFor(model)).not.toHaveProperty('temperature')
+    for (const model of ['gpt-5-nano', 'openai/gpt-5-mini', 'o4-mini', 'gpt-6-luna']) expect(await bodyFor(model)).not.toHaveProperty('temperature')
   })
 
   it('caps the answer length on OpenRouter, which otherwise holds credit for the model maximum', async () => {
@@ -87,6 +87,12 @@ describe('OpenAiCompatibleLlmClient with a model that fixes its own temperature'
     expect(await client.completeJson(req)).toEqual({ ok: true })
     expect(await client.completeJson(req)).toEqual({ ok: true })
     expect(bodies.map((b) => 'temperature' in b)).toEqual([true, false, false])
+  })
+
+  it('calls sent at the same time all ask again without temperature, not only the first to hear back', async () => {
+    const { fetchFn } = fetchRefusingTemperature()
+    const client = new OpenAiCompatibleLlmClient({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'm' }, fetchFn)
+    expect(await Promise.all([client.completeJson(req), client.completeJson(req), client.completeJson(req)])).toEqual([{ ok: true }, { ok: true }, { ok: true }])
   })
 
   it('shows what the API said when a call fails for another reason', async () => {

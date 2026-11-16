@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { DiscoveryService } from '../discovery/discovery.service'
 import { Campaign, Prospect } from '../discovery/entities'
 import { DraftService } from '../review/draft.service'
+import { ReviewService } from '../review/review.service'
 import { EvidenceRecheckService } from '../fit/evidence-recheck.service'
 import { FitService } from '../fit/fit.service'
 import { InboundLaneService } from '../inbound/inbound-lane.service'
@@ -18,7 +19,7 @@ import { XRateLimitError } from '../x/x-client'
 import { Evidence } from '../fit/entities'
 import { Contact, DoNotContact, Draft, SendAttempt, SenderAccount } from './entities'
 import { SendingService } from './sending.service'
-import { Worker } from './worker'
+import { MODEL_JOBS, Worker } from './worker'
 
 let ds: DataSource
 let x: FakeXClient
@@ -274,5 +275,65 @@ describe('send outcomes', () => {
     expect(await worker.tick(new Date())).toBe(true)
     expect(await ds.getRepository(Prospect).countBy({ campaignId: c.id, source: 'call' })).toBe(1)
     expect((await ds.getRepository(Job).findOneByOrFail({ type: 'inbound_check' })).status).toBe('done')
+  })
+
+  it('a draft job asks the model checks right away, and a failed check does not fail the draft', async () => {
+    const jobs = new JobsService(ds)
+    const warmed: number[] = []
+    const drafts = { generate: async () => 42 } as unknown as DraftService
+    const review = { warm: async (id: number) => { warmed.push(id); throw new Error('model down') } } as unknown as ReviewService
+    const w = new Worker(jobs, service, undefined as never, undefined as never, drafts, undefined as never, undefined as never, undefined as never, review)
+    await jobs.enqueue('draft', { prospectId: 1 }, new Date())
+    expect(await w.tick(new Date())).toBe(true)
+    expect(warmed).toEqual([42])
+    expect((await ds.getRepository(Job).findOneByOrFail({ type: 'draft' })).status).toBe('done')
+  })
+
+  it('a model lane takes only score and draft jobs, so sends stay one at a time', async () => {
+    const jobs = new JobsService(ds)
+    await jobs.enqueue('send', { attemptId: 1 }, plus(t0, -MIN))
+    await jobs.enqueue('draft', { prospectId: 7 }, t0)
+    const lane = await jobs.claimNext(new Date(), MODEL_JOBS)
+    expect(lane?.type).toBe('draft')
+    expect(await jobs.claimNext(new Date(), MODEL_JOBS)).toBeNull()
+    expect((await jobs.claimNext(new Date()))?.type).toBe('send')
+  })
+
+  it('a model job that hits a database deadlock goes back in the queue instead of failing', async () => {
+    const jobs = new JobsService(ds)
+    const deadlock = Object.assign(new Error('Deadlock found when trying to get lock; try restarting transaction'), { errno: 1213 })
+    const drafts = { generate: async () => { throw deadlock } } as unknown as DraftService
+    const w = new Worker(jobs, service, undefined as never, undefined as never, drafts, undefined as never, undefined as never, undefined as never)
+    await jobs.enqueue('draft', { prospectId: 1 }, new Date())
+    await w.tick(new Date())
+    expect(await ds.getRepository(Job).findOneByOrFail({ type: 'draft' })).toMatchObject({ status: 'pending', error: null })
+  })
+
+  it('a model job that fails is tried again later, 3 tries in all, each wait longer than the last', async () => {
+    const jobs = new JobsService(ds)
+    const drafts = { generate: async () => { throw new Error('OpenAI returned 503') } } as unknown as DraftService
+    const w = new Worker(jobs, service, undefined as never, undefined as never, drafts, undefined as never, undefined as never, undefined as never)
+    await jobs.enqueue('draft', { prospectId: 1 }, t0)
+    const waits: number[] = []
+    let now = t0
+    for (let i = 0; i < 3; i++) {
+      expect(await w.tick(now)).toBe(true)
+      const job = await ds.getRepository(Job).findOneByOrFail({ type: 'draft' })
+      if (job.status === 'pending') waits.push(job.runAt.getTime() - now.getTime())
+      // Not due yet: nothing to claim.
+      if (i === 0) expect(await w.tick(now)).toBe(false)
+      now = job.runAt
+    }
+    expect(waits).toHaveLength(2)
+    expect(waits[1]).toBeGreaterThan(waits[0])
+    expect(await ds.getRepository(Job).findOneByOrFail({ type: 'draft' })).toMatchObject({ status: 'failed', error: 'OpenAI returned 503', attempts: 3 })
+  })
+
+  it('a job that is not a model job is not tried again', async () => {
+    const jobs = new JobsService(ds)
+    const w = new Worker(jobs, service, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never, undefined as never)
+    await jobs.enqueue('bogus', {}, t0)
+    await w.tick(t0)
+    expect(await ds.getRepository(Job).findOneByOrFail({ type: 'bogus' })).toMatchObject({ status: 'failed', attempts: 1 })
   })
 })

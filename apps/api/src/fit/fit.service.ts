@@ -38,8 +38,7 @@ export class FitService {
 
     const llm = withMeter(this.llm, { campaignId: prospect.campaignId, lane: prospect.source })
     const fit = await this.askFit(llm, evidence, criteriaText)
-    const claims = await this.checkClaims(llm, prospectId, fit, byId)
-    const criteria = await this.checkCriteria(llm, criteriaText, fit, byId)
+    const [claims, criteria] = await Promise.all([this.checkClaims(llm, prospectId, fit, byId), this.checkCriteria(llm, criteriaText, fit, byId)])
     const opening = fit.opening.type !== 'none' && fit.opening.evidence_id ? byId.get(fit.opening.evidence_id) : undefined
 
     await this.ds.transaction(async (em) => {
@@ -62,14 +61,14 @@ export class FitService {
 
   // Met or not met needs evidence that exists and passes the same second check as claims.
   private async checkCriteria(llm: LlmClient, texts: string[], fit: FitResult, byId: Map<string, Evidence>): Promise<CriterionResult[]> {
-    const out: CriterionResult[] = []
-    for (const [i, text] of texts.entries()) {
-      const answer = fit.criteria[i]
-      const claim = answer?.status === 'not_met' ? `It is not the case that: ${text}` : text
-      const checked = answer && answer.status !== 'unknown' && (await this.verify(llm, claim, answer.evidence_ids, byId)) === 'verified'
-      out.push(checked ? { text, status: answer.status, evidenceIds: answer.evidence_ids } : { text, status: 'unknown', evidenceIds: [] })
-    }
-    return out
+    return Promise.all(
+      texts.map(async (text, i): Promise<CriterionResult> => {
+        const answer = fit.criteria[i]
+        const claim = answer?.status === 'not_met' ? `It is not the case that: ${text}` : text
+        const checked = answer && answer.status !== 'unknown' && (await this.verify(llm, claim, answer.evidence_ids, byId)) === 'verified'
+        return checked ? { text, status: answer.status, evidenceIds: answer.evidence_ids } : { text, status: 'unknown', evidenceIds: [] }
+      }),
+    )
   }
 
   private async askFit(llm: LlmClient, evidence: Evidence[], criteria: string[]): Promise<FitResult> {
@@ -85,18 +84,14 @@ export class FitService {
   }
 
   private async checkClaims(llm: LlmClient, prospectId: number, fit: FitResult, byId: Map<string, Evidence>): Promise<Omit<Claim, 'id'>[]> {
-    const rows: Omit<Claim, 'id'>[] = []
     const sides: [ClaimSide, FitResult['reasons_for']][] = [
       ['for', fit.reasons_for],
       ['against', fit.reasons_against],
     ]
-    for (const [side, list] of sides) {
-      for (const c of list) {
-        rows.push({ prospectId, side, text: c.claim, evidenceIds: c.evidence_ids, status: await this.verify(llm, c.claim, c.evidence_ids, byId) })
-      }
-    }
-    for (const text of fit.unknowns) rows.push({ prospectId, side: 'unknown', text, evidenceIds: [], status: 'inferred' })
-    return rows
+    const checked = await Promise.all(
+      sides.flatMap(([side, list]) => list.map(async (c) => ({ prospectId, side, text: c.claim, evidenceIds: c.evidence_ids, status: await this.verify(llm, c.claim, c.evidence_ids, byId) }))),
+    )
+    return [...checked, ...fit.unknowns.map((text) => ({ prospectId, side: 'unknown' as const, text, evidenceIds: [], status: 'inferred' as const }))]
   }
 
   private async verify(llm: LlmClient, claim: string, ids: string[], byId: Map<string, Evidence>): Promise<ClaimStatus> {

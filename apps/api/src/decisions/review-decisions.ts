@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import type { LlmMeter } from '../llm/llm-client'
 import { Decision, ReviewItem } from '../review/contract'
 import { bandOf } from './bands'
@@ -32,6 +33,9 @@ function asks(item: Input): DecisionAsk[] {
   out.push({ code: 'own_account', input: `Name: ${p.name ?? 'none'}. Handle: @${p.handle}. Followers: ${p.snapshot.followers}. Bio: ${p.bio ? `"${p.bio}"` : 'none'}`, sentence: null })
   return out
 }
+
+// Same key, same questions: stored answers can be reused.
+export const decisionsKey = (item: Input) => createHash('sha256').update(JSON.stringify(asks(item))).digest('hex')
 
 export async function decisionsFor(client: DecisionClient, item: Input, meter?: LlmMeter): Promise<Decision[]> {
   const answers = await client.decide(asks(item), meter)

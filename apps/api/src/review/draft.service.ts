@@ -156,10 +156,10 @@ export class DraftService {
     const opener: StoredSentence = { text: greetingFor(person?.name, prospect.xUserId + (reviewerNote ?? ''), 'en', profile.frame?.greeting ?? null), source: { type: 'greeting' } }
     const sentences = applyFrame(opener, asked, profile.frame)
 
-    let contact = await this.ds.getRepository(Contact).findOneBy({ senderAccountId: sender[0].id, xUserId: prospect.xUserId })
-    if (!contact) {
-      contact = await this.ds.getRepository(Contact).save({ senderAccountId: sender[0].id, xUserId: prospect.xUserId, relationshipContext: prospect.relationship })
-    }
+    // Draft jobs run side by side; the same person in two campaigns must still get one contact.
+    const key = { senderAccountId: sender[0].id, xUserId: prospect.xUserId }
+    await this.ds.createQueryBuilder().insert().into(Contact).values({ ...key, relationshipContext: prospect.relationship }).orIgnore().updateEntity(false).execute()
+    const contact = await this.ds.getRepository(Contact).findOneByOrFail(key)
     const content = layoutText(sentences)
     return this.ds.transaction(async (em) => {
       await em.update(Draft, { contactId: contact.id, status: 'pending' }, { status: 'superseded' })
