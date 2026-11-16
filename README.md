@@ -53,6 +53,31 @@ docker compose -f docker-compose.sandbox.yml down -v   # stop and delete the dat
 
 The reset refuses unless `X_MODE=fake` and the database name contains `sandbox` or `e2e`. Limits of the sandbox: `docs/limitations.md`.
 
+## Hosted sandbox
+
+The same sandbox (fake X, canned model answers) on a server with a domain and HTTPS. Only Caddy listens on 80 and 443; MySQL has no published port. It has no login: do not point it at a real X account.
+
+On a Linux server with Docker, and a domain that already points to its IP:
+
+```bash
+git clone https://github.com/ltv56/xdm-scout-app && cd xdm-scout-app
+cp hosted.env.example .env        # set DOMAIN, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD (openssl rand -hex 16)
+docker compose -f docker-compose.hosted.yml up -d
+docker compose -f docker-compose.hosted.yml ps
+```
+
+The images come from `ghcr.io/ltv56/xdm-scout-app`, built by the workflow `image.yml` on every push to `dev`. If the package is private, run `docker login ghcr.io` first. `APP_TAG` in `.env` picks the tag. Open ports 80 and 443 only (and SSH).
+
+```bash
+docker compose -f docker-compose.hosted.yml pull && docker compose -f docker-compose.hosted.yml up -d    # update
+docker compose -f docker-compose.hosted.yml exec -T db sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --no-tablespaces xdm_sandbox' > backup.sql
+docker compose -f docker-compose.hosted.yml exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" xdm_sandbox' < backup.sql   # restore into an empty database
+docker compose -f docker-compose.hosted.yml run --rm app node dist/sandbox/reset-sandbox-main.js   # wipe the data, reload the fixtures
+docker compose -f docker-compose.hosted.yml logs -f
+```
+
+At idle the stack used about 360 MB of memory (db 216, app 76, worker 55, caddy 14).
+
 ## First walkthrough
 
 Open the app (http://localhost:3000, or http://localhost:3040 with Docker). The first screen has three steps.

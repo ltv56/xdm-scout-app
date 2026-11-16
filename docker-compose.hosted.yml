@@ -1,0 +1,70 @@
+# Hosted sandbox: fake X, canned model answers, the fixtures. Only Caddy is public (80, 443); MySQL has no published port.
+# Images come from GHCR (workflow image.yml), so the server never builds. Settings: hosted.env.example.
+name: xdm-hosted
+
+x-env: &env
+  DATABASE_URL: mysql://xdm:${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}@db:3306/xdm_sandbox?allowPublicKeyRetrieval=true
+  X_MODE: fake
+  PORT: "3001"
+  ALLOWED_HOSTS: ${DOMAIN:?set DOMAIN in .env}
+  LLM_MODEL: ""
+  DECISION_MODEL: ""
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: ["--innodb-buffer-pool-size=128M", "--performance-schema=OFF", "--max-connections=30"]
+    environment:
+      MYSQL_DATABASE: xdm_sandbox
+      MYSQL_USER: xdm
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      retries: 20
+
+  app:
+    image: ghcr.io/ltv56/xdm-scout-app:${APP_TAG:-dev}
+    restart: unless-stopped
+    environment: *env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  worker:
+    image: ghcr.io/ltv56/xdm-scout-app:${APP_TAG:-dev}
+    restart: unless-stopped
+    command: ["node", "dist/worker-main.js"]
+    environment: *env
+    depends_on:
+      app:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  db:
+  caddy-data:
