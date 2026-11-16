@@ -2,6 +2,8 @@ import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import { DataSource } from 'typeorm'
+import { createAccessGuard } from './access/access-guard'
+import { AccessService } from './access/access.service'
 import { AppModule } from './app.module'
 import { SandboxReload } from './sandbox/sandbox-reset'
 import { createHostGuard, parseAllowedHosts } from './security/host-guard'
@@ -16,6 +18,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api')
   // ALLOWED_HOSTS: public host names of this deploy, comma separated (the local names are always allowed).
   app.use(createHostGuard(parseAllowedHosts(process.env.ALLOWED_HOSTS)))
+  // ACCESS_GATE=on (hosted): every API call but sign-in needs the owner's session.
+  app.use(createAccessGuard(app.get(AccessService)))
   // Set only in the Docker image, where one process serves the API and the built web app.
   if (process.env.WEB_DIST) serveWeb(app, process.env.WEB_DIST)
   await app.listen(process.env.PORT ?? 3001)

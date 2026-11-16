@@ -6,6 +6,7 @@ import CampaignSettings from '../campaign/CampaignSettings'
 import CostSection from './CostSection'
 import DailyCap from './DailyCap'
 import DoNotContactList from './DoNotContactList'
+import KeysSection from './KeysSection'
 import KnownList from './KnownList'
 import Tabs from '../ui/Tabs'
 import { btnSecondary } from '../ui/ui'
@@ -14,6 +15,7 @@ const TABS = [
   { id: 'campaign', label: 'Campaign' },
   { id: 'sending', label: 'Sending & people' },
   { id: 'cost', label: 'Cost' },
+  { id: 'keys', label: 'Keys' },
   { id: 'setup', label: 'Setup check' },
 ] as const
 type SettingsTab = (typeof TABS)[number]['id']
@@ -44,6 +46,7 @@ export default function Settings({ campaignId }: { campaignId: number }) {
           </div>
         )}
         {tab === 'cost' && <CostSection campaignId={campaignId} />}
+        {tab === 'keys' && <KeysSection />}
         {tab === 'setup' && (
       <section aria-label="Setup check" className="max-w-xl">
         <div className="flex items-center justify-between gap-4">

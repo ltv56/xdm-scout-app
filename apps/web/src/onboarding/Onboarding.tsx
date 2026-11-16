@@ -5,6 +5,8 @@ import { type XStatus } from '../settings/Account'
 import { getJson, postJson } from '../api'
 import { ChevronLeft, XLogo } from '../ui/icons'
 import NewCampaign from '../campaign/NewCampaign'
+import KeysSection from '../settings/KeysSection'
+import { useXAppKeys } from '../settings/useXAppKeys'
 import OnboardingTips from './OnboardingTips'
 import QuickProfile from './QuickProfile'
 import { btnApprove, btnLink, btnPrimary } from '../ui/ui'
@@ -21,7 +23,8 @@ function ConnectStep({ status, onContinue }: { status: XStatus | undefined; onCo
     mutationFn: () => postJson('/auth/x/fake'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['x-status'] }),
   })
-  if (!status) return <p role="status" className="text-sm text-muted">Checking…</p>
+  const keys = useXAppKeys(status?.mode === 'live')
+  if (!status || keys.loading) return <p role="status" className="text-sm text-muted">Checking…</p>
   const live = status.mode === 'live'
   return (
     <section aria-label="Connect">
@@ -46,9 +49,13 @@ function ConnectStep({ status, onContinue }: { status: XStatus | undefined; onCo
             )}
           </>
         ) : live ? (
-          <a className={btnPrimary} href="/api/auth/x/login">
-            Connect X account
-          </a>
+          keys.ready ? (
+            <a className={btnPrimary} href="/api/auth/x/login">
+              Connect X account
+            </a>
+          ) : (
+            <span className="text-sm text-muted">Add your X app keys below first.</span>
+          )
         ) : (
           <button type="button" className={btnPrimary} disabled={useSandbox.isPending} onClick={() => useSandbox.mutate()}>
             Use sandbox account
@@ -56,6 +63,13 @@ function ConnectStep({ status, onContinue }: { status: XStatus | undefined; onCo
         )}
       </div>
       {useSandbox.error && <p role="alert" className="mt-3 text-sm font-medium text-block">{useSandbox.error.message}</p>}
+      {live && !status.connected && (
+        <div className="mt-8">
+          <h2 className="text-base font-semibold">Your keys</h2>
+          <p className="mt-1 text-sm text-muted">Your own X app and OpenAI key, stored encrypted on this server. They can be changed later on Settings, Keys.</p>
+          <KeysSection compact />
+        </div>
+      )}
     </section>
   )
 }

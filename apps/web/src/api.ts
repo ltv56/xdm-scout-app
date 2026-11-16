@@ -1,3 +1,6 @@
+// Fired when the API says the session is gone, so the sign-in screen comes back.
+export const SIGNED_OUT_EVENT = 'xdm:signed-out'
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
@@ -5,6 +8,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith('/access')) window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
     const detail = await res.json().catch(() => null)
     const message = typeof detail?.message === 'string' ? detail.message : Array.isArray(detail?.message) ? detail.message.join('; ') : null
     throw new Error(message ?? `The API answered ${res.status}`)

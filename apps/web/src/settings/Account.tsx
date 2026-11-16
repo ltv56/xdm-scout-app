@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getJson, postJson } from '../api'
+import { useXAppKeys } from './useXAppKeys'
 import SenderProfile from './SenderProfile'
 import { XLogo } from '../ui/icons'
 import { btnSecondary } from '../ui/ui'
@@ -20,6 +21,7 @@ function XAccount() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['x-status'] }),
   })
   const s = status.data
+  const keys = useXAppKeys(s?.mode === 'live')
   const needsReconnect = !!s?.connected && s.missingScopes.length > 0
   const title = !s ? 'Checking…' : !s.connected ? 'Not connected' : `@${s.handle}`
   const note = !s
@@ -45,9 +47,13 @@ function XAccount() {
           </div>
         </div>
         {s?.mode === 'live' ? (
-          <a className={btnSecondary} href="/api/auth/x/login">
-            {s.connected ? 'Reconnect X account' : 'Connect X account'}
-          </a>
+          keys.ready ? (
+            <a className={btnSecondary} href="/api/auth/x/login">
+              {s.connected ? 'Reconnect X account' : 'Connect X account'}
+            </a>
+          ) : (
+            <span className="text-xs text-muted">Add the X app keys on Settings, Keys first.</span>
+          )
         ) : (
           s && !s.connected && (
             <button type="button" className={btnSecondary} disabled={useSandbox.isPending} onClick={() => useSandbox.mutate()}>

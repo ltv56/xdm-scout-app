@@ -1,4 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useAccess } from '../access/useAccess'
+import { postJson } from '../api'
 
 // The avatar opens Profile (who sends and signs) and Settings (is the system ready).
 export default function AccountMenu({ current, onSelect, children }: {
@@ -7,6 +10,11 @@ export default function AccountMenu({ current, onSelect, children }: {
   children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const qc = useQueryClient()
+  // Sign-out shows only on a deploy with the sign-in gate.
+  const access = useAccess()
+  const signOut = (path: '/access/sign-out' | '/access/sign-out-everywhere') =>
+    void postJson(path).finally(() => void qc.resetQueries())
   const box = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
 
@@ -60,6 +68,21 @@ export default function AccountMenu({ current, onSelect, children }: {
               </button>
             </li>
           ))}
+          {access.data?.gate && (
+            <>
+              <li aria-hidden="true" className="my-1 border-t border-rule" />
+              <li>
+                <button type="button" className={row} onClick={() => signOut('/access/sign-out')}>
+                  Sign out
+                </button>
+              </li>
+              <li>
+                <button type="button" className={row} title="Ends every session, on every device" onClick={() => signOut('/access/sign-out-everywhere')}>
+                  Sign out everywhere
+                </button>
+              </li>
+            </>
+          )}
         </ul>
       )}
     </div>

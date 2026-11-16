@@ -33,7 +33,7 @@ import { RepliesService } from './inbox/replies.service'
 import { JobsService } from './jobs/jobs.service'
 import { DECISION_CLIENT } from './decisions/review-decisions'
 import { EvidenceRecheckService } from './fit/evidence-recheck.service'
-import { AI_ENV_VARS, createDecisionClient, createLlmClient } from './llm/ai-config'
+import { AI_ENV_VARS } from './llm/ai-config'
 import { LlmUsageService } from './llm/llm-usage.service'
 import type { LlmUsageSink } from './llm/llm-client'
 import { LLM_CLIENT, LlmClient } from './llm/llm-client'
@@ -56,8 +56,19 @@ import { FakeXClient } from './x/fake-x-client'
 import { LiveXClient } from './x/live-x-client'
 import { lazyChatReader } from './x/chat-wiring'
 import { X_CLIENT, XClient } from './x/x-client'
+import { AccessController } from './access/access.controller'
+import { AccessService } from './access/access.service'
+import type { KeyName } from './keys/contract'
+import { KEYS_ENV, KeyStore } from './keys/key-store'
+import { KeysController } from './keys/keys.controller'
+import { SwitchingDecisionClient, SwitchingLlmClient } from './llm/switching'
 
-const aiEnv = (config: ConfigService) => Object.fromEntries(AI_ENV_VARS.map((k) => [k, config.get<string>(k, '')]))
+// .env as the app sees it: a key saved on the Keys page takes the place of the .env one.
+const SAVED: Record<string, KeyName> = { X_CLIENT_ID: 'xClientId', X_CLIENT_SECRET: 'xClientSecret', OPENAI_API_KEY: 'openaiApiKey' }
+const withKeys = (config: ConfigService, keys: KeyStore) => ({
+  get: (k: string, d = '') => (SAVED[k] ? keys.get(SAVED[k]) || d : config.get<string>(k, d)),
+})
+const aiEnv = (env: { get(k: string, d?: string): string | undefined }) => Object.fromEntries(AI_ENV_VARS.map((k) => [k, env.get(k, '')]))
 
 // Token counts go to llm_usage without ever failing the model call.
 const meter = (usage: LlmUsageService): LlmUsageSink => (u) => void usage.record(u).catch((err: unknown) => console.error('llm usage not saved', err))
@@ -84,6 +95,8 @@ function liveClient(config: ConfigService, auth: AuthService): XClient {
     ProspectDraftController,
     ReviewController,
     AuthController,
+    AccessController,
+    KeysController,
     CampaignsController,
     InboxController,
     PreflightController,
@@ -106,12 +119,20 @@ function liveClient(config: ConfigService, auth: AuthService): XClient {
     SendingService,
     Worker,
     AuthService,
+    { provide: KEYS_ENV, useExisting: ConfigService },
+    { provide: KeyStore, inject: [DataSource, ConfigService], useFactory: (ds: DataSource, config: ConfigService) => new KeyStore(ds, config) },
+    { provide: AccessService, inject: [DataSource, ConfigService], useFactory: (ds: DataSource, config: ConfigService) => new AccessService(ds, config) },
     {
       provide: X_AUTH_CONFIG,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService): XAuthConfig => ({
-        clientId: config.get('X_CLIENT_ID', ''),
-        clientSecret: config.get('X_CLIENT_SECRET', ''),
+      inject: [ConfigService, KeyStore],
+      // Getters: the X app keys can be saved on the Keys page while the app runs.
+      useFactory: (config: ConfigService, keys: KeyStore): XAuthConfig => ({
+        get clientId() {
+          return keys.get('xClientId')
+        },
+        get clientSecret() {
+          return keys.get('xClientSecret')
+        },
         redirectUri: config.get('X_REDIRECT_URI', 'http://localhost:3000/api/auth/x/callback'),
         tokenKey: config.get('TOKEN_KEY', ''),
       }),
@@ -137,18 +158,18 @@ function liveClient(config: ConfigService, auth: AuthService): XClient {
     ReviewSummaryService,
     {
       provide: PreflightService,
-      inject: [DataSource, AuthService, ConfigService],
-      useFactory: (ds: DataSource, auth: AuthService, config: ConfigService) => new PreflightService(ds, auth, config),
+      inject: [DataSource, AuthService, ConfigService, KeyStore],
+      useFactory: (ds: DataSource, auth: AuthService, config: ConfigService, keys: KeyStore) => new PreflightService(ds, auth, withKeys(config, keys) as unknown as ConfigService),
     },
     {
       provide: LLM_CLIENT,
-      inject: [ConfigService, LlmUsageService],
-      useFactory: (config: ConfigService, usage: LlmUsageService): LlmClient => createLlmClient(aiEnv(config), meter(usage)),
+      inject: [ConfigService, KeyStore, LlmUsageService],
+      useFactory: (config: ConfigService, keys: KeyStore, usage: LlmUsageService): LlmClient => new SwitchingLlmClient(() => aiEnv(withKeys(config, keys)), meter(usage)),
     },
     {
       provide: DECISION_CLIENT,
-      inject: [ConfigService, LLM_CLIENT, LlmUsageService],
-      useFactory: (config: ConfigService, llm: LlmClient, usage: LlmUsageService) => createDecisionClient(aiEnv(config), llm, meter(usage)),
+      inject: [ConfigService, KeyStore, LLM_CLIENT, LlmUsageService],
+      useFactory: (config: ConfigService, keys: KeyStore, llm: LlmClient, usage: LlmUsageService) => new SwitchingDecisionClient(() => aiEnv(withKeys(config, keys)), llm, meter(usage)),
     },
     {
       provide: X_CLIENT,

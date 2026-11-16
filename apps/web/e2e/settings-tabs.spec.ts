@@ -8,15 +8,16 @@ test.beforeEach(async ({ page, request }) => {
   await page.getByRole('list', { name: 'Account menu' }).getByRole('button', { name: 'Settings' }).click()
 })
 
-const tabs = ['Campaign', 'Sending & people', 'Cost', 'Setup check']
+const tabs = ['Campaign', 'Sending & people', 'Cost', 'Keys', 'Setup check']
 const sections: Record<string, string[]> = {
   Campaign: ['Campaign'],
   'Sending & people': ['Daily send cap', 'Known to the fund', 'Do not contact'],
   Cost: ['Cost'],
+  Keys: ['Keys'],
   'Setup check': ['Setup check'],
 }
 
-test('Settings is split into four tabs and opens on Campaign', async ({ page }) => {
+test('Settings is split into five tabs and opens on Campaign', async ({ page }) => {
   await expect(page.getByRole('tablist', { name: 'Settings' }).getByRole('tab')).toHaveText(tabs)
   await expect(page.getByRole('tab', { name: 'Campaign' })).toHaveAttribute('aria-selected', 'true')
 })

@@ -10,16 +10,23 @@ const WHAT: Record<ActivityRow['kind'], string> = {
   known_added: 'Added to Known to the fund',
   cap_changed: 'Daily send cap changed',
   known_removed: 'Removed from Known to the fund',
+  owner_set_up: 'Server set up by its owner',
+  signed_in: 'Signed in',
+  sign_in_failed: 'Wrong password',
+  signed_out_everywhere: 'Signed out everywhere',
+  keys_changed: 'Keys changed',
+  keys_forgotten: 'Keys and X tokens removed',
+  handed_over: 'Server handed over to a new owner',
 }
 
 const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
-// What was changed about who may be contacted, with the reason, newest first.
+// Changes to who may be contacted (with the reason), sign-ins and key changes, newest first.
 export default function Activity() {
   const rows = useQuery<ActivityRow[]>({ queryKey: ['activity'], queryFn: () => getJson('/activity'), retry: false })
   const list = rows.data ?? []
 
-  if (!rows.error && !list.length) return <EmptyState title="No activity yet" text="Changes to who may be contacted are logged here, with the reason." />
+  if (!rows.error && !list.length) return <EmptyState title="No activity yet" text="Changes to who may be contacted are logged here, with the reason, as are sign-ins and key changes." />
 
   return (
     <section aria-label="Activity log" className="max-w-3xl">
