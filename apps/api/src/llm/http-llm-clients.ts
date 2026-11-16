@@ -25,9 +25,10 @@ async function post(fetchFn: typeof fetch, url: string, headers: Record<string, 
 
 // A failing sink (a database hiccup) must never turn a good answer into an error.
 function report(sink: LlmUsageSink | undefined, model: string, req: LlmRequest, inputTokens: unknown, outputTokens: unknown) {
-  if (!sink || typeof inputTokens !== 'number' || typeof outputTokens !== 'number') return
+  if (typeof inputTokens !== 'number' || typeof outputTokens !== 'number') return
   try {
-    sink({ model, task: req.task, inputTokens, outputTokens, meter: req.meter ?? null })
+    req.onUsage?.({ model, inputTokens, outputTokens })
+    sink?.({ model, task: req.task, inputTokens, outputTokens, meter: req.meter ?? null })
   } catch (err) {
     console.error('llm usage report failed', err)
   }
@@ -62,6 +63,10 @@ export class OpenAiCompatibleLlmClient implements LlmClient {
     private readonly fetchFn: typeof fetch = fetch,
     private readonly onUsage?: LlmUsageSink,
   ) {}
+
+  get model() {
+    return this.cfg.model
+  }
 
   // Some models fix their own temperature and refuse 0; once the API says so, stop sending it.
   private sendTemperature = true
@@ -99,6 +104,10 @@ export class AnthropicLlmClient implements LlmClient {
     private readonly fetchFn: typeof fetch = fetch,
     private readonly onUsage?: LlmUsageSink,
   ) {}
+
+  get model() {
+    return this.cfg.model
+  }
 
   async completeJson(req: LlmRequest): Promise<unknown> {
     const data = (await post(

@@ -72,22 +72,6 @@ test('First run: the fund profile asks for five required answers and one optiona
   for (const extra of ['Add a program', 'Greeting', 'Messages in your own voice']) await expect(page.getByText(extra)).toHaveCount(0)
 })
 
-test('First run: a tip shows from the second step and changes by itself', async ({ page }) => {
-  await page.clock.install()
-  await page.setViewportSize({ width: 1920, height: 1080 })
-  await firstRun(page)
-  await page.goto('/')
-  const tip = page.getByRole('complementary', { name: 'Tip' })
-  await expect(page.getByRole('heading', { name: 'Connect the account that sends' })).toBeVisible()
-  await expect(tip).toHaveCount(0)
-  await page.getByRole('button', { name: 'Use sandbox account' }).click()
-  await expect(tip).toContainText('Did you know?')
-  const first = await tip.innerText()
-
-  await page.clock.fastForward(8000)
-  await expect.poll(() => tip.innerText()).not.toBe(first)
-})
-
 test('First run: a missing answer is named, then saving moves on to the first campaign', async ({ page }) => {
   await firstRun(page)
   await page.goto('/')

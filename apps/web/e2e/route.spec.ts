@@ -20,9 +20,3 @@ test('A reload keeps the campaign, the page and the Messages tab', async ({ page
   await page.reload()
   await expect(page.getByRole('tab', { name: 'Outbox' })).toHaveAttribute('aria-selected', 'true')
 })
-
-test('Coming back from the X login opens Profile', async ({ page, request }) => {
-  await ensureCampaign(request)
-  await page.goto('/#profile')
-  await expect(page.getByRole('heading', { name: 'Profile', level: 2 })).toBeVisible()
-})

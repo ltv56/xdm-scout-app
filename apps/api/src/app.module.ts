@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
 import { KnownListController } from './known/known-list.controller'
+import { HandleExtractor } from './known/handle-extract'
 import { KnownListService } from './known/known-list.service'
 import { DoNotContactController } from './dnc/do-not-contact.controller'
 import { DoNotContactService } from './dnc/do-not-contact.service'
@@ -125,6 +126,7 @@ function liveClient(config: ConfigService, auth: AuthService): XClient {
     AttentionService,
     DoNotContactService,
     KnownListService,
+    HandleExtractor,
     OutboxService,
     InboundLaneService,
     FunnelService,

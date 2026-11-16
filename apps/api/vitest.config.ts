@@ -14,5 +14,7 @@ export default defineConfig({
     env: { NODE_ENV: 'test', DATABASE_URL: testUrl },
     globalSetup: ['./src/test/global-setup.ts'],
     fileParallelism: false,
+    // Files run one after another on one test database, so they can share the loaded modules.
+    isolate: false,
   },
 })

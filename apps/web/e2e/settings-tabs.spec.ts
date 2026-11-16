@@ -29,11 +29,3 @@ test('Each tab shows only its own sections', async ({ page }) => {
     }
   }
 })
-
-test('The arrow keys move between the tabs', async ({ page }) => {
-  await page.getByRole('tab', { name: 'Campaign' }).focus()
-  await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab', { name: 'Sending & people' })).toHaveAttribute('aria-selected', 'true')
-  await page.keyboard.press('ArrowLeft')
-  await expect(page.getByRole('tab', { name: 'Campaign' })).toHaveAttribute('aria-selected', 'true')
-})

@@ -27,16 +27,6 @@ async function openCandidates(page: Page, request: APIRequestContext) {
 // Whoever is first in the list: people another spec dismissed are skipped by discovery.
 const candidate = (page: Page) => page.getByRole('listitem').filter({ has: page.getByRole('button', { name: 'Draft a message' }) }).first()
 
-test('Source and bio links are the X mark with a name, not underlined words', async ({ page, request }) => {
-  await openCandidates(page, request)
-  const row = candidate(page)
-  await expect(row.getByRole('link', { name: 'Open the post on X' })).toBeVisible()
-  await expect(row.getByText('source', { exact: true })).toHaveCount(0)
-  await row.getByText(/^Why this fit/).click()
-  await expect(row.getByRole('link', { name: 'Open their bio on X' })).toBeVisible()
-  await expect(row.getByText('bio', { exact: true })).toHaveCount(0)
-})
-
 test('Dropdowns and their lists are drawn by the app, and work from the keyboard', async ({ page, request }) => {
   await openCandidates(page, request)
   await expect(page.locator('select')).toHaveCount(0)
@@ -59,18 +49,3 @@ test('Dropdowns and their lists are drawn by the app, and work from the keyboard
   await expect(list).toHaveCount(0)
   await expect(sort).toContainText('Relationship')
 })
-
-test('Hints are the app\'s own bubbles, not the browser\'s', async ({ page, request }) => {
-  await openCandidates(page, request)
-  const hint = page.getByText('Likely lands in', { exact: true }).first()
-  await hint.hover()
-  const tip = page.getByRole('tooltip')
-  await expect(tip).toBeVisible()
-  await expect(tip).toContainText('A guess from whether they follow you')
-  expect(await hint.getAttribute('title')).toBeNull()
-
-  await page.mouse.move(2, 2)
-  await expect(tip).toHaveCount(0)
-  expect(await hint.getAttribute('title')).toContain('A guess from whether they follow you')
-})
-

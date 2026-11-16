@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ProfileLink } from '../ui/XLink'
 import { useState } from 'react'
-import type { ImportResult, KnownPerson } from '../../../api/src/known/contract'
+import type { ExtractEstimate, ExtractResult, ImportResult, KnownPerson } from '../../../api/src/known/contract'
 import { getJson, postJson } from '../api'
 import { btnPrimary, btnSecondary, field } from '../ui/ui'
-import { plural } from '../format'
+import { plural, usd } from '../format'
+import HandlePicker from './HandlePicker'
 
 function summary(r: ImportResult) {
   const parts = [`Added ${plural(r.added, 'person', 'people')}`]
@@ -20,16 +21,29 @@ export default function KnownList() {
   const [handles, setHandles] = useState('')
   const [warm, setWarm] = useState(false)
   const [event, setEvent] = useState('')
-  const [fileName, setFileName] = useState<string | null>(null)
+  const [file, setFile] = useState<{ name: string; text: string } | null>(null)
+  // With the AI read on, the file goes to the model and the handles it finds are checked in a panel first.
+  const [aiRead, setAiRead] = useState(false)
+  const [found, setFound] = useState<ExtractResult | null>(null)
   const list = useQuery<KnownPerson[]>({ queryKey: ['known-users'], queryFn: () => getJson('/known-users'), retry: false })
   const done = () => qc.invalidateQueries({ queryKey: ['known-users'] })
   const add = useMutation({
     mutationFn: () => postJson<ImportResult>('/known-users/import', { listName, handles, ...(warm && { kind: 'warm', event }) }),
     onSuccess: () => {
       setHandles('')
-      setFileName(null)
+      setFile(null)
       void done()
     },
+  })
+  const estimate = useQuery<ExtractEstimate>({
+    queryKey: ['extract-estimate', file?.text],
+    queryFn: () => postJson('/known-users/extract/estimate', { text: file?.text ?? '' }),
+    enabled: aiRead && !!file,
+    retry: false,
+  })
+  const extract = useMutation({
+    mutationFn: () => postJson<ExtractResult>('/known-users/extract', { text: file?.text ?? '' }),
+    onSuccess: setFound,
   })
   const remove = useMutation({ mutationFn: (id: string) => fetch(`/api/known-users/${id}`, { method: 'DELETE' }).then(done) })
 
@@ -66,15 +80,54 @@ export default function KnownList() {
                 aria-label="Load a CSV file"
                 className="sr-only"
                 onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  setFileName(file.name)
-                  void file.text().then(setHandles)
+                  const chosen = e.target.files?.[0]
+                  e.target.value = ''
+                  if (!chosen) return
+                  void chosen.text().then((text) => {
+                    setFile({ name: chosen.name, text })
+                    extract.reset()
+                    if (!aiRead) setHandles(text)
+                  })
                 }}
               />
             </label>
-            {fileName && <span className="text-xs text-muted">{fileName}</span>}
+            {file && <span className="text-xs text-muted">{file.name}</span>}
           </div>
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={aiRead}
+              onChange={(e) => {
+                setAiRead(e.target.checked)
+                if (!e.target.checked && file) setHandles(file.text)
+              }}
+            />
+            <span>
+              Let AI find the handles in the file
+              <span className="block text-xs text-warn">Sends the file to the model and costs tokens. The price shows before anything is sent.</span>
+            </span>
+          </label>
+          {aiRead && file && (
+            <div className="mt-2 flex flex-wrap items-center gap-3 rounded-xl bg-rail px-4 py-3">
+              <p className="min-w-0 flex-1 text-xs text-muted">
+                {estimate.isLoading && 'Working out the cost…'}
+                {estimate.error && estimate.error.message}
+                {estimate.data &&
+                  (estimate.data.model
+                    ? `Sends ${file.name} to ${estimate.data.model}: about ${(estimate.data.inputTokens + estimate.data.outputTokens).toLocaleString()} tokens, about ${estimate.data.costMicros === null ? 'an unknown price' : usd(estimate.data.costMicros)}.`
+                    : 'No model key here: handles written as @name or x.com links are picked out, at no cost.')}
+              </p>
+              <button type="button" className={btnSecondary} disabled={extract.isPending || !estimate.data} onClick={() => extract.mutate()}>
+                {extract.isPending ? 'Reading…' : 'Find handles'}
+              </button>
+              {extract.error && (
+                <p role="alert" className="w-full text-sm font-medium text-block">
+                  {extract.error.message}
+                </p>
+              )}
+            </div>
+          )}
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={warm} onChange={(e) => setWarm(e.target.checked)} />
@@ -98,6 +151,17 @@ export default function KnownList() {
           Add to the list
         </button>
       </form>
+      {found && file && (
+        <HandlePicker
+          fileName={file.name}
+          result={found}
+          onClose={() => setFound(null)}
+          onUse={(chosen) => {
+            setHandles(chosen.join('\n'))
+            setFound(null)
+          }}
+        />
+      )}
 
       {list.error && (
         <p role="alert" className="mt-4 text-sm text-block">

@@ -51,11 +51,14 @@ afterAll(async () => {
   if (ds?.isInitialized) await ds.destroy()
 })
 
+// Each test writes one draft; ids keep counting across tests, so look it up by recency.
+const latestDraft = () => ds.getRepository(Draft).findOneOrFail({ where: {}, order: { id: 'DESC' } })
+
 describe('draft generation', () => {
   it('writes a pending draft whose sentences point at the opening post, the profile and the opt-out line', async () => {
     const p = await seed()
     await service().generate(p.id, now)
-    const draft = await ds.getRepository(Draft).findOneByOrFail({ contactId: 1 })
+    const draft = await latestDraft()
     expect(draft).toMatchObject({ status: 'pending', kind: 'first_message', sendPath: 'HUMAN_HANDOFF', prospectId: p.id, editedByReviewer: false })
     const lines = draft.content.split('\n')
     expect(lines).toHaveLength(3)
@@ -74,7 +77,7 @@ describe('draft generation', () => {
     const frame = { greeting: 'Dear {name},', optOut: 'Ignore this if it is not for you.', contactLine: 'Write to vinh@genaifund.ai' }
     await ds.getRepository(Setting).save({ key: 'sender_profile', value: { ...profile, frame } })
     await service().generate(p.id, now)
-    const draft = await ds.getRepository(Draft).findOneByOrFail({ contactId: 1 })
+    const draft = await latestDraft()
     const lines = draft.content.split('\n')
     expect(lines[0]).toBe('Dear Mai,')
     expect(lines.slice(-2)).toEqual(['Ignore this if it is not for you.', 'Write to vinh@genaifund.ai'])
@@ -88,7 +91,7 @@ describe('draft generation', () => {
     await ds.getRepository(XUser).update({ xUserId: 'u-acme' }, { name: 'Acme Labs' })
     await ds.getRepository(Setting).save({ key: 'sender_profile', value: { ...profile, frame: { greeting: 'Dear {name},', optOut: null, contactLine: null } } })
     await service().generate(p.id, now)
-    const draft = await ds.getRepository(Draft).findOneByOrFail({ contactId: 1 })
+    const draft = await latestDraft()
     expect(draft.sentences![0].text).not.toContain('Dear')
     expect(draft.sentences!.at(-1)!.source).toEqual({ type: 'opt_out' })
   })
@@ -97,7 +100,7 @@ describe('draft generation', () => {
     const p = await seed({ handle: 'acme' })
     await ds.getRepository(XUser).update({ xUserId: 'u-acme' }, { name: 'Acme Labs' })
     await service().generate(p.id, now)
-    const draft = await ds.getRepository(Draft).findOneByOrFail({ contactId: 1 })
+    const draft = await latestDraft()
     expect(draft.sentences![0].source).toEqual({ type: 'greeting' })
     expect(draft.sentences![0].text).not.toContain('Acme')
     expect(draft.sentences![0].text).toMatch(/^(Hi|Hello|Hey)/)
@@ -121,7 +124,7 @@ describe('draft generation', () => {
     const p = await seed()
     await ds.getRepository(Contact).save({ senderAccountId: 1, xUserId: 'u-mai', recipientPermission: 'requested_dm', invitationEventId: 'e1', invitationAt: new Date('2026-11-10T00:00:00Z') })
     await service().generate(p.id, now)
-    expect((await ds.getRepository(Draft).findOneByOrFail({ contactId: 1 })).sendPath).toBe('API_SEND')
+    expect((await latestDraft()).sendPath).toBe('API_SEND')
   })
 
   it('drops a source that is not the opening, a verified claim or the profile', async () => {
@@ -133,7 +136,7 @@ describe('draft generation', () => {
       ],
     }))
     await service(llm).generate(p.id, now)
-    const sentences = (await ds.getRepository(Draft).findOneByOrFail({ contactId: 1 })).sentences!
+    const sentences = (await latestDraft()).sentences!
     expect(sentences[0].source).toEqual({ type: 'greeting' })
     expect(sentences[1].source).toBeNull()
   })

@@ -40,7 +40,7 @@ function llmWith(fit: (req: LlmRequest) => unknown, supported: (claim: string) =
 
 beforeEach(async () => {
   ds = await createTestDataSource()
-  await ds.getRepository(Campaign).save({ name: 'c', keywords: ['robotics'], handles: ['mina'] })
+  await ds.getRepository(Campaign).save({ id: 1, name: 'c', keywords: ['robotics'], handles: ['mina'] })
   await ds.getRepository(XUser).save({ xUserId: '9001', handle: 'mina', name: 'Mina', bio: 'Building robotics models', followers: 10 })
   await ds.getRepository(XPost).save([
     { postId: '910001', xUserId: '9001', text: 'We open-sourced our robot policy checkpoints.', postedAt: new Date('2026-11-05T14:00:00Z'), fetchedAt: now },

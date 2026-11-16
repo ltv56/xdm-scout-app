@@ -15,11 +15,13 @@ describe('test database', () => {
     expect(() => assertTestDatabase('mysql://u:p@db:3306/xdm_test')).not.toThrow()
   })
 
-  it('closes the previous connection pool when a new test data source is made', async () => {
+  it('keeps one connection pool per test file and empties the tables for each test', async () => {
     const first = await createTestDataSource()
+    await first.query("INSERT INTO settings (`key`, `value`) VALUES ('probe', '1')")
     const second = await createTestDataSource()
-    expect(first.isInitialized).toBe(false)
+    expect(second).toBe(first)
     expect(second.isInitialized).toBe(true)
+    expect(await second.query("SELECT `key` FROM settings WHERE `key` = 'probe'")).toEqual([])
     await second.destroy()
   }, 30_000)
 })

@@ -5,6 +5,7 @@ import { Contact, DoNotContact, RelationshipContext, SendAttempt, XUser } from '
 import { X_CLIENT, XClient, XProfile } from '../x/x-client'
 import { ApiUsage, Campaign, Prospect, XPost } from './entities'
 import { MAX_FOLLOWING_PER_SEED, MAX_POSTS_PER_USER, MAX_SEARCH_RESULTS, MIN_SEARCH_RESULTS, PRICES } from './pricing'
+import { bioHasKeyword } from './keywords'
 
 const FRESH_MS = 7 * 86_400_000
 
@@ -222,8 +223,7 @@ export class DiscoveryService {
     if (await this.ds.getRepository(DoNotContact).existsBy({ xUserId: user.xUserId })) return 'do-not-contact'
     if (await this.ds.getRepository(KnownUser).existsBy({ xUserId: user.xUserId, kind: 'known' })) return 'known-to-fund'
     if (await this.wasContacted(user.xUserId)) return 'already-contacted'
-    const bio = (user.bio ?? '').toLowerCase()
-    if (keywords && !keywords.some((k) => bio.includes(k.toLowerCase()))) return 'off-topic'
+    if (keywords && !bioHasKeyword(user.bio ?? '', keywords)) return 'off-topic'
     return null
   }
 

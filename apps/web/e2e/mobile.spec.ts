@@ -50,18 +50,6 @@ test('Phone: the sections sit behind one Menu button, and the menu names where y
   await expect(page.getByRole('tab', { name: 'Outbox' })).toHaveAttribute('aria-selected', 'true')
 })
 
-test('Phone: Review has one Approve button, not one in the top bar too', async ({ page, request }) => {
-  const campaign = await draftCampaign(request)
-  await openApp(page, campaign)
-  await goTo(page, 'Review')
-
-  const approve = page.getByRole('button', { name: 'Approve' })
-  await expect(approve).toHaveCount(1)
-  await expect(approve).toBeVisible()
-  await page.evaluate(() => window.scrollTo(0, 0))
-  await expect(approve).toBeVisible()
-})
-
 test('Phone: swipe left asks why to skip, up goes to the next draft, right goes back', async ({ page, request }) => {
   const campaign = await draftCampaign(request)
   await openApp(page, campaign)

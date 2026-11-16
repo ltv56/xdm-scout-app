@@ -3,6 +3,9 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n ==
 // '17 Nov', the date style used across the app.
 export const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 
+// Small model costs keep two significant digits ($0.0004), so a cheap call does not read as $0.00.
+export const usd = (micros: number) => (micros === 0 ? '$0' : `$${Number((micros / 1_000_000).toPrecision(2))}`)
+
 export const handle = (item: string) => item.replace(/^@/, '').toLowerCase()
 
 export function ago(iso: string) {
