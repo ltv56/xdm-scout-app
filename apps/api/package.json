@@ -21,6 +21,7 @@
     "@nestjs/core": "^12.4.2",
     "@nestjs/platform-express": "^12.4.2",
     "@nestjs/typeorm": "^12.0.3",
+    "@xdevplatform/chat-xdk-server": "0.7.3",
     "dotenv": "^18.0.3",
     "mysql2": "^3.24.6",
     "reflect-metadata": "^0.2.2",
@@ -38,5 +39,8 @@
     "typescript": "^6.0.3",
     "unplugin-swc": "^2.0.0",
     "vitest": "^5.1.0"
+  },
+  "optionalDependencies": {
+    "juicebox-sdk": "^0.3.7"
   }
 }

@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common'
 import { z } from 'zod'
 import { DmMessage, InboundDm, SendDmResult, XClient, XPost, XProfile, XNotAcceptingDmError, XRateLimitError, XUncertainError } from './x-client'
 
@@ -74,7 +75,15 @@ export class LiveXClient implements XClient {
   constructor(
     private readonly getSession: () => Promise<{ userId: string; token: string }>,
     private readonly fetchFn: typeof fetch = fetch,
+    private readonly chat?: { readInbound(max: number): Promise<InboundDm[]>; readConversation(userId: string, max: number): Promise<DmMessage[]> },
   ) {}
+
+  private readonly log = new Logger(LiveXClient.name)
+
+  // GET for the X Chat reader: same token, rate-limit and error handling as every other call.
+  async getJson(path: string): Promise<Record<string, any>> {
+    return (await this.call(path, 'GET')).json()
+  }
 
   async sendDm(recipientId: string, text: string): Promise<SendDmResult> {
     const res = await this.call(`/2/dm_conversations/with/${recipientId}/messages`, 'POST', { text })
@@ -82,7 +91,19 @@ export class LiveXClient implements XClient {
     return { conversationId: parsed.data.dm_conversation_id, eventId: parsed.data.dm_event_id }
   }
 
+  // Plain DMs plus the encrypted X Chat messages with the same person; a failing chat read must not hide the plain ones.
   async getConversation(recipientId: string, max?: number): Promise<DmMessage[]> {
+    const plain = await this.getPlainConversation(recipientId, max)
+    if (!this.chat) return plain
+    const encrypted = await this.chat.readConversation(recipientId, max ?? 100).catch((err) => {
+      this.log.warn('X Chat read failed: ' + String(err).slice(0, 200))
+      return []
+    })
+    const merged = [...plain, ...encrypted].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    return max === undefined ? merged : merged.slice(0, max)
+  }
+
+  private async getPlainConversation(recipientId: string, max?: number): Promise<DmMessage[]> {
     const { userId } = await this.getSession()
     const query = new URLSearchParams({
       'dm_event.fields': 'created_at,sender_id,text,dm_conversation_id,event_type',
@@ -103,7 +124,18 @@ export class LiveXClient implements XClient {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }
 
+  // Plain DMs from /2/dm_events plus encrypted X Chat messages; a failing chat read must not hide the plain ones.
   async getInboundDms(max: number): Promise<InboundDm[]> {
+    const plain = await this.getPlainInboundDms(max)
+    if (!this.chat) return plain
+    const encrypted = await this.chat.readInbound(max).catch((err) => {
+      this.log.warn('X Chat read failed: ' + String(err).slice(0, 200))
+      return []
+    })
+    return [...plain, ...encrypted].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, max)
+  }
+
+  private async getPlainInboundDms(max: number): Promise<InboundDm[]> {
     const { userId } = await this.getSession()
     const query = new URLSearchParams({
       'dm_event.fields': 'created_at,sender_id,text,dm_conversation_id,event_type',

@@ -121,6 +121,42 @@ describe('LiveXClient.getInboundDms', () => {
   })
 })
 
+describe('LiveXClient.getInboundDms with X Chat', () => {
+  const plain = json(200, { data: [{ id: '1', text: 'plain', sender_id: '200', created_at: '2026-11-12T10:00:00.000Z', dm_conversation_id: '100-200', event_type: 'MessageCreate' }] })
+  const chatDm = { eventId: 'uuid-1', conversationId: '100-300', senderId: '300', handle: null, text: 'from chat', createdAt: new Date('2026-11-12T11:00:00.000Z') }
+  const withChat = (readInbound: (max: number) => Promise<(typeof chatDm)[]>) => {
+    const fetchFn = async () => plain.clone()
+    return new LiveXClient(async () => ({ userId: '100', token: 'tok' }), fetchFn as typeof fetch, { readInbound, readConversation: async () => [] })
+  }
+
+  it('merges encrypted-chat messages with the plain ones, newest first', async () => {
+    const dms = await withChat(async () => [chatDm]).getInboundDms(10)
+    expect(dms.map((d) => d.text)).toEqual(['from chat', 'plain'])
+  })
+
+  it('still returns the plain DMs when the chat read fails', async () => {
+    const dms = await withChat(async () => { throw new Error('boom') }).getInboundDms(10)
+    expect(dms.map((d) => d.text)).toEqual(['plain'])
+  })
+})
+
+describe('LiveXClient.getConversation with X Chat', () => {
+  const plain = json(200, { data: [{ id: '1', text: 'plain', sender_id: '100', created_at: '2026-11-12T10:00:00.000Z', dm_conversation_id: '100-300', event_type: 'MessageCreate' }] })
+  const reply = { conversationId: '100-300', eventId: 'uuid-9', text: 'reply in chat', fromMe: false, createdAt: new Date('2026-11-12T11:00:00.000Z') }
+  const withChat = (readConversation: (id: string, max: number) => Promise<(typeof reply)[]>) =>
+    new LiveXClient(async () => ({ userId: '100', token: 'tok' }), (async () => plain.clone()) as typeof fetch, { readInbound: async () => [], readConversation })
+
+  it('adds the encrypted-chat messages with that person, newest first', async () => {
+    const msgs = await withChat(async () => [reply]).getConversation('300', 5)
+    expect(msgs.map((m) => [m.text, m.fromMe])).toEqual([['reply in chat', false], ['plain', true]])
+  })
+
+  it('keeps the plain messages when the chat read fails', async () => {
+    const msgs = await withChat(async () => { throw new Error('boom') }).getConversation('300', 5)
+    expect(msgs.map((m) => m.text)).toEqual(['plain'])
+  })
+})
+
 const user = (id: string, username: string) => ({ id, username, name: username, description: 'robotics', public_metrics: { followers_count: 5 } })
 
 describe('LiveXClient receives_your_dm', () => {

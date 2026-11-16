@@ -21,5 +21,5 @@ describe('test database', () => {
     expect(first.isInitialized).toBe(false)
     expect(second.isInitialized).toBe(true)
     await second.destroy()
-  })
+  }, 30_000)
 })

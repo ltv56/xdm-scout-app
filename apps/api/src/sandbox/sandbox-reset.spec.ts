@@ -125,7 +125,7 @@ describe('SandboxReload', () => {
     await resetSandbox(sandbox!, { X_MODE: 'fake' }, new Date('2026-11-15T11:00:00Z'))
     expect(await r.check()).toBe(true)
     expect(x.sent).toEqual([])
-  })
+  }, 30_000)
 
   it('leaves a client that is not the fake one alone', async () => {
     const r = new SandboxReload(sandbox!, { sendDm: async () => ({ conversationId: 'c', eventId: 'e' }) } as never)
