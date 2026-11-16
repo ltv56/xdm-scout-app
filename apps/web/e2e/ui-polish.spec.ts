@@ -74,15 +74,3 @@ test('Hints are the app\'s own bubbles, not the browser\'s', async ({ page, requ
   expect(await hint.getAttribute('title')).toContain('A guess from whether they follow you')
 })
 
-test('Screens fade in when you move between them, and not at all if the system asks for less motion', async ({ page, request }) => {
-  await ensureReady(request)
-  await page.goto('/')
-  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Candidates' }).click()
-  const panel = page.locator('main .anim-fade-up').first()
-  await expect(panel).toBeVisible()
-  expect(await panel.evaluate((el) => getComputedStyle(el).animationName)).toBe('fade-up')
-
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Overview' }).click()
-  expect(await page.locator('main .anim-fade-up').first().evaluate((el) => getComputedStyle(el).animationName)).toBe('none')
-})

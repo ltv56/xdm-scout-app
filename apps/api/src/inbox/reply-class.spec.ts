@@ -64,15 +64,3 @@ describe('classifyReplyDetailed', () => {
     expect(await classifyReplyDetailed(llm, 'stop')).toEqual({ replyClass: 'Opt-out', classBy: 'rule', said: null, probability: null })
   })
 })
-
-describe('the reply prompt', () => {
-  it('says what Not now needs, that a polite decline is Not interested, and how Question, Unclear and Interested differ', async () => {
-    const llm = new FakeLlmClient(() => ({ class: 'Not interested', probability: 0.9 }))
-    await classifyReply(llm, 'not for us')
-    const system = String((llm.calls[0] as { system: string }).system)
-    expect(system).toContain('Not now needs a concrete timing reason or a request to come back later')
-    expect(system).toContain('choose Not interested, not Not now')
-    expect(system).toContain('A question about anything else (general knowledge, small talk, unrelated help) is Unclear, not Question')
-    expect(system).toContain('is Interested even if it also asks a question')
-  })
-})

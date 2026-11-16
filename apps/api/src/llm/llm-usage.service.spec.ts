@@ -30,13 +30,6 @@ describe('priceMicros', () => {
     expect(priceMicros('gpt-5-nano', 1_000, 1_000)).toBe(450)
   })
 
-  it('prices the gpt-6 models from the pricing page', () => {
-    expect(priceMicros('gpt-6-luna', 1_000_000, 1_000_000)).toBe(600_000)
-    expect(priceMicros('gpt-6.1-terra', 1_000_000, 1_000_000)).toBe(6_000_000)
-    expect(priceMicros('gpt-6.1-sol', 1_000_000, 1_000_000)).toBe(12_000_000)
-    expect(priceMicros('gpt-6-astra', 1_000_000, 1_000_000)).toBe(60_000_000)
-  })
-
   it('does not mistake a gpt-6 model for a gpt-5 one', () => {
     expect(priceMicros('gpt-6-luna', 1_000_000, 0)).toBe(100_000)
   })

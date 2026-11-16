@@ -1,5 +1,6 @@
 import type { CheckResult, DraftSentence, EvidenceItem, ReviewItem, SkipReason } from '../../../api/src/review/contract'
-import type { Tone } from '../ui'
+import type { Tone } from '../ui/ui'
+import { plural } from '../format'
 
 export const FIT_LABEL: Record<ReviewItem['prospect']['fit'], string> = {
   strong: 'Strong',
@@ -68,8 +69,6 @@ export interface Verdict {
   headline: string
   points: string[]
 }
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // One answer to "can I approve this?" built from the checks, so the reviewer does not have to add them up.
 export function verdict(item: ReviewItem): Verdict {

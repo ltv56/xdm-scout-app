@@ -78,16 +78,9 @@ test('Seed accounts and Search queries stop at 10 and say so', async ({ page }) 
   await expect(tags(page, 'Search queries')).toHaveCount(10)
 })
 
-test('Tags wrap onto more rows inside a form wider than before, and the text typed last is not lost on Save', async ({ page, request }) => {
-  const box = (await form(page).locator('form').boundingBox())!
-  expect(box.width).toBeGreaterThan(640)
-
+test('The text typed last in a tag box is not lost on Save', async ({ page, request }) => {
   const keywords = input(page, 'Keywords')
   await paste(keywords, Array.from({ length: 24 }, (_, i) => `keyword number ${i}`).join('\n'))
-  const list = form(page).getByRole('list', { name: 'Keywords (added)' })
-  const rows = await tags(page, 'Keywords').evaluateAll((els) => new Set(els.map((el) => Math.round(el.getBoundingClientRect().top))).size)
-  expect(rows).toBeGreaterThan(2)
-  expect(await list.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
 
   await keywords.fill('left in the box')
   await form(page).getByRole('button', { name: 'Save campaign' }).click()

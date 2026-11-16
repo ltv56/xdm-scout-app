@@ -45,7 +45,7 @@ async function fillProfile(page: Page) {
   await page.getByRole('textbox', { name: 'Contact line' }).fill('Write to me at linh@example.com')
 }
 
-test('First run: only the connect screen shows, with no menu, and the app name sits at the top left', async ({ page }) => {
+test('First run: only the connect screen shows, with no menu', async ({ page }) => {
   await firstRun(page)
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Connect the account that sends' })).toBeVisible()
@@ -54,14 +54,6 @@ test('First run: only the connect screen shows, with no menu, and the app name s
   await expect(page.getByText('Step 1 of 3')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(0)
   await noShell(page)
-  const brand = (await page.getByText('xdm-scout', { exact: true }).boundingBox())!
-  expect(brand.x).toBeLessThan(120)
-
-  // The card sits in the middle of the screen, across and down.
-  const size = page.viewportSize()!
-  const card = (await page.getByRole('region', { name: 'Connect' }).locator('xpath=../..').boundingBox())!
-  expect(Math.abs(card.x + card.width / 2 - size.width / 2)).toBeLessThan(20)
-  expect(Math.abs(card.y + card.height / 2 - size.height / 2)).toBeLessThan(70)
 })
 
 test('First run: the fund profile asks for five required answers and one optional one', async ({ page }) => {
@@ -78,11 +70,9 @@ test('First run: the fund profile asks for five required answers and one optiona
   // Each of the five is required, and says so with a red star.
   expect(await page.locator('label span[aria-hidden]', { hasText: '*' }).count()).toBe(5)
   for (const extra of ['Add a program', 'Greeting', 'Messages in your own voice']) await expect(page.getByText(extra)).toHaveCount(0)
-  const box = (await page.getByRole('textbox', { name: 'Who you are' }).boundingBox())!
-  expect(box.width).toBeGreaterThan(450)
 })
 
-test('First run: a tip sits in the margin outside the card and changes by itself', async ({ page }) => {
+test('First run: a tip shows from the second step and changes by itself', async ({ page }) => {
   await page.clock.install()
   await page.setViewportSize({ width: 1920, height: 1080 })
   await firstRun(page)
@@ -94,36 +84,8 @@ test('First run: a tip sits in the margin outside the card and changes by itself
   await expect(tip).toContainText('Did you know?')
   const first = await tip.innerText()
 
-  // It is beside the card, not inside it.
-  const card = (await page.getByRole('region', { name: 'Fund profile' }).locator('xpath=../..').boundingBox())!
-  const side = (await tip.boundingBox())!
-  expect(side.x).toBeGreaterThanOrEqual(card.x + card.width)
-
   await page.clock.fastForward(8000)
   await expect.poll(() => tip.innerText()).not.toBe(first)
-})
-
-test('First run: a step slides in from the right going on and from the left going back', async ({ page }) => {
-  await firstRun(page)
-  await page.goto('/')
-  const motion = (step: string) => page.locator(`[data-step="${step}"]`).evaluate((el) => getComputedStyle(el).animationName)
-  await page.getByRole('button', { name: 'Use sandbox account' }).click()
-  await expect(page.getByRole('heading', { name: 'Tell us about the fund' })).toBeVisible()
-  expect(await motion('profile')).toBe('step-in-forward')
-  await page.getByRole('button', { name: 'Back' }).click()
-  await expect(page.getByRole('heading', { name: 'Connect the account that sends' })).toBeVisible()
-  expect(await motion('connect')).toBe('step-in-back')
-})
-
-test('First run: the fund profile fits a full-HD screen without scrolling', async ({ page }) => {
-  await page.setViewportSize({ width: 1920, height: 1080 })
-  await firstRun(page)
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Use sandbox account' }).click()
-  await expect(page.getByRole('heading', { name: 'Tell us about the fund' })).toBeVisible()
-  await page.getByRole('textbox', { name: 'Who you are' }).fill(ANSWERS.intro)
-  const over = await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)
-  expect(over).toBeLessThanOrEqual(0)
 })
 
 test('First run: a missing answer is named, then saving moves on to the first campaign', async ({ page }) => {

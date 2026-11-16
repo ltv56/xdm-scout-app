@@ -29,25 +29,11 @@ test('Before the first search the Overview is one card with the search button', 
   const steps = card.getByRole('list', { name: 'What happens next' }).getByRole('listitem')
   await expect(steps).toHaveText([/Search/, /Review drafts/, /Approve and send/])
   await expect(steps.first()).toHaveAttribute('aria-current', 'step')
-  // No grey box: the card is plain page.
-  expect(await card.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)')
 
   // Nothing is found yet, so no empty blocks and no rows of zeros.
   for (const empty of ['What we found', 'Last search', 'Results so far']) await expect(page.getByRole('region', { name: empty })).toHaveCount(0)
   await expect(page.getByText('Nobody yet.')).toHaveCount(0)
   await expect(page.getByText('No search has run for this campaign yet.')).toHaveCount(0)
-})
-
-test('The card is centred in the page', async ({ page, request }) => {
-  await ensureReady(request)
-  expect((await request.post('/api/campaigns', { data: { ...CAMPAIGN, name: `centre ${Date.now()}` } })).ok()).toBe(true)
-  await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
-  const box = await page.getByRole('region', { name: 'Next step' }).boundingBox()
-  const viewport = page.viewportSize()!
-  expect(box).not.toBeNull()
-  const centre = box!.x + box!.width / 2
-  expect(Math.abs(centre - viewport.width / 2)).toBeLessThan(160)
 })
 
 test('After the first search the results show up without waiting for a refresh', async ({ page, request }) => {

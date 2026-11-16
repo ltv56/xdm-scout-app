@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import XLink from '../XLink'
+import XLink from '../ui/XLink'
 import type { Decision, ReviewItem } from '../../../api/src/review/contract'
-import { CheckCircle, ChevronDown, QuestionCircle, XCircle } from '../icons'
+import { CheckCircle, ChevronDown, QuestionCircle, XCircle } from '../ui/icons'
 import { activeLabel, LANGUAGE_NAME, shortDate } from './labels'
 
 type Prospect = ReviewItem['prospect']

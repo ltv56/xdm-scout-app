@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { ensureCampaign } from './setup.ts'
+import { CAMPAIGN, ensureCampaign } from './setup.ts'
 
 test('Results so far says how many approved drafts were edited and what was skipped, and why', async ({ page, request }) => {
   await ensureCampaign(request)
@@ -7,6 +7,8 @@ test('Results so far says how many approved drafts were edited and what was skip
     r.fulfill({ json: { approved: 9, edited: 4, skipped: [{ reason: 'weak_opening', count: 3 }, { reason: 'not_fit', count: 1 }] } }),
   )
   await page.goto('/')
+  await page.getByRole('button', { name: /^Campaign/ }).click()
+  await page.getByRole('button', { name: CAMPAIGN.name, exact: true }).click()
   const section = page.getByRole('region', { name: 'Results so far' })
   await expect(section).toContainText('4 approved drafts were edited first')
   await expect(section).toContainText('Skipped 4: Weak opening 3, Not a fit 1')

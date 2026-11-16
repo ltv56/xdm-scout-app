@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { More } from '../icons'
+import { More } from '../ui/icons'
 
 // Rare, hard-to-undo actions live here so they are never next to Approve.
 export default function MoreMenu({ handle, onDoNotContact }: { handle: string; onDoNotContact: () => void }) {
