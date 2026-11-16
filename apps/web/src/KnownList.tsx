@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ProfileLink } from './XLink'
 import { useState } from 'react'
 import type { ImportResult, KnownPerson } from '../../api/src/known/contract'
 import { getJson, postJson } from './api'
@@ -95,7 +96,9 @@ export default function KnownList() {
           {list.data.map((p) => (
             <li key={p.xUserId} className="flex items-center justify-between gap-4 px-5 py-3">
               <p className="text-sm">
-                <span className="font-semibold">@{p.handle}</span> <span className="text-muted">
+                <ProfileLink handle={p.handle} className="font-semibold">
+                  @{p.handle}
+                </ProfileLink> <span className="text-muted">
                   · {p.listName}
                   {p.kind === 'warm' && ' (warm)'}
                 </span>

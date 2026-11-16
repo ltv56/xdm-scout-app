@@ -159,6 +159,8 @@ export class Prospect {
 export type DiscoveryRun = {
   at: string
   added: number
+  // Missing on runs saved before it was recorded.
+  addedHandles?: string[]
   skipped: { handle: string; reason: string }[]
   spentMicros: number
   stoppedByBudget: boolean

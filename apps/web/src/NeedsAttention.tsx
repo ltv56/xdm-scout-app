@@ -14,6 +14,8 @@ function waiting(iso: string | null) {
   return `waiting ${Math.round(hours / 24)} days`
 }
 
+const MAX_SHOWN = 5
+
 // What needs a person right now, most urgent first. Nothing is shown when nothing waits.
 export default function NeedsAttention({ campaignId, onGo }: { campaignId: number; onGo: (page: NonNullable<AttentionItem['goTo']>) => void }) {
   const list = useQuery<AttentionItem[]>({
@@ -24,29 +26,35 @@ export default function NeedsAttention({ campaignId, onGo }: { campaignId: numbe
   })
   const items = list.data ?? []
   if (!items.length) return null
+  const shown = items.slice(0, MAX_SHOWN)
+  // One button per page to go to, instead of the same button on every row.
+  const places = [...new Set(items.flatMap((i) => (i.goTo ? [i.goTo] : [])))]
 
   return (
     <section aria-label="Needs attention" className="mt-8">
-      <h2 className="text-lg font-bold">
-        Needs attention <span className="ml-1 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">{items.length}</span>
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <h2 className="text-lg font-bold">
+          Needs attention <span className="ml-1 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">{items.length}</span>
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {places.map((g) => (
+            <button key={g} type="button" className={btnSecondary} onClick={() => onGo(g)}>
+              {OPEN[g]}
+            </button>
+          ))}
+        </div>
+      </div>
       <ul className="mt-3 divide-y divide-rule rounded-2xl border border-rule bg-paper">
-        {items.map((i) => (
-          <li key={i.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-3.5">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">
-                {i.title}
-                {waiting(i.since) && <span className="ml-2 text-xs font-medium text-muted">{waiting(i.since)}</span>}
-              </p>
-              <p className="text-sm text-muted">{i.reason}</p>
-            </div>
-            {i.goTo && (
-              <button type="button" className={btnSecondary} onClick={() => onGo(i.goTo as NonNullable<AttentionItem['goTo']>)}>
-                {OPEN[i.goTo]}
-              </button>
-            )}
+        {shown.map((i) => (
+          <li key={i.id} className="px-5 py-3.5">
+            <p className="text-sm font-semibold">
+              {i.title}
+              {waiting(i.since) && <span className="ml-2 text-xs font-medium text-muted">{waiting(i.since)}</span>}
+            </p>
+            <p className="text-sm text-muted">{i.reason}</p>
           </li>
         ))}
+        {items.length > shown.length && <li className="px-5 py-3 text-sm text-muted">and {items.length - shown.length} more</li>}
       </ul>
     </section>
   )

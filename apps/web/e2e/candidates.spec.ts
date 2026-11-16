@@ -36,3 +36,24 @@ test('Candidates: filtering by relationship and sorting by followers', async ({ 
   await pick(page, page.getByRole('combobox', { name: 'Relationship' }), 'Any relationship')
   await expect(page.getByRole('status')).toHaveText('3 candidates shown')
 })
+
+test('Candidates: five people a page, Next shows the following five, and a new filter starts at page one', async ({ page }) => {
+  await page.route('**/api/campaigns/*/prospects', async (route) => {
+    const response = await route.fetch()
+    const people = await response.json()
+    const many = Array.from({ length: 12 }, (_, n) => ({ ...people[n % people.length], id: 1000 + n, handle: `person_${n}`, name: `Person ${n}` }))
+    await route.fulfill({ response, json: many })
+  })
+  await page.reload()
+  await page.getByRole('navigation').getByRole('button', { name: 'Candidates' }).click()
+  const names = page.getByRole('link', { name: /^Person \d+/ })
+  await expect(page.getByRole('status')).toHaveText('12 candidates shown')
+  await expect(names).toHaveCount(5)
+
+  await page.getByRole('button', { name: 'Next' }).click()
+  await expect(names).toHaveCount(5)
+  await expect(page.getByText('Page 2 of 3')).toBeVisible()
+
+  await page.getByRole('button', { name: /^Ready for a draft/ }).click()
+  await expect(page.getByText('Page 1 of 3')).toBeVisible()
+})

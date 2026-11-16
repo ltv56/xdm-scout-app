@@ -94,8 +94,10 @@ export class DiscoveryService {
       else kept.push(c)
     }
     kept.sort((a, b) => b.seedCount - a.seedCount)
+    // People already in the campaign are ignored by the insert and not counted.
+    const addedHandles: string[] = []
     for (const c of kept) {
-      await this.ds
+      const res = await this.ds
         .getRepository(Prospect)
         .createQueryBuilder()
         .insert()
@@ -103,6 +105,7 @@ export class DiscoveryService {
         .orIgnore()
         .updateEntity(false)
         .execute()
+      if ((res.raw as { affectedRows?: number }).affectedRows) addedHandles.push(c.handle)
     }
     const added = kept.map((c) => c.user)
 
@@ -124,7 +127,7 @@ export class DiscoveryService {
       }
     }
 
-    const result = { added: added.length, skipped, spentMicros: (await this.spent(campaignId)) - startSpent, stoppedByBudget, postsPending }
+    const result = { added: addedHandles.length, addedHandles, skipped, spentMicros: (await this.spent(campaignId)) - startSpent, stoppedByBudget, postsPending }
     await this.ds.getRepository(Campaign).update(campaignId, { lastDiscovery: { at: now.toISOString(), ...result } })
     return result
   }

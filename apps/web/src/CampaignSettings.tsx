@@ -28,6 +28,8 @@ interface CampaignRow {
 
 const text = (items: string[] | null) => (items ?? []).join('\n')
 const list = (items: string[] | null) => items ?? []
+const snapshot = (r: CampaignRow) =>
+  JSON.stringify([r.name, r.keywords, list(r.handles), list(r.seeds), list(r.queries), text(r.criteria), String(r.budgetMicros / 1_000_000), r.programId, r.callPostUrl ?? '', r.callKeyword ?? ''])
 
 export default function CampaignSettings({ campaignId }: { campaignId: number }) {
   const campaign = useQuery<CampaignRow>({ queryKey: ['campaign', campaignId], queryFn: () => getJson(`/campaigns/${campaignId}`), retry: false })
@@ -58,6 +60,11 @@ function CampaignForm({ row }: { row: CampaignRow }) {
   const [callUrl, setCallUrl] = useState(row.callPostUrl ?? '')
   const [callKeyword, setCallKeyword] = useState(row.callKeyword ?? '')
   const [problem, setProblem] = useState<string | null>(null)
+  const [saved, setSaved] = useState(() => snapshot(row))
+  // Text typed in a tag box is added on Save, so typing alone counts as a change.
+  const [typed, setTyped] = useState(false)
+  const current = JSON.stringify([name, keywords, handles, seeds, queries, criteria, budget, programId, callUrl, callKeyword])
+  const dirty = typed || current !== saved
 
   const profile = useQuery<SenderProfile>({ queryKey: ['sender-profile'], queryFn: () => getJson('/sender-profile'), retry: false })
   const programs = profile.data?.programs ?? []
@@ -72,6 +79,11 @@ function CampaignForm({ row }: { row: CampaignRow }) {
       setQueries(list(saved.queries))
       setCriteria(text(saved.criteria))
       setBudget(String(saved.budgetMicros / 1_000_000))
+      setProgramId(saved.programId)
+      setCallUrl(saved.callPostUrl ?? '')
+      setCallKeyword(saved.callKeyword ?? '')
+      setSaved(snapshot(saved))
+      setTyped(false)
       return Promise.all(['campaign', 'campaigns', 'estimate'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
     },
   })
@@ -112,6 +124,7 @@ function CampaignForm({ row }: { row: CampaignRow }) {
     <form
       noValidate
       className="mt-4 space-y-6"
+      onInput={() => setTyped(true)}
       onSubmit={(e) => {
         e.preventDefault()
         submit()
@@ -191,10 +204,10 @@ function CampaignForm({ row }: { row: CampaignRow }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={save.isPending} className={btnPrimary}>
+        <button type="submit" disabled={save.isPending || !dirty} className={btnPrimary}>
           Save campaign
         </button>
-        {save.isSuccess && (
+        {save.isSuccess && !dirty && (
           <span role="status" className="text-sm text-muted">
             Saved. Press Search again on the Overview to use it.
           </span>

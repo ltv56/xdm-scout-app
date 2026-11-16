@@ -8,3 +8,12 @@ export default function XLink({ href, label }: { href: string; label: string }) 
     </a>
   )
 }
+
+// A person's name or handle that opens their profile on X; only outside buttons and menus.
+export function ProfileLink({ handle, className = '', children }: { handle: string; className?: string; children: React.ReactNode }) {
+  return (
+    <a href={`https://x.com/${handle}`} target="_blank" rel="noreferrer" title={`Open @${handle} on X`} className={`underline-offset-4 hover:underline ${className}`}>
+      {children}
+    </a>
+  )
+}

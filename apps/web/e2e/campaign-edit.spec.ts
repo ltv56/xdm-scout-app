@@ -74,3 +74,19 @@ test('Settings: the reason the server gives for a refused save is shown and noth
   await expect(form.getByRole('alert')).toHaveText('Seed accounts: at most 10')
   await expect(form.getByRole('status')).toHaveCount(0)
 })
+
+test('Settings: Save is off until something changes, and off again once saved', async ({ page }) => {
+  const form = await openSettings(page)
+  const save = form.getByRole('button', { name: 'Save campaign' })
+  await expect(save).toBeDisabled()
+
+  await form.getByLabel('Discovery budget in USD').fill('3')
+  await expect(save).toBeEnabled()
+  await save.click()
+  await expect(form.getByRole('status')).toContainText('Saved')
+  await expect(save).toBeDisabled()
+
+  await form.getByLabel('Name').fill('changed again')
+  await expect(form.getByRole('status')).toHaveCount(0)
+  await expect(save).toBeEnabled()
+})

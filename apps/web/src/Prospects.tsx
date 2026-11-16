@@ -292,12 +292,19 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'not_a_fit', label: 'Not a fit' },
 ]
 
+const PAGE_SIZE = 5
+
 export default function Prospects({ campaignId, onReview, onOverview, initialFilter = 'all' }: { campaignId: number; onReview: () => void; onOverview: () => void; initialFilter?: Filter }) {
   const [filter, setFilter] = useState<Filter>(initialFilter)
   const [relationship, setRelationship] = useState<RelationshipFilter>('any')
   const [landsIn, setLandsIn] = useState<LandsInFilter>('any')
   const [sortKey, setSortKey] = useState<SortKey>('default')
   const [dir, setDir] = useState<Dir>('desc')
+  // Ten people a page; any change of filter or order starts again at the first page.
+  const view = [filter, relationship, landsIn, sortKey, dir].join('|')
+  const [paged, setPaged] = useState({ view, page: 0 })
+  const page = paged.view === view ? paged.page : 0
+  const listTop = useRef<HTMLParagraphElement>(null)
   const { data, error, isLoading } = useQuery<Prospect[]>({
     queryKey: ['prospects', campaignId],
     queryFn: () => getJson(`/campaigns/${campaignId}/prospects`),
@@ -322,6 +329,13 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
   const byRelationship = (p: Prospect) => relationship === 'any' || p.relationship === relationship
   const byLandsIn = (p: Prospect) => landsIn === 'any' || (p.landsIn ?? 'unknown') === landsIn
   const shown = sortProspects(data.filter((p) => matches[filter](p) && byRelationship(p) && byLandsIn(p)), sortKey, dir)
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE))
+  const at = Math.min(page, pages - 1)
+  const onPage = shown.slice(at * PAGE_SIZE, (at + 1) * PAGE_SIZE)
+  const goTo = (n: number) => {
+    setPaged({ view, page: n })
+    listTop.current?.scrollIntoView({ block: 'start' })
+  }
 
   return (
     <div className="pb-16">
@@ -341,7 +355,7 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
           </button>
         ))}
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule pt-3 text-sm">
         <label className="flex w-full items-center gap-2 sm:w-auto">
           <span className="shrink-0 text-muted">Relationship</span>
           <Select value={relationship} onChange={(e) => setRelationship(e.target.value as RelationshipFilter)} wrapperClassName="min-w-0 flex-1 sm:w-auto sm:flex-none" className="py-1.5">
@@ -384,12 +398,12 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
       </div>
       <CandidateActions campaignId={campaignId} unscored={data.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length} scoring={data.filter((p) => p.scoring).length} ready={data.filter(isReady).length} />
       </div>
-      <p className="sr-only" role="status">
+      <p ref={listTop} className="mt-6 scroll-mt-4 border-b border-rule pb-2 text-sm font-medium text-muted" role="status">
         {shown.length === 1 ? '1 candidate shown' : `${shown.length} candidates shown`}
       </p>
       {shown.length === 0 && <p className="mt-6 text-sm text-muted">Nobody in this list.</p>}
-      <ul className="mt-5 space-y-1">
-        {shown.map((p, i) => (
+      <ul className="mt-3 space-y-1">
+        {onPage.map((p, i) => (
           <li key={p.id} className="anim-fade-up rounded-2xl px-5 py-5 even:bg-paper" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
               <div className="min-w-0 flex-1">
@@ -490,6 +504,19 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
           </li>
         ))}
       </ul>
+      {pages > 1 && (
+        <nav aria-label="Pages" className="mt-5 flex items-center justify-between gap-4 border-t border-rule pt-4 text-sm">
+          <button type="button" className={btnSecondary} disabled={at === 0} onClick={() => goTo(at - 1)}>
+            Previous
+          </button>
+          <span className="text-muted">
+            Page {at + 1} of {pages}
+          </span>
+          <button type="button" className={btnSecondary} disabled={at === pages - 1} onClick={() => goTo(at + 1)}>
+            Next
+          </button>
+        </nav>
+      )}
     </div>
   )
 }

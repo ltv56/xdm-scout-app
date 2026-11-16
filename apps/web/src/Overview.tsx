@@ -1,21 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type ReactNode } from 'react'
+import { ProfileLink } from './XLink'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { CampaignLane, ReadyToDraft, ReviewQueue, SenderProfile } from '../../api/src/review/contract'
 import { getJson, postJson } from './api'
 import { campaignQuery } from './campaignQuery'
 import Funnel from './Funnel'
 import Spinner from './Spinner'
-import ReviewSummary from './ReviewSummary'
 import FitBadge from './FitBadge'
 import NeedsAttention from './NeedsAttention'
 import type { Filter as CandidateFilter, Prospect } from './Prospects'
-import { Search } from './icons'
+import { ChevronLeft, ChevronRight, Search } from './icons'
 import { verdict } from './review/labels'
 import { btnLink, btnPrimary, btnSecondary, money } from './ui'
 
 interface DiscoveryRun {
   at: string
   added: number
+  addedHandles?: string[]
   skipped: { handle: string; reason: string }[]
   spentMicros: number
   stoppedByBudget: boolean
@@ -102,7 +103,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
   const run = c.lastDiscovery
   const sources = [c.handles.length && plural(c.handles.length, 'handle'), c.seeds?.length && plural(c.seeds.length, 'seed account'), c.queries?.length && plural(c.queries.length, 'search')].filter(Boolean).join(' · ')
   const firstSearch = !run && people.length === 0 && drafts.length === 0
-  const top = people.filter((p) => p.fit === 'strong' || p.fit === 'possible').slice(0, 5)
+  const top = people.filter((p) => p.fit === 'strong' || p.fit === 'possible').slice(0, 10)
 
   return (
     <div className="pb-16">
@@ -221,7 +222,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
         ) : (
           <div>
             <h2 className="text-lg font-semibold leading-snug">
-              {loadError ? 'The numbers did not load' : ready > 0 ? `${plural(ready, 'person is', 'people are')} ready for a draft` : people.length ? 'Nothing waiting for you' : 'The last search found no one'}
+              {loadError ? 'The numbers did not load' : ready > 0 ? `${plural(ready, 'person is', 'people are')} ready for a draft` : people.length ? 'No new people to draft' : 'The last search found no one'}
             </h2>
             <p className="mt-1.5 text-sm text-muted">
               {loadError
@@ -270,28 +271,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
       </section>
       )}
 
-      {top.length > 0 && (
-        <section aria-label="Best matches" className="mt-10 rounded-2xl bg-paper px-6 py-6">
-          <h2 className="text-base font-semibold">Best matches and why</h2>
-          <ul className="mt-3">
-            {top.map((p) => (
-              <li key={p.id} className="border-b border-rule py-6">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <FitBadge fit={p.fit} />
-                  <span className="min-w-0 text-base font-semibold wrap-anywhere">
-                    {p.name} <span className="text-base font-normal text-muted">@{p.handle}</span>
-                  </span>
-                  {p.role && p.role !== 'other' && <span className="text-sm text-muted">{p.role}</span>}
-                </div>
-                <p className="mt-2 max-w-[70ch] text-sm">
-                  {p.opening?.summary ?? <span className="text-muted">No reason to reach out yet</span>}
-                  {p.opening && <span className="text-muted"> · {ago(p.opening.date)}{p.opening.freshness === 'stale' ? ' (stale)' : ''}</span>}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {top.length > 0 && <BestMatches people={top} />}
 
       {run && (
         <section aria-label="Last search" className="mt-10 border-t border-rule pt-8">
@@ -302,6 +282,11 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
                 {ago(run.at)} · {run.added} added, {run.skipped.length} skipped
               </span>
             </summary>
+            {!!run.addedHandles?.length && (
+              <p className="mt-3 text-sm text-muted">
+                Added: <span className="font-medium text-ink">{run.addedHandles.map((h) => `@${h}`).join(', ')}</span>
+              </p>
+            )}
             {run.skipped.length > 0 && (
               <ul className="mt-3 space-y-1 text-sm text-muted">
                 {run.skipped.map((x) => (
@@ -318,7 +303,6 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
       )}
 
       <Funnel campaignId={campaignId} />
-      <ReviewSummary campaignId={campaignId} />
       </div>
     </div>
   )
@@ -434,5 +418,46 @@ function LaneLine({ lane: l, campaignId }: { lane: CampaignLane; campaignId: num
         </>
       )}
     </p>
+  )
+}
+
+// Strong and possible people as a sideways row of cards; the arrows move one card.
+function BestMatches({ people }: { people: Prospect[] }) {
+  const row = useRef<HTMLUListElement>(null)
+  const move = (dir: 1 | -1) => row.current?.scrollBy({ left: dir * 336, behavior: 'smooth' })
+  const arrow = 'grid size-8 place-items-center rounded-full bg-raised shadow-soft transition hover:bg-rail'
+  return (
+    <section aria-label="Best matches" className="mt-10 rounded-2xl bg-paper px-6 py-6">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-base font-semibold">Best matches and why</h2>
+        {people.length > 2 && (
+          <div className="flex gap-2">
+            <button type="button" className={arrow} aria-label="Previous" onClick={() => move(-1)}>
+              <ChevronLeft className="size-4" />
+            </button>
+            <button type="button" className={arrow} aria-label="Next" onClick={() => move(1)}>
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        )}
+      </div>
+      <ul ref={row} tabIndex={0} aria-label="Best matches, scroll sideways" className="scroll-thin mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2">
+        {people.map((p) => (
+          <li key={p.id} className="w-80 shrink-0 snap-start rounded-xl bg-raised p-4 shadow-soft">
+            <FitBadge fit={p.fit} />
+            <p className="mt-2 min-w-0 font-semibold wrap-anywhere">
+              <ProfileLink handle={p.handle}>
+                {p.name} <span className="text-sm font-normal text-muted">@{p.handle}</span>
+              </ProfileLink>
+            </p>
+            {p.role && p.role !== 'other' && <p className="text-sm text-muted">{p.role}</p>}
+            <p className="mt-2 line-clamp-3 text-sm">
+              {p.opening?.summary ?? <span className="text-muted">No reason to reach out yet</span>}
+            </p>
+            {p.opening && <p className="mt-1 text-xs text-muted">{ago(p.opening.date)}{p.opening.freshness === 'stale' ? ' (stale)' : ''}</p>}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

@@ -56,7 +56,10 @@ test('After the first search the results show up without waiting for a refresh',
   await page.goto('/')
   await page.getByRole('button', { name: 'Run first search' }).click()
   await expect(page.getByRole('region', { name: 'Results so far' })).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByRole('region', { name: 'Last search' })).toContainText('added')
+  const last = page.getByRole('region', { name: 'Last search' })
+  await expect(last).toContainText('added')
+  await last.getByText('Last search').click()
+  await expect(last.getByText(/^Added: .*@mina_builds/)).toBeVisible()
 })
 
 test('Edit search on the first-search card opens the campaign in Settings', async ({ page, request }) => {

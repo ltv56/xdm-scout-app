@@ -1,4 +1,5 @@
 import type { Funnel as FunnelData } from '../../api/src/funnel/contract'
+import ReviewSummary from './ReviewSummary'
 import { useFunnel } from './useFunnel'
 
 const sum = (data: FunnelData, pick: (l: FunnelData['lanes'][number]) => number) => data.lanes.reduce((n, l) => n + pick(l), 0)
@@ -25,6 +26,7 @@ export default function Funnel({ campaignId }: { campaignId: number }) {
           </li>
         ))}
       </ul>
+      <ReviewSummary campaignId={campaignId} />
     </section>
   )
 }

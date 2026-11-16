@@ -68,6 +68,18 @@ describe('discovery from a handle list', () => {
     })
   })
 
+  it('a second search counts only the people it newly adds', async () => {
+    const campaign = await newCampaign(['alice'])
+    await discovery.run(campaign.id, now)
+    await ds.getRepository(Campaign).update(campaign.id, { handles: ['alice', 'bob'] })
+
+    const again = await discovery.run(campaign.id, now)
+
+    expect(again.added).toBe(1)
+    expect(again.addedHandles).toEqual(['bob'])
+    expect(await ds.getRepository(Prospect).count()).toBe(2)
+  })
+
   it('does not fetch a profile again while it is fresh, and fetches it once it is older than 7 days', async () => {
     const campaign = await newCampaign(['alice', 'bob'])
     await discovery.run(campaign.id, now)

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ProfileLink } from './XLink'
 import { useState } from 'react'
 import type { DncPerson } from '../../api/src/dnc/contract'
 import { getJson, postJson } from './api'
@@ -19,7 +20,9 @@ function Row({ p }: { p: DncPerson }) {
     <li className="px-5 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold">@{p.handle}</p>
+          <ProfileLink handle={p.handle} className="text-sm font-semibold">
+            @{p.handle}
+          </ProfileLink>
           <p className="text-sm text-muted">
             {p.reason} · {SOURCE[p.source] ?? p.source} · {new Date(p.since).toLocaleDateString()}
           </p>

@@ -1,4 +1,5 @@
 import Select from './Select'
+import { ProfileLink } from './XLink'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CheckItem, DeliveredItem, InboxChecks, ReplyItem } from '../../api/src/inbox/contract'
 import { ENDS_CONTACT, needsStopConfirm, REPLY_CLASSES, type ClassBy, type ReplyClass } from '../../api/src/inbox/reply-class'
@@ -258,7 +259,10 @@ function DeliveredRow({ item, campaignId }: { item: DeliveredItem; campaignId: n
 function Person({ item }: { item: { name: string | null; handle: string; at: string } }) {
   return (
     <p className="text-sm">
-      <span className="font-semibold">{item.name ?? `@${item.handle}`}</span> <span className="text-muted">@{item.handle} · {when(item.at)}</span>
+      <ProfileLink handle={item.handle}>
+        <span className="font-semibold">{item.name ?? `@${item.handle}`}</span> <span className="text-muted">@{item.handle}</span>
+      </ProfileLink>{' '}
+      <span className="text-muted">· {when(item.at)}</span>
     </p>
   )
 }

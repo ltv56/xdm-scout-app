@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ProfileLink } from './XLink'
 import { useState } from 'react'
 import type { Outbox as OutboxData, OutboxItem } from '../../api/src/outbox/contract'
 import { getJson, postJson } from './api'
@@ -72,7 +73,9 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
             <li key={i.attemptId} className="anim-fade-up flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-3.5" style={{ animationDelay: `${Math.min(n, 8) * 30}ms` }}>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <p className="text-sm font-semibold">@{i.handle}</p>
+                  <ProfileLink handle={i.handle} className="text-sm font-semibold">
+                    @{i.handle}
+                  </ProfileLink>
                   <span key={i.label} className={`${chip} ${tone[TONE[i.label]].chip} anim-pop`}>{i.label}</span>
                 </div>
                 <p className="mt-0.5 text-xs text-muted">{when(i.at)}</p>
