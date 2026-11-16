@@ -43,7 +43,7 @@ export default function AccountMenu({ current, onSelect, children }: {
         {children}
       </button>
       {open && (
-        <ul aria-label="Account menu" className="absolute right-0 top-full z-30 mt-2 w-44 rounded-2xl bg-raised p-1.5 shadow-pop">
+        <ul aria-label="Account menu" className="anim-pop absolute right-0 top-full z-30 mt-2 w-44 origin-top-right rounded-2xl bg-raised p-1.5 shadow-pop">
           {(['profile', 'settings', 'activity'] as const).map((page) => (
             <li key={page}>
               <button

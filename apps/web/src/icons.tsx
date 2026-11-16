@@ -85,6 +85,13 @@ export const Check = ({ className }: IconProps) => (
   </svg>
 )
 
+export const Search = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <circle cx="9" cy="9" r="5.5" />
+    <path d="m13.2 13.2 3.3 3.3" />
+  </svg>
+)
+
 export const Plus = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M10 4.5v11M4.5 10h11" />

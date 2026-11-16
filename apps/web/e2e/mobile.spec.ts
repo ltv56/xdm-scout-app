@@ -34,7 +34,8 @@ test('Phone: the sections sit behind one Menu button, and the menu names where y
 
   await page.getByRole('button', { name: 'Menu' }).click()
   const sections = page.getByRole('navigation', { name: 'Sections' })
-  for (const name of ['Overview', 'Review', 'Inbox', 'Outbox', 'Candidates']) await expect(sections.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible()
+  for (const name of ['Overview', 'Review', 'Messages', 'Candidates']) await expect(sections.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible()
+  for (const name of ['Inbox', 'Outbox']) await expect(sections.getByRole('button', { name })).toHaveCount(0)
   for (const name of ['Profile', 'Settings', 'Activity']) await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
   await page.getByRole('button', { name: campaign, exact: true }).click()
 
@@ -42,6 +43,11 @@ test('Phone: the sections sit behind one Menu button, and the menu names where y
   await goTo(page, 'Candidates')
   await expect(page.getByRole('heading', { name: 'Candidates' })).toBeVisible()
   await expect(page.locator('header').first().locator('span.truncate')).toHaveText('Candidates')
+
+  await goTo(page, 'Messages')
+  await expect(page.locator('header').first().locator('span.truncate')).toHaveText('Messages')
+  await page.getByRole('tab', { name: 'Outbox' }).click()
+  await expect(page.getByRole('tab', { name: 'Outbox' })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('Phone: Approve is the one big button at the bottom of Review, not in the top bar', async ({ page, request }) => {

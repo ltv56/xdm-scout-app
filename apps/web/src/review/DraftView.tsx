@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle, MinusCircle, XCircle, XLogo } from '../icon
 import { chip, tone } from '../ui'
 import Frame from './Actions'
 import { ModelChecks, PersonFacts } from './PersonFacts'
-import { activeLabel, evidenceIdOf, LANDS_IN_HINT, LANDS_IN_LABEL, LANGUAGE_NAME, RELATIONSHIP_LABEL, shortDate, sourceLine, type Verdict } from './labels'
+import { activeLabel, evidenceIdOf, LANGUAGE_NAME, RELATIONSHIP_LABEL, shortDate, sourceLine, type Verdict } from './labels'
 
 // The draft-level check says some post is old; only the old ones get the chip.
 const isOld = (postedAt: string | null) => postedAt !== null && Date.now() - Date.parse(postedAt) > 30 * 86_400_000
@@ -200,12 +200,6 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
               </h2>
               <p className="mt-1 text-sm text-muted">
                 {p.history ?? RELATIONSHIP_LABEL[p.relationship]} · {activeLabel(p.daysSinceActive)} · {item.kind === 'reply' ? 'Reply to their message' : 'First message'}
-                {p.landsIn && (
-                  <>
-                    {' · '}
-                    <span title={LANDS_IN_HINT}>Likely lands in: {LANDS_IN_LABEL[p.landsIn]}</span>
-                  </>
-                )}
                 {item.editedByReviewer && ' · You edited this draft'}
               </p>
             </header>

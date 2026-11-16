@@ -7,15 +7,15 @@ import Activity from './Activity'
 import AccountMenu from './AccountMenu'
 import CampaignPicker from './CampaignPicker'
 import { User as UserIcon } from './icons'
-import Inbox from './Inbox'
+import Messages, { type MessagesTab } from './Messages'
 import MobileMenu from './MobileMenu'
 import NewCampaign from './NewCampaign'
 import Onboarding from './Onboarding'
-import Outbox from './Outbox'
 import Overview from './Overview'
 import Prospects, { type Filter as CandidateFilter } from './Prospects'
 import ReviewQueue from './review/ReviewQueue'
 import Settings from './Settings'
+import TooltipLayer from './TooltipLayer'
 import StatusStrip from './StatusStrip'
 
 interface Health {
@@ -26,8 +26,7 @@ interface Health {
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'review', label: 'Review' },
-  { id: 'inbox', label: 'Inbox' },
-  { id: 'outbox', label: 'Outbox' },
+  { id: 'messages', label: 'Messages' },
   { id: 'prospects', label: 'Candidates' },
   { id: 'profile', label: 'Profile' },
   { id: 'settings', label: 'Settings' },
@@ -37,6 +36,7 @@ type Tab = (typeof TABS)[number]['id']
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('overview')
+  const [messagesTab, setMessagesTab] = useState<MessagesTab>('inbox')
   const [candidateFilter, setCandidateFilter] = useState<CandidateFilter>('all')
   const [campaignId, setCampaignId] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
@@ -59,6 +59,14 @@ export default function App() {
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
     .join('')
+
+  // Links written as 'inbox' (Overview, Needs attention) open that tab inside Messages.
+  const go = (page: Tab | 'inbox') => {
+    if (page === 'inbox') {
+      setMessagesTab('inbox')
+      setTab('messages')
+    } else setTab(page)
+  }
 
   const scroll = 'h-full overflow-y-auto px-5 py-8 sm:px-12 sm:py-10'
 
@@ -99,8 +107,8 @@ export default function App() {
         }}
       />
       <header className="mx-auto hidden w-full max-w-[1280px] shrink-0 flex-wrap items-center gap-x-10 gap-y-2 px-6 py-5 text-sm sm:flex lg:flex-nowrap">
-        <span className="text-base font-bold tracking-tight text-ink">xdm-scout</span>
-        <nav aria-label="Sections" className="flex flex-wrap gap-x-6">
+        <span className="shrink-0 whitespace-nowrap text-base font-bold tracking-tight text-ink">xdm-scout</span>
+        <nav aria-label="Sections" className="flex shrink-0 flex-wrap gap-x-6">
           {TABS.filter((t) => t.id !== 'profile' && t.id !== 'settings' && t.id !== 'activity').map((t) => (
             <button
               key={t.id}
@@ -118,7 +126,7 @@ export default function App() {
           ))}
         </nav>
         <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2 lg:ml-auto lg:flex-nowrap">
-          <StatusStrip campaignId={active} />
+          <StatusStrip campaignId={active} onSearchDone={() => { setTab('overview'); setCreating(false) }} />
           <CampaignPicker
             list={list}
             active={active}
@@ -149,8 +157,9 @@ export default function App() {
 
       <main id="main" className="mx-auto w-full max-w-[1280px] px-6 pb-6 lg:min-h-0 lg:flex-1">
         <div className="overflow-hidden rounded-3xl bg-raised shadow-soft lg:h-full lg:min-h-[460px]">
+          <div key={`${tab}-${creating}-${active === null}`} className="anim-fade-up lg:h-full">
           {tab === 'profile' || tab === 'settings' || tab === 'activity' ? (
-            <div className={scroll}>{tab === 'profile' ? <Account /> : tab === 'settings' ? <Settings /> : <Activity />}</div>
+            <div className={scroll}>{tab === 'profile' ? <Account /> : tab === 'settings' ? <Settings campaignId={active} /> : <Activity />}</div>
           ) : creating || active === null ? (
             <div className={scroll}>
               <NewCampaign
@@ -165,29 +174,25 @@ export default function App() {
             </div>
           ) : tab === 'overview' ? (
             <div className={scroll}>
-              <Overview campaignId={active} onReview={() => setTab('review')} onGo={(page) => page !== 'overview' && setTab(page)} onProspects={(f) => {
+              <Overview campaignId={active} onReview={() => setTab('review')} onSettings={() => setTab('settings')} onGo={(page) => page !== 'overview' && go(page)} onProspects={(f) => {
                   setCandidateFilter(f)
                   setTab('prospects')
                 }}
               />
             </div>
           ) : tab === 'review' ? (
-            <ReviewQueue campaignId={active} />
-          ) : tab === 'inbox' ? (
-            <div className={scroll}>
-              <Inbox campaignId={active} />
-            </div>
-          ) : tab === 'outbox' ? (
-            <div className={scroll}>
-              <Outbox campaignId={active} />
-            </div>
+            <ReviewQueue campaignId={active} onGo={setTab} />
+          ) : tab === 'messages' ? (
+            <Messages campaignId={active} tab={messagesTab} onTab={setMessagesTab} onReview={() => setTab('review')} />
           ) : (
             <div className={scroll}>
-              <Prospects key={candidateFilter} campaignId={active} onReview={() => setTab('review')} initialFilter={candidateFilter} />
+              <Prospects key={candidateFilter} campaignId={active} onReview={() => setTab('review')} onOverview={() => setTab('overview')} initialFilter={candidateFilter} />
             </div>
           )}
+          </div>
         </div>
       </main>
+      <TooltipLayer />
     </div>
   )
 }

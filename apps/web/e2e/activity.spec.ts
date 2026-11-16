@@ -10,6 +10,7 @@ test('Activity log lists what was changed and offers a CSV', async ({ page }) =>
   await page.goto('/')
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('list', { name: 'Account menu' }).getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Sending & people' }).click()
   const known = page.getByRole('region', { name: 'Known to the fund' })
   await known.getByLabel('List name').fill('Activity test')
   await known.getByLabel(/^Handles/).fill('@mina_builds')

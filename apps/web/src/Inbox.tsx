@@ -1,7 +1,9 @@
+import Select from './Select'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CheckItem, DeliveredItem, InboxChecks, ReplyItem } from '../../api/src/inbox/contract'
 import { ENDS_CONTACT, needsStopConfirm, REPLY_CLASSES, type ClassBy, type ReplyClass } from '../../api/src/inbox/reply-class'
 import { getJson, postJson } from './api'
+import EmptyState from './EmptyState'
 import { XLogo } from './icons'
 import { btnApprove, btnSecondary, btnToolbar, card, chip, money, tone, type Tone } from './ui'
 
@@ -21,13 +23,17 @@ const CLASS_TONE: Record<ReplyClass, Tone> = {
 
 const CLASS_BY: Record<ClassBy, string> = { rule: 'They asked to stop', llm: 'Sorted automatically', operator: 'Set by you' }
 
-export default function Inbox({ campaignId }: { campaignId: number }) {
+export default function Inbox({ campaignId, onReview }: { campaignId: number; onReview: () => void }) {
   const checks = useQuery<InboxChecks>({ queryKey: ['inbox-checks', campaignId], queryFn: () => getJson(`/inbox/checks?campaignId=${campaignId}`) })
 
   if (checks.isLoading) return <p role="status" className="text-sm text-muted">Loading…</p>
   if (checks.error || !checks.data) return <p role="alert" className="text-sm font-medium text-block">{checks.error?.message ?? 'Inbox not available'}</p>
   const { replies, toCheck, delivered } = checks.data
   const open = replies.filter((r) => !r.handled).length
+
+  if (!replies.length && !toCheck.length && !delivered.length) {
+    return <EmptyState title="No replies yet" text="The app checks each chat for 3 days after a send." action={{ label: 'Go to Review', onClick: onReview }} />
+  }
 
   return (
     <div className="max-w-3xl">
@@ -170,8 +176,8 @@ function ReplyCard({ item, campaignId }: { item: ReplyItem; campaignId: number }
         )}
         <label className="ml-auto flex items-center gap-2 text-sm text-muted">
           Class
-          <select
-            className="rounded-lg border border-rule bg-raised px-2 py-1.5 text-sm text-ink"
+          <Select
+            className="py-1.5 text-ink"
             value={item.replyClass ?? ''}
             disabled={setClass.isPending}
             onChange={(e) => setClass.mutate(e.target.value as ReplyClass)}
@@ -182,7 +188,7 @@ function ReplyCard({ item, campaignId }: { item: ReplyItem; campaignId: number }
                 {ENDS_CONTACT.includes(c) ? `${c} (Do not contact)` : c}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       {(handled.error ?? setClass.error) && (

@@ -9,6 +9,13 @@ export const FIT_LABEL: Record<ReviewItem['prospect']['fit'], string> = {
 }
 
 export const LANDS_IN_LABEL: Record<NonNullable<ReviewItem['prospect']['landsIn']>, string> = { inbox: 'Inbox', requests: 'Message requests', cant_receive: "Can't receive" }
+// Said only when it changes what the person should expect: nothing for the Inbox.
+export const deliveryNote = (landsIn: ReviewItem['prospect']['landsIn']): string | null =>
+  landsIn === 'requests'
+    ? "Probably lands in Message requests: they don't follow you and haven't messaged you first."
+    : landsIn === 'cant_receive'
+      ? "X says their DMs are closed, so a message can't reach them."
+      : null
 export const LANDS_IN_HINT = 'A guess from whether they follow you or wrote first, and whether X says they take DMs. Based on tests on 11 Nov 2026.'
 
 export const RELATIONSHIP_LABEL: Record<ReviewItem['prospect']['relationship'], string> = {

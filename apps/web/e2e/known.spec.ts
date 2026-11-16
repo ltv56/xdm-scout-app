@@ -10,6 +10,7 @@ test('Handles pasted into Known to the fund are listed, and can be taken off aga
   await page.goto('/')
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('list', { name: 'Account menu' }).getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Sending & people' }).click()
   const section = page.getByRole('region', { name: 'Known to the fund' })
 
   await section.getByRole('button', { name: 'Add to the list' }).click()
@@ -31,6 +32,7 @@ test('A warm list keeps the event and marks the person as warm', async ({ page }
   await page.goto('/')
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('list', { name: 'Account menu' }).getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Sending & people' }).click()
   const section = page.getByRole('region', { name: 'Known to the fund' })
 
   await section.getByLabel('List name').fill('Build Week')

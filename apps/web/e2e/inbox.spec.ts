@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
+import { pick } from './pick.ts'
 import { createConnection } from 'mysql2/promise'
 import emptyDatabase, { E2E_DATABASE_URL } from './global-setup.ts'
 import { draftCampaign } from './setup.ts'
@@ -25,7 +26,8 @@ async function openInbox(page: import('@playwright/test').Page) {
   await page.goto('/')
   await page.getByRole('button', { name: /^Campaign/ }).click()
   await page.getByRole('button', { name: campaign, exact: true }).click()
-  await page.getByRole('navigation').getByRole('button', { name: 'Inbox' }).click()
+  await page.getByRole('navigation').getByRole('button', { name: 'Messages' }).click()
+  await page.getByRole('tab', { name: 'Inbox' }).click()
 }
 
 test.beforeAll(async ({ request }) => {
@@ -80,7 +82,7 @@ test('Inbox: a reply shows with the message we sent and can be marked handled', 
   await expect(reply).toHaveCount(1)
   await expect(reply.getByText('Sounds interesting, tell me more')).toBeVisible()
   await expect(reply.getByText('You wrote')).toBeVisible()
-  await expect(reply.getByLabel('Class')).toHaveValue('Interested')
+  await expect(reply.getByRole('combobox', { name: /^Class/ })).toContainText('Interested')
   await expect(page.getByRole('region', { name: 'Delivered' }).getByText('Replied', { exact: true })).toBeVisible()
 
   await reply.getByRole('button', { name: 'Mark handled' }).click()
@@ -93,7 +95,7 @@ test('Inbox: a stop reply shows as Opt-out and the person as Do not contact', as
   await openInbox(page)
 
   const reply = page.getByRole('region', { name: /^Replies/ }).getByRole('listitem').filter({ hasText: 'Please stop messaging me' })
-  await expect(reply.getByLabel('Class')).toHaveValue('Opt-out')
+  await expect(reply.getByRole('combobox', { name: /^Class/ })).toContainText('Opt-out')
   await expect(reply.getByText('Do not contact', { exact: true })).toBeVisible()
   await expect(reply.getByText('Handled', { exact: true })).toBeVisible()
 })
@@ -113,7 +115,7 @@ test('Inbox: Check now reads the open chats, and "They replied" records a reply 
   await expect(delivered.getByText('Replied', { exact: true })).toHaveCount(2)
   const encrypted = replies.getByRole('listitem').first()
   await expect(encrypted.getByText('They replied in an encrypted chat. Read it in X.')).toBeVisible()
-  await encrypted.getByLabel('Class').selectOption('Question')
+  await pick(page, encrypted.getByRole('combobox', { name: /^Class/ }), /^Question/)
   await expect(encrypted.getByTitle('Set by you')).toHaveText('Question')
 
   await replies.getByRole('button', { name: 'Check now' }).click()

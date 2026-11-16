@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import type { ReviewItem, ReviewQueue as Queue } from '../../../api/src/review/contract'
 import { getJson } from '../api'
+import EmptyState from '../EmptyState'
 import { FitMark } from '../FitBadge'
 import { ChevronDown, ChevronLeft, ChevronRight } from '../icons'
 import { chip, tone } from '../ui'
@@ -98,7 +99,7 @@ function DraftNav({ items, index, onSelect }: { items: ReviewItem[]; index: numb
 }
 
 // Fills the panel it is placed in.
-export default function ReviewQueue({ campaignId }: { campaignId: number }) {
+export default function ReviewQueue({ campaignId, onGo }: { campaignId: number; onGo: (page: 'overview') => void }) {
   const { data, error, isLoading } = useQuery<Queue>({
     queryKey: ['review-queue', campaignId],
     queryFn: () => getJson(`/review-queue?campaignId=${campaignId}`),
@@ -133,10 +134,11 @@ export default function ReviewQueue({ campaignId }: { campaignId: number }) {
   if (error) return <p role="alert" className="px-5 py-8 text-sm sm:px-12 sm:py-10 font-medium text-block">{error.message}</p>
   if (!current) {
     return (
-      <div className="max-w-md px-5 py-8 sm:px-12 sm:py-10">
-        <h2 className="text-lg font-semibold">Nothing to review</h2>
-        <p className="mt-1 text-sm text-muted">Drafts appear here after discovery finds people with a recent post to open with. Run a search from the Overview.</p>
-      </div>
+      <EmptyState
+        title="Nothing to review"
+        text="Drafts appear here after discovery finds people with a recent post to open with. Run a search from the Overview."
+        action={{ label: 'Go to Overview', onClick: () => onGo('overview') }}
+      />
     )
   }
 

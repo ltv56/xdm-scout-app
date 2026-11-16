@@ -22,6 +22,7 @@ test('Removing someone from Do not contact needs a reason, and the reason is log
   await page.goto('/')
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('list', { name: 'Account menu' }).getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('tab', { name: 'Sending & people' }).click()
 
   const section = page.getByRole('region', { name: 'Do not contact' })
   await expect(section).toContainText('@777000111')

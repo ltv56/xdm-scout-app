@@ -59,7 +59,7 @@ export default function CampaignPicker({ list, active, onSelect, onNew }: {
       </button>
 
       {open && (
-        <ul ref={menu} onKeyDown={moveFocus} aria-label="Campaigns" className="absolute left-0 top-full z-30 lg:left-auto lg:right-0 mt-2 max-h-[60vh] w-[min(340px,calc(100vw-3rem))] overflow-y-auto rounded-2xl bg-raised p-1.5 shadow-pop">
+        <ul ref={menu} onKeyDown={moveFocus} aria-label="Campaigns" className="anim-pop absolute left-0 top-full z-30 lg:left-auto lg:right-0 origin-top-right mt-2 max-h-[60vh] w-[min(340px,calc(100vw-3rem))] overflow-y-auto rounded-2xl bg-raised p-1.5 shadow-pop">
           {list.map((c) => (
             <li key={c.id}>
               <button

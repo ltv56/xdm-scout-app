@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test'
+import { pick } from './pick.ts'
 import { ensureCampaign } from './setup.ts'
+
+// Each item is a tag: type it, press Enter.
+async function addTags(page: import('@playwright/test').Page, label: string, ...items: string[]) {
+  const box = page.getByRole('textbox', { name: label, exact: true })
+  for (const item of items) {
+    await box.fill(item)
+    await box.press('Enter')
+  }
+}
 
 test.beforeEach(async ({ page, request }) => {
   await ensureCampaign(request)
@@ -15,8 +25,8 @@ test('New campaign: a missing name is refused, then the campaign is created', as
 
   const name = `e2e ${Date.now()}`
   await page.getByRole('textbox', { name: 'Name' }).fill(name)
-  await page.getByRole('textbox', { name: 'Keywords' }).fill('robotics\nllm')
-  await page.getByRole('textbox', { name: 'Handles' }).fill('mina_builds')
+  await addTags(page, 'Keywords', 'robotics', 'llm')
+  await addTags(page, 'Handles', 'mina_builds')
   await page.getByRole('button', { name: 'Create campaign' }).click()
 
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
@@ -39,9 +49,9 @@ test('New campaign: the program and the call post are saved with the campaign an
   await page.getByRole('button', { name: 'New campaign' }).click()
   const name = `e2e call ${Date.now()}`
   await page.getByRole('textbox', { name: 'Name' }).fill(name)
-  await page.getByRole('textbox', { name: 'Keywords' }).fill('agents')
-  await page.getByRole('textbox', { name: 'Handles' }).fill('mina_builds')
-  await page.getByRole('combobox', { name: 'Program to offer' }).selectOption('7')
+  await addTags(page, 'Keywords', 'agents')
+  await addTags(page, 'Handles', 'mina_builds')
+  await pick(page, page.getByRole('combobox', { name: 'Program to offer' }), 'FastTrack AI Accelerator')
   await page.getByText('Call post (optional)').click()
   await page.getByRole('textbox', { name: 'Link of the post' }).fill(`https://x.com/genaifund_ai/status/${postId}`)
   await page.getByRole('textbox', { name: 'Keyword people DM' }).fill('build')

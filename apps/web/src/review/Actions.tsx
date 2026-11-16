@@ -5,7 +5,7 @@ import { patchJson, postJson } from '../api'
 import { Check, Copy, Globe, Pencil, Refresh, XLogo } from '../icons'
 import { btnLink, btnSecondary, btnToolbar, btnApprove, field, tone } from '../ui'
 import MoreMenu from './MoreMenu'
-import { blockers, LANGUAGE_NAME, SKIP_LABEL, SKIP_REASONS, verdict, type Verdict } from './labels'
+import { blockers, deliveryNote, LANDS_IN_HINT, LANGUAGE_NAME, SKIP_LABEL, SKIP_REASONS, verdict, type Verdict } from './labels'
 import { useSwipe } from './useSwipe'
 
 type Panel = 'none' | 'edit' | 'regenerate' | 'skip'
@@ -248,12 +248,17 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   const send =
     !(pending || handoff) ? null : (
       <div>
+        {deliveryNote(item.prospect.landsIn) && (
+          <p role="note" className="mb-3 text-sm font-medium text-warn" title={LANDS_IN_HINT}>
+            {deliveryNote(item.prospect.landsIn)}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <p className="text-sm font-semibold">{byApp ? 'Send it' : 'Send it in X'}</p>
           {byApp && (
-            <button type="button" className={btnSecondary} disabled title="Connect your X account in Account first">
+            <span title="Connect your X account in Account first" className="inline-flex"><button type="button" className={btnSecondary} disabled>
               Send from xdm-scout
-            </button>
+            </button></span>
           )}
           {handoff && item.openInXUrl ? (
             <a className={`${btnApprove} ${xBtn}`} href={item.openInXUrl} target="_blank" rel="noreferrer" onClick={() => setAsked(true)}>
@@ -359,7 +364,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
       )}
 
       <div className="relative min-h-0 flex-1 touch-pan-y overflow-y-auto lg:overflow-hidden" {...swipe.handlers}>
-        <div style={{ transform: `translateX(${swipe.offset}px)`, transition: swipe.offset === 0 ? 'transform 180ms ease-out' : 'none' }}>
+        <div className="lg:h-full" style={{ transform: `translateX(${swipe.offset}px)`, transition: swipe.offset === 0 ? 'transform 180ms ease-out' : 'none' }}>
           {children({ verdict: v, editing: panel === 'edit', tools })}
         </div>
         {swipe.offset <= -30 && <span className="pointer-events-none fixed right-3 top-1/2 rounded-full bg-ink px-3 py-1.5 text-sm font-semibold text-accent-ink sm:hidden">Skip</span>}

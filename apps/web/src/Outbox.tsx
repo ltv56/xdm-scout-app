@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { Outbox as OutboxData, OutboxItem } from '../../api/src/outbox/contract'
 import { getJson } from './api'
+import EmptyState from './EmptyState'
 import { chip, tone, type Tone } from './ui'
+import { useTopBar } from './useTopBar'
 
 const TONE: Record<OutboxItem['label'], Tone> = {
   'Waiting to send': 'warn',
@@ -17,7 +19,7 @@ const TONE: Record<OutboxItem['label'], Tone> = {
 const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 
 // Every send of the campaign. Refreshes every 5 s while something is on its way, every 30 s otherwise.
-export default function Outbox({ campaignId }: { campaignId: number }) {
+export default function Outbox({ campaignId, onReview }: { campaignId: number; onReview: () => void }) {
   const outbox = useQuery<OutboxData>({
     queryKey: ['outbox', campaignId],
     queryFn: () => getJson(`/outbox?campaignId=${campaignId}`),
@@ -25,14 +27,22 @@ export default function Outbox({ campaignId }: { campaignId: number }) {
     retry: false,
   })
   const items = outbox.data?.items ?? []
+  const topBar = useTopBar(campaignId).data
+
+  if (!outbox.error && !items.length) return <EmptyState title="Nothing sent yet" text="Every send appears here with its state." action={{ label: 'Go to Review', onClick: onReview }} />
 
   return (
     <section aria-label="Outbox">
-      <h2 className="text-lg font-bold">Outbox</h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-bold">Outbox</h2>
+        {topBar && (
+          <p className="text-sm text-muted">
+            Sent today {topBar.sentToday} of {topBar.dailyCap}
+          </p>
+        )}
+      </div>
       {outbox.error ? (
         <p className="mt-3 text-sm text-block">Could not load the outbox.</p>
-      ) : !items.length ? (
-        <p className="mt-3 text-sm text-muted">Nothing has been sent yet.</p>
       ) : (
         <ul className="mt-3 divide-y divide-rule rounded-2xl border border-rule bg-paper">
           {items.map((i) => (

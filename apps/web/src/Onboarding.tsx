@@ -1,23 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import type { SenderProfile as Profile } from '../../api/src/review/contract'
 import { type XStatus } from './Account'
 import { getJson, postJson } from './api'
-import { XLogo } from './icons'
+import { ChevronLeft, XLogo } from './icons'
 import NewCampaign from './NewCampaign'
-import SenderProfile from './SenderProfile'
-import { btnPrimary } from './ui'
+import OnboardingTips from './OnboardingTips'
+import QuickProfile from './QuickProfile'
+import { btnApprove, btnLink, btnPrimary } from './ui'
 
-const STEPS = [
-  { id: 'connect', label: 'Connect' },
-  { id: 'profile', label: 'Fund profile' },
-  { id: 'campaign', label: 'First campaign' },
-] as const
-type Step = (typeof STEPS)[number]['id']
+type Step = 'connect' | 'profile' | 'campaign'
+const ORDER: Step[] = ['connect', 'profile', 'campaign']
 
 // The sender profile is complete when it has what drafts need: who you are, one program and who signs.
 const profileDone = (p: Profile | undefined) => !!p && !!p.intro && p.programs.length > 0 && !!p.signer
 
-function ConnectStep({ status }: { status: XStatus | undefined }) {
+function ConnectStep({ status, onContinue }: { status: XStatus | undefined; onContinue: () => void }) {
   const qc = useQueryClient()
   const useSandbox = useMutation({
     mutationFn: () => postJson('/auth/x/fake'),
@@ -28,14 +26,26 @@ function ConnectStep({ status }: { status: XStatus | undefined }) {
   return (
     <section aria-label="Connect">
       <h1 className="text-2xl font-bold">Connect the account that sends</h1>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 max-w-[62ch] text-sm text-muted">
         {live
           ? 'xdm-scout sends from your X account. It can only send replies to people who messaged it first. Everyone else you message yourself with Open in X.'
           : 'This copy runs on a fake X with example people and canned model answers. Nothing is sent.'}
       </p>
-      <div className="mt-6 flex items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <XLogo className="size-5" />
-        {live ? (
+        {status.connected ? (
+          <>
+            <span className="text-sm font-semibold">Connected as @{status.handle}</span>
+            <button type="button" className={btnApprove} onClick={onContinue}>
+              Continue
+            </button>
+            {live && (
+              <a className={btnLink} href="/api/auth/x/login">
+                Reconnect X account
+              </a>
+            )}
+          </>
+        ) : live ? (
           <a className={btnPrimary} href="/api/auth/x/login">
             Connect X account
           </a>
@@ -54,38 +64,61 @@ function ConnectStep({ status }: { status: XStatus | undefined }) {
 export default function Onboarding({ onCreated }: { onCreated: (id: number) => void }) {
   const status = useQuery<XStatus>({ queryKey: ['x-status'], queryFn: () => getJson('/auth/x/status') })
   const profile = useQuery<Profile>({ queryKey: ['sender-profile'], queryFn: () => getJson('/sender-profile'), retry: false })
+  // Going back shows an earlier step again without losing what is saved; it clears when that step is finished.
+  const [back, setBack] = useState<Step | null>(null)
   const loading = status.isLoading || profile.isLoading
-  const step: Step = !status.data?.connected ? 'connect' : !profileDone(profile.data) ? 'profile' : 'campaign'
-  const current = STEPS.findIndex((s) => s.id === step)
+  const ahead: Step = !status.data?.connected ? 'connect' : !profileDone(profile.data) ? 'profile' : 'campaign'
+  const step = back ?? ahead
+  const n = ORDER.indexOf(step)
+  // Which way the step moved, so it slides in from the right going on and from the left going back.
+  const [seen, setSeen] = useState(n)
+  const [direction, setDirection] = useState<'step-forward' | 'step-back'>('step-forward')
+  if (n !== seen) {
+    setSeen(n)
+    setDirection(n > seen ? 'step-forward' : 'step-back')
+  }
   const error = status.error ?? profile.error
 
   return (
-    <div className="mx-auto w-full max-w-[640px] px-6 py-10">
-      <span className="text-base font-bold tracking-tight text-ink">xdm-scout</span>
-      <ol aria-label="Setup steps" className="mt-6 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        {STEPS.map((s, n) => (
-          <li key={s.id} aria-current={n === current ? 'step' : undefined} className={n === current ? 'font-semibold text-ink' : 'text-muted'}>
-            {n + 1}. {s.label}
-          </li>
-        ))}
-      </ol>
-      <div className="mt-8 rounded-3xl bg-raised p-6 shadow-soft sm:p-10">
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-block">Could not reach the API: {error.message}</p>
-        ) : loading ? (
-          <p role="status" className="text-sm text-muted">Checking…</p>
-        ) : step === 'connect' ? (
-          <ConnectStep status={status.data} />
-        ) : step === 'profile' ? (
-          <section aria-label="Fund profile">
-            <h1 className="text-2xl font-bold">Tell us about the fund</h1>
-            <p className="mb-6 mt-2 text-sm text-muted">Drafts may only say what is written here, or what the person wrote in their own posts.</p>
-            <SenderProfile embedded />
-          </section>
-        ) : (
-          <NewCampaign first onCancel={() => undefined} onCreated={onCreated} />
+    <div className="flex min-h-screen flex-col">
+      <header className="mx-auto w-full max-w-[1280px] px-6 py-5">
+        <span className="text-base font-bold tracking-tight text-ink">xdm-scout</span>
+      </header>
+      <main className={`mx-auto w-full max-w-[920px] px-6 ${step === 'connect' && !error && !loading ? 'flex flex-1 items-center justify-center pb-24' : 'pb-8 pt-2'}`}>
+        {n > 0 && !error && !loading && (
+          <button type="button" className={`${btnLink} mb-4 inline-flex items-center gap-1 no-underline`} onClick={() => setBack(ORDER[n - 1])}>
+            <ChevronLeft className="size-4" />
+            Back
+          </button>
         )}
-      </div>
+        <div className={`relative ${step === 'connect' ? 'w-full max-w-[680px]' : ''}`}>
+        {step !== 'connect' && <OnboardingTips className="absolute left-full top-8 ml-6 hidden w-80 min-[1640px]:block" />}
+        <div className="rounded-3xl bg-raised p-6 shadow-soft sm:p-8">
+          {error ? (
+            <p role="alert" className="text-sm font-medium text-block">Could not reach the API: {error.message}</p>
+          ) : loading ? (
+            <p role="status" className="text-sm text-muted">Checking…</p>
+          ) : (
+            <div key={step} data-step={step} className={direction}>
+              <span className="mb-4 inline-block rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-ink">
+                Step {n + 1} of {ORDER.length}
+              </span>
+              {step === 'connect' ? (
+                <ConnectStep status={status.data} onContinue={() => setBack(null)} />
+              ) : step === 'profile' ? (
+                <section aria-label="Fund profile">
+                  <h1 className="text-2xl font-bold">Tell us about the fund</h1>
+                  <p className="mb-6 mt-1.5 text-sm text-muted">This is how a draft introduces you. <span className="text-block">*</span> required.</p>
+                  <QuickProfile profile={profile.data!} onSaved={() => setBack(null)} />
+                </section>
+              ) : (
+                <NewCampaign first wide onCancel={() => undefined} onCreated={onCreated} />
+              )}
+            </div>
+          )}
+        </div>
+        </div>
+      </main>
     </div>
   )
 }

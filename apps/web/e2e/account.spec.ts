@@ -46,6 +46,7 @@ test('In live mode the card links to the X login, and asks to reconnect when sco
 test('Settings lists only what the operator can fix', async ({ page }) => {
   await page.goto('/')
   await openPage(page, 'Settings')
+  await page.getByRole('tab', { name: 'Setup check' }).click()
   const checks = page.getByRole('region', { name: 'Setup check' })
   await expect(checks).toContainText('X account')
   await expect(checks).toContainText('Send DM')

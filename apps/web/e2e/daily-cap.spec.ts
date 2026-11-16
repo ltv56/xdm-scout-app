@@ -14,6 +14,7 @@ async function openMenu(page: import('@playwright/test').Page, item: string) {
 test('Settings: the daily send cap can be changed, is checked, and the change is logged', async ({ page, request }) => {
   await page.goto('/')
   await openMenu(page, 'Settings')
+  await page.getByRole('tab', { name: 'Sending & people' }).click()
   const cap = page.getByRole('region', { name: 'Daily send cap' })
   await expect(cap.getByLabel(/^Messages per day/)).toHaveValue('25')
 

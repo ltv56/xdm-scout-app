@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReviewQueue, SkipReason } from '../../api/src/review/contract'
 import { getJson, postJson } from './api'
+import EmptyState from './EmptyState'
 import FitBadge from './FitBadge'
-import { LANDS_IN_HINT, LANDS_IN_LABEL, RELATIONSHIP_LABEL, SKIP_LABEL, SKIP_REASONS } from './review/labels'
-import { btnLink, btnSecondary, field } from './ui'
+import { More } from './icons'
+import CandidateActions from './CandidateActions'
+import Select from './Select'
+import Spinner from './Spinner'
+import XLink from './XLink'
+import { deliveryNote, LANDS_IN_HINT, LANDS_IN_LABEL, RELATIONSHIP_LABEL, SKIP_LABEL, SKIP_REASONS } from './review/labels'
+import { btnLink, btnSecondary } from './ui'
 
 interface Claim {
   side: 'for' | 'against' | 'unknown'
@@ -25,6 +31,7 @@ export interface Prospect {
   fit: 'strong' | 'possible' | 'weak' | 'not_a_fit' | null
   relationship: 'messaged_us' | 'follower' | 'engaged' | 'adjacent' | 'cold'
   status: 'new' | 'shortlisted' | 'dismissed'
+  scoring: boolean
   role: string | null
   areas: string[]
   identityWarning: boolean
@@ -59,7 +66,7 @@ function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; camp
 
   if (inReview || make.isSuccess) {
     return (
-      <p className="mt-3 flex items-center gap-3 text-sm">
+      <p className="flex items-center gap-3 text-sm">
         <span className="font-semibold">Draft written</span>
         <button type="button" className={btnLink} onClick={onReview}>
           Open in Review
@@ -68,14 +75,43 @@ function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; camp
     )
   }
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-      <button type="button" className={btnSecondary} disabled={!!why || make.isPending} title={why ?? undefined} onClick={() => make.mutate()}>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span title={why ?? undefined} className="inline-flex"><button type="button" className={btnSecondary} disabled={!!why || make.isPending} onClick={() => make.mutate()}>
         {make.isPending ? 'Writing…' : 'Draft a message'}
-      </button>
+      </button></span>
       {why && <span className="text-sm text-muted">{why}</span>}
       {make.error && (
         <span role="alert" className="text-sm font-medium text-block">
           {make.error.message}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// "Score": read this person's posts and decide how well they fit. The result comes from the worker, so the row shows Scoring… until it is in.
+function ScoreControl({ p, campaignId }: { p: Prospect; campaignId: number }) {
+  const qc = useQueryClient()
+  const score = useMutation({
+    mutationFn: () => postJson(`/campaigns/${campaignId}/prospects/${p.id}/score`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prospects', campaignId] }),
+  })
+  const busy = p.scoring || score.isPending
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <button type="button" className={btnSecondary} disabled={busy} onClick={() => score.mutate()}>
+        {busy ? (
+          <span className="inline-flex items-center gap-2">
+            <Spinner className="size-3.5" />
+            Scoring…
+          </span>
+        ) : (
+          'Score'
+        )}
+      </button>
+      {score.error && (
+        <span role="alert" className="text-sm font-medium text-block">
+          {score.error.message}
         </span>
       )}
     </div>
@@ -113,47 +149,82 @@ function InvitationControl({ p, campaignId }: { p: Prospect & { call: NonNullabl
 }
 
 // "Dismiss": take one person off the candidate list with a reason. They stay in All, marked Dismissed, and are never drafted.
+// It sits behind a menu button and asks first, because there is no undo.
 function DismissControl({ p, campaignId }: { p: Prospect; campaignId: number }) {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<SkipReason>('not_fit')
+  const box = useRef<HTMLDivElement>(null)
   const dismiss = useMutation({
     mutationFn: () => postJson(`/campaigns/${campaignId}/prospects/${p.id}/dismiss`, { reason }),
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['prospects', campaignId] }), qc.invalidateQueries({ queryKey: ['ready'] })]),
   })
-  if (!open) {
-    return (
-      <button type="button" className={btnLink} onClick={() => setOpen(true)}>
-        Dismiss
-      </button>
-    )
-  }
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const onDown = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false)
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [open])
+
   return (
-    <span className="flex flex-wrap items-center gap-2">
-      <label className="flex items-center gap-2 text-sm">
-        <span className="text-muted">Reason</span>
-        <select value={reason} onChange={(e) => setReason(e.target.value as SkipReason)} className={`${field} py-1.5`}>
-          {SKIP_REASONS.map((r) => (
-            <option key={r} value={r}>
-              {SKIP_LABEL[r]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button type="button" className={btnSecondary} disabled={dismiss.isPending} onClick={() => dismiss.mutate()}>
-        {dismiss.isPending ? 'Dismissing…' : 'Dismiss'}
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        aria-label={`More actions for ${p.name}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-rail hover:text-ink"
+      >
+        <More className="size-5" />
       </button>
-      <button type="button" className={btnLink} onClick={() => setOpen(false)}>
-        Cancel
-      </button>
-      {dismiss.error && (
-        <span role="alert" className="text-sm font-medium text-block">
-          {dismiss.error.message}
-        </span>
+      {open && (
+        <div role="dialog" aria-label={`Dismiss ${p.name}`} className="anim-pop absolute right-0 top-full z-10 mt-2 w-72 origin-top-right rounded-2xl border border-rule bg-raised p-4 shadow-soft">
+          <p className="text-sm font-semibold">Dismiss {p.name}?</p>
+          <p className="mt-1 text-xs text-muted">They stay in All, marked Dismissed, and are never drafted.</p>
+          <label className="mt-3 block text-sm">
+            <span className="text-muted">Reason</span>
+            <Select value={reason} onChange={(e) => setReason(e.target.value as SkipReason)} wrapperClassName="mt-1 block w-full" className="py-1.5">
+              {SKIP_REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {SKIP_LABEL[r]}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <div className="mt-3 flex items-center gap-3">
+            <button type="button" className={btnSecondary} disabled={dismiss.isPending} onClick={() => dismiss.mutate()}>
+              {dismiss.isPending ? 'Dismissing…' : 'Dismiss'}
+            </button>
+            <button type="button" className={btnLink} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+          {dismiss.error && (
+            <p role="alert" className="mt-2 text-sm font-medium text-block">
+              {dismiss.error.message}
+            </p>
+          )}
+        </div>
       )}
-    </span>
+    </div>
   )
 }
+
+const metaLine = (p: Prospect) =>
+  [
+    [p.role !== 'other' ? p.role : null, ...p.areas.map((a) => a.replace('_', ' '))].filter(Boolean).join(' · '),
+    p.seedCount > 0 ? `followed by ${p.seedCount} seed${p.seedCount > 1 ? 's' : ''}` : '',
+    `${p.followers.toLocaleString()} followers`,
+    p.lastPostAt ? `last post ${daysAgo(p.lastPostAt)}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
 type SortKey = 'default' | 'fit' | 'relationship' | 'followers' | 'seeds' | 'lastPost'
 type Dir = 'asc' | 'desc'
@@ -221,7 +292,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'not_a_fit', label: 'Not a fit' },
 ]
 
-export default function Prospects({ campaignId, onReview, initialFilter = 'all' }: { campaignId: number; onReview: () => void; initialFilter?: Filter }) {
+export default function Prospects({ campaignId, onReview, onOverview, initialFilter = 'all' }: { campaignId: number; onReview: () => void; onOverview: () => void; initialFilter?: Filter }) {
   const [filter, setFilter] = useState<Filter>(initialFilter)
   const [relationship, setRelationship] = useState<RelationshipFilter>('any')
   const [landsIn, setLandsIn] = useState<LandsInFilter>('any')
@@ -230,13 +301,15 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
   const { data, error, isLoading } = useQuery<Prospect[]>({
     queryKey: ['prospects', campaignId],
     queryFn: () => getJson(`/campaigns/${campaignId}/prospects`),
+    refetchInterval: (q) => (q.state.data?.some((p) => p.scoring) ? 4_000 : false),
+    refetchIntervalInBackground: true,
   })
   const queue = useQuery<ReviewQueue>({ queryKey: ['review-queue', campaignId], queryFn: () => getJson(`/review-queue?campaignId=${campaignId}`), retry: false })
   const inReview = new Set((queue.data?.items ?? []).map((i) => i.prospect.handle))
 
   if (isLoading) return <p role="status" className="text-sm text-muted">Loading candidates…</p>
   if (error) return <p role="alert" className="text-sm font-medium text-block">{error.message}</p>
-  if (!data?.length) return <p className="text-sm text-muted">No candidates in this campaign yet. Run a search from the Overview.</p>
+  if (!data?.length) return <EmptyState title="No candidates yet" text="Run a search from the Overview." action={{ label: 'Go to Overview', onClick: onOverview }} />
 
   // Ready: could get a draft now. Same rule as the Overview and the Write drafts button.
   const isReady = (p: Prospect) => p.status !== 'dismissed' && (p.fit === 'strong' || p.fit === 'possible') && !!p.opening && p.opening.freshness !== 'expired' && !inReview.has(p.handle) && p.landsIn !== 'cant_receive'
@@ -270,33 +343,33 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         <label className="flex w-full items-center gap-2 sm:w-auto">
           <span className="shrink-0 text-muted">Relationship</span>
-          <select value={relationship} onChange={(e) => setRelationship(e.target.value as RelationshipFilter)} className={`${field} min-w-0 flex-1 py-1.5 sm:w-auto sm:flex-none`}>
+          <Select value={relationship} onChange={(e) => setRelationship(e.target.value as RelationshipFilter)} wrapperClassName="min-w-0 flex-1 sm:w-auto sm:flex-none" className="py-1.5">
             {RELATIONSHIP_OPTIONS.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex w-full items-center gap-2 sm:w-auto">
           <span className="shrink-0 text-muted" title={LANDS_IN_HINT}>Likely lands in</span>
-          <select value={landsIn} onChange={(e) => setLandsIn(e.target.value as LandsInFilter)} className={`${field} min-w-0 flex-1 py-1.5 sm:w-auto sm:flex-none`}>
+          <Select value={landsIn} onChange={(e) => setLandsIn(e.target.value as LandsInFilter)} wrapperClassName="min-w-0 flex-1 sm:w-auto sm:flex-none" className="py-1.5">
             {LANDS_IN_OPTIONS.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex w-full items-center gap-2 sm:w-auto">
           <span className="shrink-0 text-muted">Sort by</span>
-          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className={`${field} min-w-0 flex-1 py-1.5 sm:w-auto sm:flex-none`}>
+          <Select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} wrapperClassName="min-w-0 flex-1 sm:w-auto sm:flex-none" className="py-1.5">
             {SORTS.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <button
           type="button"
@@ -308,101 +381,104 @@ export default function Prospects({ campaignId, onReview, initialFilter = 'all' 
           {dir === 'desc' ? 'High to low' : 'Low to high'}
         </button>
       </div>
+      <CandidateActions campaignId={campaignId} unscored={data.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length} scoring={data.filter((p) => p.scoring).length} ready={data.filter(isReady).length} />
       <p className="sr-only" role="status">
         {shown.length === 1 ? '1 candidate shown' : `${shown.length} candidates shown`}
       </p>
       {shown.length === 0 && <p className="mt-6 text-sm text-muted">Nobody in this list.</p>}
       <ul className="mt-4">
-        {shown.map((p) => (
-          <li key={p.id} className="border-b border-rule py-6">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <FitBadge fit={p.fit} />
-              <a className="min-w-0 text-lg font-semibold wrap-anywhere hover:underline" href={`https://x.com/${p.handle}`} target="_blank" rel="noreferrer">
-                {p.name} <span className="font-normal text-muted">@{p.handle}</span>
-              </a>
-              {(p.role !== 'other' && p.role || p.areas.length > 0) && <span className="text-sm text-muted">{[p.role !== 'other' ? p.role : null, ...p.areas.map((a) => a.replace('_', ' '))].filter(Boolean).join(' · ')}</span>}
-              <span className="ml-auto text-sm text-muted">
-                {p.seedCount > 0 && `followed by ${p.seedCount} seed${p.seedCount > 1 ? 's' : ''} · `}
-                {p.followers.toLocaleString()} followers
-                {p.lastPostAt && ` · last post ${daysAgo(p.lastPostAt)}`}
-              </span>
+        {shown.map((p, i) => (
+          <li key={p.id} className="anim-fade-up border-b border-rule py-5" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
+            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <FitBadge fit={p.fit} />
+                  <a className="min-w-0 text-base font-semibold wrap-anywhere hover:underline" href={`https://x.com/${p.handle}`} target="_blank" rel="noreferrer">
+                    {p.name} <span className="font-normal text-muted">@{p.handle}</span>
+                  </a>
+                </div>
+                <p className="mt-1 text-sm text-muted">{metaLine(p)}</p>
+              </div>
+              {p.status === 'dismissed' ? (
+                <span className="text-sm font-semibold text-muted">Dismissed</span>
+              ) : (
+                <div className="flex shrink-0 items-center gap-1">
+                  {p.fit === null ? <ScoreControl p={p} campaignId={campaignId} /> : <DraftControl p={p} campaignId={campaignId} inReview={inReview.has(p.handle)} onReview={onReview} />}
+                  {!inReview.has(p.handle) && <DismissControl p={p} campaignId={campaignId} />}
+                </div>
+              )}
             </div>
-            {p.landsIn && (
-              <p className="mt-1 text-sm text-muted" title={LANDS_IN_HINT}>
-                Likely lands in: <span className={p.landsIn === 'cant_receive' ? 'font-medium text-warn' : 'font-medium text-ink'}>{LANDS_IN_LABEL[p.landsIn]}</span>
-              </p>
+
+            {(p.landsIn === 'cant_receive' || p.fundList || p.identityWarning) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1">
+              {p.landsIn === 'cant_receive' && (
+                <p role="note" className="text-sm font-medium text-warn" title={LANDS_IN_HINT}>
+                  {deliveryNote(p.landsIn)}
+                </p>
+              )}
+              {p.fundList && (
+                <p className="text-sm font-medium text-accent">
+                  Known to the fund · {p.fundList.name}
+                  {p.fundList.event && <span className="font-normal text-muted"> · {p.fundList.event}</span>}
+                </p>
+              )}
+              {p.identityWarning && <p className="text-sm font-medium text-warn">Identity not confirmed</p>}
+            </div>
             )}
-            {p.fundList && (
-              <p className="mt-1 text-sm font-medium text-accent">
-                Known to the fund · {p.fundList.name}
-                {p.fundList.event && <span className="font-normal text-muted"> · {p.fundList.event}</span>}
-              </p>
-            )}
-            {p.identityWarning && <p className="mt-1 text-sm font-medium text-warn">Identity not confirmed</p>}
-            <p className="mt-2 max-w-[80ch] text-[15px]">{p.bio}</p>
+
+            <p className="mt-3 max-w-[80ch] text-sm text-muted">{p.bio}</p>
 
             {p.fit && (
-              <p className="mt-3 text-[15px]">
+              <div className="mt-3 max-w-[80ch] border-l-2 border-rule pl-3 text-[15px]">
                 {p.opening && p.opening.freshness !== 'expired' ? (
                   <>
                     <span className="font-semibold">Opening ({p.opening.type}):</span> {p.opening.summary}{' '}
                     {p.opening.freshness === 'stale' && <span className="font-medium text-warn">Stale</span>}{' '}
                     {p.opening.url && (
-                      <a className="underline underline-offset-4" href={p.opening.url} target="_blank" rel="noreferrer">
-                        source
-                      </a>
+                      <XLink href={p.opening.url} label="Open the post on X" />
                     )}
                   </>
                 ) : (
                   <span className="text-muted">No reason to reach out yet</span>
                 )}
-              </p>
+              </div>
             )}
 
-            {p.status === 'dismissed' ? (
-              <p className="mt-3 text-sm font-semibold text-muted">Dismissed</p>
-            ) : (
-              <>
-                {p.call && <InvitationControl p={{ ...p, call: p.call }} campaignId={campaignId} />}
-                <DraftControl p={p} campaignId={campaignId} inReview={inReview.has(p.handle)} onReview={onReview} />
-                {!inReview.has(p.handle) && (
-                  <div className="mt-2">
-                    <DismissControl p={p} campaignId={campaignId} />
-                  </div>
-                )}
-              </>
-            )}
+            {p.status !== 'dismissed' && p.call && <InvitationControl p={{ ...p, call: p.call }} campaignId={campaignId} />}
 
-            {p.criteria.length > 0 && p.criteria.every((c) => c.status === 'unknown') && (
-              <p className="mt-3 text-xs text-muted">{p.criteria.length} fund criteria unknown: not enough posts read yet.</p>
-            )}
-            {p.criteria.some((c) => c.status !== 'unknown') && (
-              <ul className="mt-3 flex flex-wrap gap-2 text-xs">
-                {p.criteria.map((c) => (
-                  <li key={c.text} className={`rounded-full px-2.5 py-1 ${CRITERION_STYLE[c.status]}`}>
-                    {c.text}: {CRITERION_LABEL[c.status]}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {(p.claims.length > 0 || p.criteria.length > 0) && (
+              <details className="mt-3 text-sm">
+                <summary className="cursor-pointer text-muted hover:text-ink">Why this fit ({p.claims.length + p.criteria.length})</summary>
+              {p.criteria.length > 0 && p.criteria.every((c) => c.status === 'unknown') && (
+                <p className="mt-3 text-xs text-muted">{p.criteria.length} fund criteria unknown: not enough posts read yet.</p>
+              )}
+              {p.criteria.some((c) => c.status !== 'unknown') && (
+                <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+                  {p.criteria.map((c) => (
+                    <li key={c.text} className={`rounded-full px-2.5 py-1 ${CRITERION_STYLE[c.status]}`}>
+                      {c.text}: {CRITERION_LABEL[c.status]}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-            {p.claims.length > 0 && (
-              <ul className="mt-3 space-y-1 text-sm">
-                {p.claims.map((c, i) => (
-                  <li key={i} className="flex flex-wrap items-baseline gap-2">
-                    <span className="w-20 shrink-0 text-xs uppercase text-muted">{c.side}</span>
-                    <span>{c.text}</span>
-                    <span className={`rounded-full px-2 text-xs ${c.status === 'verified' ? 'bg-ok-bg font-semibold text-ok' : 'bg-rail text-muted'}`}>
-                      {c.status === 'verified' ? 'Backed by a post' : 'Our guess'}
-                    </span>
-                    {c.evidence.map((e) => (
-                      <a key={e.id} className="text-xs underline underline-offset-4" href={e.url} target="_blank" rel="noreferrer">
-                        {e.id.startsWith('bio:') ? 'bio' : 'post'}
-                      </a>
-                    ))}
-                  </li>
-                ))}
-              </ul>
+              {p.claims.length > 0 && (
+                <ul className="mt-3 space-y-1 text-sm">
+                  {p.claims.map((c, i) => (
+                    <li key={i} className="flex flex-wrap items-baseline gap-2">
+                      <span className="w-20 shrink-0 text-xs uppercase text-muted">{c.side}</span>
+                      <span>{c.text}</span>
+                      <span className={`rounded-full px-2 text-xs ${c.status === 'verified' ? 'bg-ok-bg font-semibold text-ok' : 'bg-rail text-muted'}`}>
+                        {c.status === 'verified' ? 'Backed by a post' : 'Our guess'}
+                      </span>
+                      {c.evidence.map((e) => (
+                        <XLink key={e.id} href={e.url} label={e.id.startsWith('bio:') ? 'Open their bio on X' : 'Open the post on X'} />
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              </details>
             )}
           </li>
         ))}

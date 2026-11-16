@@ -1,57 +1,30 @@
-import { useQuery } from '@tanstack/react-query'
 import type { Funnel as FunnelData } from '../../api/src/funnel/contract'
-import { getJson } from './api'
-import { money } from './ui'
+import { useFunnel } from './useFunnel'
 
-const NO_PRICE = 'no price yet'
-const LANE = { search: 'Found by search', call: 'Answered the call post' }
+const sum = (data: FunnelData, pick: (l: FunnelData['lanes'][number]) => number) => data.lanes.reduce((n, l) => n + pick(l), 0)
 
-// Counts and money only: how far people got, what X billed, and what a conversation cost.
+// How far people got, summed over both lanes. Money is in Settings.
 export default function Funnel({ campaignId }: { campaignId: number }) {
-  const funnel = useQuery<FunnelData>({ queryKey: ['funnel', campaignId], queryFn: () => getJson(`/funnel?campaignId=${campaignId}`), refetchInterval: 30_000, retry: false })
-  const data = funnel.data
-  if (!data) return null
-  const rows: [string, (l: FunnelData['lanes'][number]) => string | number][] = [
-    ['Found', (l) => l.found],
-    ['Strong or Possible', (l) => l.goodFit],
-    ['Approved', (l) => l.approved],
-    ['Sent', (l) => l.sent],
-    ['Replied', (l) => l.replied],
-    ['Conversations', (l) => l.conversations],
-    ['X cost', (l) => money(l.costMicros)],
-    ['Model cost', (l) => (l.llmUnpriced ? NO_PRICE : money(l.llmCostMicros))],
-    ['Per conversation', (l) => (l.costPerConversationMicros === null ? '–' : l.llmUnpriced ? NO_PRICE : money(l.costPerConversationMicros))],
-  ]
+  const data = useFunnel(campaignId).data
+  if (!data || sum(data, (l) => l.found) === 0) return null
+  const tiles = [
+    ['Found', sum(data, (l) => l.found)],
+    ['Strong or Possible', sum(data, (l) => l.goodFit)],
+    ['Approved', sum(data, (l) => l.approved)],
+    ['Sent', sum(data, (l) => l.sent)],
+    ['Replied', sum(data, (l) => l.replied)],
+  ] as const
   return (
     <section aria-label="Results so far" className="mt-12">
-      <h2 className="text-lg font-bold">Results so far</h2>
-      <div className="mt-3 overflow-x-auto rounded-2xl border border-rule bg-paper">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs text-muted">
-              <th className="px-5 py-3 font-medium" />
-              {data.lanes.map((l) => (
-                <th key={l.lane} className="px-5 py-3 text-right font-medium">
-                  {LANE[l.lane]}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-rule">
-            {rows.map(([label, value]) => (
-              <tr key={label}>
-                <th className="px-5 py-2.5 text-left font-normal text-muted">{label}</th>
-                {data.lanes.map((l) => (
-                  <td key={l.lane} className="px-5 py-2.5 text-right font-semibold tabular-nums">
-                    {value(l)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-2 text-xs text-muted">X cost is an estimate from the calls made for this campaign; model cost is priced from the tokens the model reported. {money(data.totalMicros)} so far, both together{data.llmUnpriced && ', not counting model calls with no price yet'}. A conversation is a reply that is Interested or a Question.</p>
+      <h2 className="text-base font-semibold">Results so far</h2>
+      <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {tiles.map(([label, n]) => (
+          <li key={label} className="rounded-xl border border-rule bg-paper px-4 py-3">
+            <p className="text-sm text-muted">{label}</p>
+            <p className={`mt-1 text-2xl font-semibold leading-none tabular-nums ${n === 0 ? 'text-muted' : ''}`}>{n}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

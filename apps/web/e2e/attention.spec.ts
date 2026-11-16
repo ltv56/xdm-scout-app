@@ -28,7 +28,22 @@ test('Overview starts with what needs a person, and Open goes to the page that f
   await expect(section.getByRole('button')).toHaveCount(2)
 
   await section.getByRole('button', { name: 'Open Inbox' }).click()
-  await expect(page.getByRole('navigation').getByRole('button', { name: 'Inbox' })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('navigation').getByRole('button', { name: 'Messages' })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('tab', { name: 'Inbox' })).toHaveAttribute('aria-selected', 'true')
+})
+
+test('Open Inbox lands on the Inbox tab even when Outbox was the last one open', async ({ page, request }) => {
+  await ensureCampaign(request)
+  await page.route('**/api/needs-attention*', (r) => r.fulfill({ json: ITEMS }))
+  await openOverview(page)
+  const nav = page.getByRole('navigation')
+
+  await nav.getByRole('button', { name: 'Messages' }).click()
+  await page.getByRole('tab', { name: 'Outbox' }).click()
+  await nav.getByRole('button', { name: 'Overview' }).click()
+  await page.getByRole('region', { name: 'Needs attention' }).getByRole('button', { name: 'Open Inbox' }).click()
+  await expect(page.getByRole('tab', { name: 'Inbox' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Outbox' })).toHaveAttribute('aria-selected', 'false')
 })
 
 test('With nothing waiting the section is not shown', async ({ page, request }) => {

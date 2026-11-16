@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { ensureCampaign } from './setup.ts'
+import { pick } from './pick.ts'
+import { draftCampaign, ensureCampaign } from './setup.ts'
 
-test('Candidates says where each message will probably land', async ({ page, request }) => {
+test('Candidates warns only about closed DMs; Inbox and Message requests are left for the moment of sending', async ({ page, request }) => {
   await ensureCampaign(request)
   await page.route('**/api/campaigns/*/prospects', async (route) => {
     const rows = await (await route.fetch()).json()
@@ -13,9 +14,11 @@ test('Candidates says where each message will probably land', async ({ page, req
   await page.getByRole('button', { name: 'robotics demo', exact: true }).click()
   await page.getByRole('navigation').getByRole('button', { name: 'Candidates' }).click()
 
-  await expect(page.getByText('Likely lands in: Inbox')).toBeVisible()
-  await expect(page.getByText('Likely lands in: Message requests')).toBeVisible()
-  await expect(page.getByText("Likely lands in: Can't receive")).toBeVisible()
+  const notes = page.getByRole('note')
+  await expect(notes).toHaveCount(1)
+  await expect(notes).toHaveText("X says their DMs are closed, so a message can't reach them.")
+  await expect(page.getByText(/Message requests/)).toHaveCount(0)
+  await expect(page.getByText(/Likely lands in:/)).toHaveCount(0)
 })
 
 test('Candidates can be filtered by where the message will probably land', async ({ page, request }) => {
@@ -30,19 +33,38 @@ test('Candidates can be filtered by where the message will probably land', async
   await page.getByRole('button', { name: 'robotics demo', exact: true }).click()
   await page.getByRole('navigation').getByRole('button', { name: 'Candidates' }).click()
 
-  const people = page.getByRole('listitem').filter({ hasText: 'Likely lands in' })
+  const notes = page.getByRole('note')
   const filter = page.getByLabel(/^Likely lands in/)
-  await expect(filter).toHaveValue('any')
-  await filter.selectOption('requests')
+  await expect(filter).toContainText('All')
+  await pick(page, filter, 'Message requests')
   await expect(page.getByRole('status').filter({ hasText: 'candidate' })).toHaveText('1 candidate shown')
-  await expect(page.getByText('Likely lands in: Message requests')).toBeVisible()
-  await expect(page.getByText('Likely lands in: Inbox')).toHaveCount(0)
+  await expect(notes).toHaveCount(0)
 
-  await filter.selectOption('cant_receive')
+  await pick(page, filter, "Can't receive")
   await expect(page.getByRole('status').filter({ hasText: 'candidate' })).toHaveText('1 candidate shown')
-  await expect(people).toHaveCount(1)
+  await expect(notes).toHaveCount(1)
+  await expect(notes).toContainText('DMs are closed')
 
-  await filter.selectOption('unknown')
-  await expect(page.getByText(/Likely lands in:/)).toHaveCount(0)
+  await pick(page, filter, 'Unknown')
+  await expect(notes).toHaveCount(0)
   await expect(page.getByRole('status').filter({ hasText: 'candidate' })).not.toHaveText('0 candidates shown')
+})
+
+test('Review says where the message will probably land, right above where it is sent', async ({ page, request }) => {
+  const name = await draftCampaign(request)
+  await page.route('**/api/review-queue*', async (route) => {
+    const body = await (await route.fetch()).json()
+    await route.fulfill({ json: { ...body, items: body.items.map((i: { prospect: object }) => ({ ...i, prospect: { ...i.prospect, landsIn: 'requests' } })) } })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: /^Campaign/ }).click()
+  await page.getByRole('button', { name, exact: true }).click()
+  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /^Review/ }).click()
+  const note = page.getByRole('note').filter({ hasText: 'Message requests' })
+  await expect(note).toHaveText("Probably lands in Message requests: they don't follow you and haven't messaged you first.")
+  const sendIt = page.getByText(/^Send it/).first()
+  await expect(sendIt).toBeVisible()
+  const gap = (await sendIt.boundingBox())!.y - (await note.boundingBox())!.y
+  expect(gap).toBeGreaterThan(0)
+  expect(gap).toBeLessThan(80)
 })

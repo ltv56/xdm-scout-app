@@ -1,10 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import type { PreflightRow, PreflightStatus } from '../../api/src/preflight/contract'
 import { getJson } from './api'
+import CampaignSettings from './CampaignSettings'
+import CostSection from './CostSection'
 import DailyCap from './DailyCap'
 import DoNotContactList from './DoNotContactList'
 import KnownList from './KnownList'
+import Tabs from './Tabs'
 import { btnSecondary } from './ui'
+
+const TABS = [
+  { id: 'campaign', label: 'Campaign' },
+  { id: 'sending', label: 'Sending & people' },
+  { id: 'cost', label: 'Cost' },
+  { id: 'setup', label: 'Setup check' },
+] as const
+type SettingsTab = (typeof TABS)[number]['id']
 
 const DOT: Record<PreflightStatus, string> = {
   ok: 'bg-ok',
@@ -15,12 +27,24 @@ const DOT: Record<PreflightStatus, string> = {
 
 const WORD: Record<PreflightStatus, string> = { ok: 'OK', warn: 'Check', fail: 'Fix', info: '' }
 
-export default function Settings() {
+export default function Settings({ campaignId }: { campaignId: number }) {
+  const [tab, setTab] = useState<SettingsTab>('campaign')
   const checks = useQuery<PreflightRow[]>({ queryKey: ['preflight'], queryFn: () => getJson('/preflight'), retry: false })
 
   return (
-    <div className="space-y-12">
-      <h2 className="text-[28px] font-semibold leading-tight">Settings</h2>
+    <div>
+      <h2 className="mb-6 text-[28px] font-semibold leading-tight">Settings</h2>
+      <Tabs label="Settings" tabs={TABS} value={tab} onChange={setTab}>
+        {tab === 'campaign' && <CampaignSettings campaignId={campaignId} />}
+        {tab === 'sending' && (
+          <div className="space-y-12">
+            <DailyCap />
+            <KnownList />
+            <DoNotContactList />
+          </div>
+        )}
+        {tab === 'cost' && <CostSection campaignId={campaignId} />}
+        {tab === 'setup' && (
       <section aria-label="Setup check" className="max-w-xl">
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-xl font-bold">Setup check</h3>
@@ -50,9 +74,8 @@ export default function Settings() {
           ))}
         </ul>
       </section>
-      <DailyCap />
-      <KnownList />
-      <DoNotContactList />
+        )}
+      </Tabs>
     </div>
   )
 }

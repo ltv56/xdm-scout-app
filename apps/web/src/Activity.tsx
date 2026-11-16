@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ActivityRow } from '../../api/src/activity/contract'
 import { getJson } from './api'
+import EmptyState from './EmptyState'
 import { btnSecondary } from './ui'
 
 const WHAT: Record<ActivityRow['kind'], string> = {
@@ -18,6 +19,8 @@ export default function Activity() {
   const rows = useQuery<ActivityRow[]>({ queryKey: ['activity'], queryFn: () => getJson('/activity'), retry: false })
   const list = rows.data ?? []
 
+  if (!rows.error && !list.length) return <EmptyState title="No activity yet" text="Changes to who may be contacted are logged here, with the reason." />
+
   return (
     <section aria-label="Activity log" className="max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -28,8 +31,6 @@ export default function Activity() {
       </div>
       {rows.error ? (
         <p className="mt-3 text-sm text-block">Could not load the log.</p>
-      ) : !list.length ? (
-        <p className="mt-3 text-sm text-muted">Nothing has been logged yet.</p>
       ) : (
         <ul className="mt-3 divide-y divide-rule rounded-2xl border border-rule bg-paper">
           {list.map((r) => (

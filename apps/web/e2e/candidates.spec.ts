@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { pick } from './pick.ts'
 import { ensureCampaign } from './setup.ts'
 
 test.beforeEach(async ({ page, request }) => {
@@ -24,14 +25,14 @@ test('Candidates: people are listed and the tabs filter them', async ({ page }) 
 test('Candidates: filtering by relationship and sorting by followers', async ({ page }) => {
   const names = page.getByRole('listitem').getByRole('link', { name: /@/ }).filter({ hasText: /^[^@]/ })
 
-  await page.getByRole('combobox', { name: 'Sort by' }).selectOption({ label: 'Followers' })
+  await pick(page, page.getByRole('combobox', { name: 'Sort by' }), 'Followers')
   await page.getByRole('button', { name: /^Sorted/ }).click()
   await expect(names.first()).toContainText('@tomas_agents')
   await page.getByRole('button', { name: /^Sorted/ }).click()
   await expect(names.first()).not.toContainText('@tomas_agents')
 
-  await page.getByRole('combobox', { name: 'Relationship' }).selectOption({ label: 'Messaged you first' })
+  await pick(page, page.getByRole('combobox', { name: 'Relationship' }), 'Messaged you first')
   await expect(page.getByText('Nobody in this list.')).toBeVisible()
-  await page.getByRole('combobox', { name: 'Relationship' }).selectOption({ label: 'Any relationship' })
+  await pick(page, page.getByRole('combobox', { name: 'Relationship' }), 'Any relationship')
   await expect(page.getByRole('status')).toHaveText('3 candidates shown')
 })
