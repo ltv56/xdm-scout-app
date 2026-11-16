@@ -127,7 +127,7 @@ function Draft({ item, shownSentence, setHoverSentence, pinnedSentence, onPick, 
           )
         })}
       </p>
-      <p className="mt-3 min-h-5 text-sm text-muted" aria-live="polite">
+      <p className="mt-4 min-h-5 border-t border-rule pt-3 text-sm text-muted" aria-live="polite">
         {shownSentence !== null ? sourceLine(item.sentences[shownSentence], item.evidence) : 'Point at or click a sentence to see where it comes from.'}
       </p>
     </>
@@ -201,18 +201,19 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
               </p>
             </header>
 
-            <section aria-label="Draft message" className="mt-5 min-w-0">
-              <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                <XLogo className="size-4" />
-                {item.kind === 'reply' ? 'Reply to' : 'Direct message to'} @{p.handle}
-                {item.language !== 'en' && <span className="font-normal text-muted">· in {LANGUAGE_NAME[item.language]}</span>}
-                {(item.status === 'pending' || item.status === 'approved') && <span className="font-normal text-muted">· not sent yet</span>}
-              </p>
+            <section aria-label="Draft message" className="mt-6 min-w-0">
               {!api.editing && (
                 <>
-                  <div ref={card} className="max-h-[min(55vh,420px)] sm:max-h-[min(42vh,360px)] max-w-[62ch] scroll-thin overflow-y-auto rounded-2xl border border-rule bg-paper px-6 py-4">
+                  <div ref={card} className="max-h-[min(60vh,460px)] sm:max-h-[min(48vh,400px)] max-w-[62ch] scroll-thin overflow-y-auto rounded-2xl border border-rule bg-paper px-6 pb-4">
+                    <p className="sticky top-0 z-10 -mx-6 mb-3 flex items-center gap-2 border-b border-rule bg-paper px-6 py-3 text-sm font-semibold">
+                      <XLogo className="size-4" />
+                      {item.kind === 'reply' ? 'Reply to' : 'Direct message to'} @{p.handle}
+                      {item.language !== 'en' && <span className="font-normal text-muted">· in {LANGUAGE_NAME[item.language]}</span>}
+                      {(item.status === 'pending' || item.status === 'approved') && <span className="font-normal text-muted">· not sent yet</span>}
+                    </p>
                     <Draft item={item} shownSentence={shownSentence} setHoverSentence={setHoverSentence} pinnedSentence={pinnedSentence} onPick={pickSentence} activeEvidence={activeEvidence} />
                   </div>
+                  {api.tools}
                   {item.englishText !== null && (
                     <div className="mt-3 max-w-[62ch] rounded-2xl bg-rail px-6 py-4">
                       <p className="text-xs font-semibold text-muted">{item.editedByReviewer ? 'English version of the draft before your edit' : 'English version, for you to read. It is not what gets sent.'}</p>
@@ -221,15 +222,14 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
                       </p>
                     </div>
                   )}
-                  <div className="mt-3 max-w-[62ch] text-sm">
-                    <p>
-                      <span className="font-semibold">Weakest point.</span> {item.weakestPoint}
-                    </p>
+                  <div className="mt-6 max-w-[62ch] rounded-xl bg-rail px-5 py-3.5 text-sm">
+                    <p className="text-xs font-semibold text-muted">Weakest point</p>
+                    <p className="mt-0.5">{item.weakestPoint}</p>
                     {item.sendPath === 'API_SEND' && <p className="mt-1 text-muted">They messaged you first, so xdm-scout may send this reply for you.</p>}
                   </div>
                 </>
               )}
-              {api.tools}
+              {api.editing && api.tools}
             </section>
           </div>
 

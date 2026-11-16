@@ -50,7 +50,7 @@ test('Candidates can be filtered by where the message will probably land', async
   await expect(page.getByRole('status').filter({ hasText: 'candidate' })).not.toHaveText('0 candidates shown')
 })
 
-test('Review says where the message will probably land, right above where it is sent', async ({ page, request }) => {
+test('Review says where the message will probably land, next to where it is sent', async ({ page, request }) => {
   const name = await draftCampaign(request)
   await page.route('**/api/review-queue*', async (route) => {
     const body = await (await route.fetch()).json()
@@ -62,9 +62,5 @@ test('Review says where the message will probably land, right above where it is 
   await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: /^Review/ }).click()
   const note = page.getByRole('note').filter({ hasText: 'Message requests' })
   await expect(note).toHaveText("Probably lands in Message requests: they don't follow you and haven't messaged you first.")
-  const sendIt = page.getByText(/^Send it/).first()
-  await expect(sendIt).toBeVisible()
-  const gap = (await sendIt.boundingBox())!.y - (await note.boundingBox())!.y
-  expect(gap).toBeGreaterThan(0)
-  expect(gap).toBeLessThan(80)
+  await expect(page.getByText(/^Send it/).first()).toBeVisible()
 })

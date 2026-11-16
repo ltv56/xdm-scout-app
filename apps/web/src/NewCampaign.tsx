@@ -170,11 +170,11 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
             <div className="mt-5 space-y-6">
               <div>
                 <TagInput label="Handles" value={handleText} onChange={setHandleText} normalize={handle} placeholder="@handle, press Enter" labelClassName="text-sm text-muted" />
-                <p className="mt-1 text-xs text-muted">With or without @. Left empty here and in the next two boxes: {sandbox ? 'the example people are used.' : 'the app searches X for your keywords.'}</p>
+                <p className="mt-1 text-xs text-muted">These people are added as candidates themselves. With or without @. Left empty here and in the next two boxes: {sandbox ? 'the example people are used.' : 'the app searches X for your keywords.'}</p>
               </div>
               <div>
                 <TagInput label="Seed accounts" value={seeds} onChange={setSeeds} max={10} normalize={handle} placeholder="@handle, press Enter" labelClassName="text-sm text-muted" />
-                <p className="mt-1 text-xs text-muted">People they follow are added as prospects. Up to 10.</p>
+                <p className="mt-1 text-xs text-muted">The people these accounts follow are added, not the accounts themselves. Up to 10.</p>
               </div>
               <div>
                 <TagInput label="Search queries" value={queries} onChange={setQueries} max={10} placeholder="Type a query, press Enter" labelClassName="text-sm text-muted" />
@@ -217,11 +217,11 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
             <legend className="text-sm font-medium">Where to find people (at least one)</legend>
             <div>
               <TagInput label="Handles" value={handleText} onChange={setHandleText} normalize={handle} placeholder="@handle, press Enter" labelClassName="text-sm text-muted" />
-              <p className="mt-1 text-xs text-muted">With or without @.</p>
+              <p className="mt-1 text-xs text-muted">These people are added as candidates themselves. With or without @.</p>
             </div>
             <div>
               <TagInput label="Seed accounts" value={seeds} onChange={setSeeds} max={10} normalize={handle} placeholder="@handle, press Enter" labelClassName="text-sm text-muted" />
-              <p className="mt-1 text-xs text-muted">People they follow are added as prospects. Up to 10.</p>
+              <p className="mt-1 text-xs text-muted">The people these accounts follow are added, not the accounts themselves. Up to 10.</p>
             </div>
             <div>
               <TagInput label="Search queries" value={queries} onChange={setQueries} max={10} placeholder="Type a query, press Enter" labelClassName="text-sm text-muted" />

@@ -4,7 +4,7 @@ import type { ReviewItem, SkipReason } from '../../../api/src/review/contract'
 import { patchJson, postJson } from '../api'
 import { Check, Copy, Globe, Pencil, Refresh, XLogo } from '../icons'
 import { btnLink, btnSecondary, btnToolbar, btnApprove, COPIED_NOTE, field, tone } from '../ui'
-import { markOpened, wasOpened } from '../opened'
+import { markOpened, reportOpened, wasOpened, withoutText } from '../opened'
 import SentCheck from '../SentCheck'
 import MoreMenu from './MoreMenu'
 import { blockers, deliveryNote, LANDS_IN_HINT, LANGUAGE_NAME, SKIP_LABEL, SKIP_REASONS, verdict, type Verdict } from './labels'
@@ -136,6 +136,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   // Also put the draft on the clipboard: X fills the text in only when the sender has set a Chat passcode.
   const openInX = () => {
     markOpened(item.draftId)
+    reportOpened(item.draftId)
     setAsked(true)
     try {
       void navigator.clipboard.writeText(item.text).then(() => setCopied(true), () => undefined)
@@ -143,7 +144,8 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
       // No clipboard on this page: X still opens.
     }
   }
-  const bar = `${btnToolbar} inline-flex items-center gap-1.5`
+  // Icon only; the name shows as a tooltip and is the button's accessible name.
+  const bar = `${btnToolbar} inline-grid size-9 place-items-center !px-0`
 
   const tools = (
     <div className="mt-3 empty:hidden">
@@ -216,30 +218,27 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
       </div>}
       {panel !== 'edit' && panel !== 'regenerate' && (pending || handoff) && (
         <div className="mt-1 flex flex-wrap items-center gap-x-1">
-          <button type="button" className={bar} onClick={copyText}>
+          <button type="button" className={bar} onClick={copyText} aria-label={copied ? 'Copied' : 'Copy'} title={copied ? 'Copied' : 'Copy'}>
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied ? 'Copied' : 'Copy'}
           </button>
           {pending && (
             <>
-              <button type="button" className={bar} onClick={() => toggle('edit')}>
+              <button type="button" className={bar} onClick={() => toggle('edit')} aria-label="Edit" title="Edit">
                 <Pencil className="size-4" />
-                Edit
               </button>
-              <button type="button" className={bar} onClick={() => toggle('regenerate')}>
+              <button type="button" className={bar} onClick={() => toggle('regenerate')} aria-label="Regenerate" title="Regenerate">
                 <Refresh className="size-4" />
-                Regenerate
               </button>
               {other && (
                 <button
                   type="button"
                   className={bar}
                   disabled={item.editedByReviewer || m.language.isPending}
-                  title={item.editedByReviewer ? 'You edited this draft. Regenerate it first, because a new language replaces the text.' : undefined}
+                  aria-label={item.language === 'en' ? `Draft in ${LANGUAGE_NAME[other]}` : 'Back to English'}
+                  title={item.editedByReviewer ? 'You edited this draft. Regenerate it first, because a new language replaces the text.' : item.language === 'en' ? `Draft in ${LANGUAGE_NAME[other]}` : 'Back to English'}
                   onClick={() => m.language.mutate(item.language === 'en' ? other : 'en')}
                 >
                   <Globe className="size-4" />
-                  {item.language === 'en' ? `Draft in ${LANGUAGE_NAME[other]}` : 'Back to English'}
                 </button>
               )}
             </>
@@ -257,13 +256,16 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   const send =
     !(pending || handoff) ? null : (
       <div>
-        {deliveryNote(item.prospect.landsIn) && (
-          <p role="note" className="mb-3 text-sm font-medium text-warn" title={LANDS_IN_HINT}>
-            {deliveryNote(item.prospect.landsIn)}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <p className="text-sm font-semibold">{byApp ? 'Send it' : 'Send it in X'}</p>
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{byApp ? 'Send it' : 'Send it in X'}</p>
+            {deliveryNote(item.prospect.landsIn) && (
+              <p role="note" className="mt-0.5 text-xs text-warn" title={LANDS_IN_HINT}>
+                {deliveryNote(item.prospect.landsIn)}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {byApp && (
             <span title="Connect your X account in Account first" className="inline-flex"><button type="button" className={btnSecondary} disabled>
               Send from xdm-scout
@@ -272,8 +274,8 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
           {handoff && item.openInXUrl && asked ? (
             <>
               <SentCheck pending={m.manual.isPending} onAnswer={(outcome) => m.manual.mutate(outcome)} />
-              <a className={`${btnLink} text-xs`} href={item.openInXUrl} target="_blank" rel="noreferrer" onClick={openInX}>
-                open again
+              <a className={`${btnLink} text-xs`} href={withoutText(item.openInXUrl)} target="_blank" rel="noreferrer" onClick={() => reportOpened(item.draftId)}>
+                open chat
               </a>
             </>
           ) : handoff && item.openInXUrl ? (
@@ -288,13 +290,14 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
             </button>
           )}
           {!handoff && <span className="text-sm text-muted">Available after you approve.</span>}
-          {handoff && byApp && !asked && <span className="text-sm text-muted">Connect your X account in Account to send from here.</span>}
-          {handoff && copied && (
-            <span role="status" className="anim-fade-in text-sm text-ok">
-              {COPIED_NOTE}
-            </span>
-          )}
+          </div>
         </div>
+        {handoff && byApp && !asked && <p className="mt-2 text-xs text-muted">Connect your X account in Account to send from here.</p>}
+        {handoff && copied && (
+          <p role="status" className="anim-fade-in mt-2 text-right text-xs text-muted">
+            {COPIED_NOTE}
+          </p>
+        )}
         <ErrorLine error={m.manual.error} />
       </div>
     )

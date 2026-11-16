@@ -3,7 +3,7 @@ import { DataSource, EntityManager, In } from 'typeorm'
 import { Prospect } from '../discovery/entities'
 import { addDoNotContact } from '../dnc/add-do-not-contact'
 import { Contact, Draft, SendAttempt } from '../sending/entities'
-import { hashContent, SendingService } from '../sending/sending.service'
+import { hashContent, SendingService, WATCH_AT_MS } from '../sending/sending.service'
 import { JobsService } from '../jobs/jobs.service'
 import { StoredSentence } from './checks'
 import { ApproveBody, Language, ReviewItem, SkipBody } from './contract'
@@ -113,7 +113,8 @@ export class ReviewActionsService {
       if (!attempt) throw new ConflictException('Already recorded')
       if (outcome === 'sent') {
         await em.update(SendAttempt, attempt.id, { route: 'manual', status: 'manual_unverified' })
-        await this.jobs.enqueue('verify_manual', { attemptId: attempt.id }, now, em)
+        // A watch already running is moved to now, so one attempt never has two.
+        if (!(await this.jobs.moveOpen('verify_manual', 'attemptId', attempt.id, now, em))) await this.jobs.enqueue('verify_manual', { attemptId: attempt.id, step: 0, fromMs: now.getTime() }, now, em)
       } else {
         await em.update(SendAttempt, attempt.id, { status: 'cancelled', error: 'Reviewer did not send it' })
         await em.update(Contact, { id: attempt.contactId, activeAttemptId: attempt.id }, { activeAttemptId: null })
@@ -122,6 +123,16 @@ export class ReviewActionsService {
     })
     const item = await this.review.one(draftId, now)
     return outcome === 'not_sent' ? { ...item, status: 'not_sent' } : item
+  }
+
+  // The chat was opened in X for a hand-send: watch for the message, starting a minute later.
+  async opened(draftId: number, now = new Date()): Promise<{ watching: boolean }> {
+    const attempt = await this.ds.getRepository(SendAttempt).findOneBy({ draftId, route: 'manual', status: 'manual_pending' })
+    if (!attempt) return { watching: false }
+    if (!(await this.jobs.hasOpen('verify_manual', 'attemptId', attempt.id))) {
+      await this.jobs.enqueue('verify_manual', { attemptId: attempt.id, step: 0, fromMs: now.getTime() }, new Date(now.getTime() + WATCH_AT_MS[0]))
+    }
+    return { watching: true }
   }
 
   private async live(em: EntityManager, draftId: number) {

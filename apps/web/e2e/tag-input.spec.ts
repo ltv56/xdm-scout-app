@@ -65,7 +65,7 @@ test('Seed accounts and Search queries stop at 10 and say so', async ({ page }) 
   await expect(tags(page, 'Seed accounts')).toHaveCount(10)
   await expect(seeds).toBeDisabled()
   await expect(form(page).getByText('Up to 10 seed accounts.')).toBeVisible()
-  await expect(form(page).getByText('People they follow are added as prospects. Up to 10.')).toBeVisible()
+  await expect(form(page).getByText('The people these accounts follow are added, not the accounts themselves. Up to 10.')).toBeVisible()
 
   await form(page).getByRole('button', { name: 'Remove seed3' }).click()
   await expect(seeds).toBeEnabled()

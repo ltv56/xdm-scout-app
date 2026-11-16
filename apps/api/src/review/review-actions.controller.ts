@@ -52,4 +52,9 @@ export class ReviewActionsController {
   async manual(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
     return this.actions.manual(id, parse(manualBody, body).outcome)
   }
+
+  @Post(':id/opened')
+  async opened(@Param('id', ParseIntPipe) id: number) {
+    return this.actions.opened(id)
+  }
 }

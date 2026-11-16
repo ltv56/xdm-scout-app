@@ -38,6 +38,18 @@ const newCampaign = (seeds: string[], budgetMicros = 5_000_000) =>
 const usage = (kind: string) => ds.getRepository(ApiUsage).findBy({ kind: kind as ApiUsage['kind'] })
 
 describe('discovery from seed accounts', () => {
+  it('says how many accounts each seed follows, so a seed that follows nobody is visible', async () => {
+    x.addProfile({ id: 's3', handle: 'seed_c', bio: 'robotics' })
+    const campaign = await newCampaign(['seed_a', 'seed_c'])
+
+    const result = await discovery.run(campaign.id, now)
+
+    expect(result.seeds).toEqual([
+      { handle: 'seed_a', following: 3 },
+      { handle: 'seed_c', following: 0 },
+    ])
+  })
+
   it('adds people the seeds follow as adjacent, counting how many seeds follow each one', async () => {
     const campaign = await newCampaign(['seed_a', '@Seed_B'])
 

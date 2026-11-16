@@ -19,6 +19,9 @@ const RECONCILE_GIVE_UP_MS = 10 * 60_000
 const INVITATION_MAX_AGE_MS = 30 * 86_400_000
 // Reconciliation runs minutes after the attempt, so our message is among the newest few events.
 const RECONCILE_READ_MAX = 10
+const MIN = 60_000
+// A hand-send is looked for soon after the chat is opened, then less often: each read costs.
+export const WATCH_AT_MS = [1, 3, 10, 30, 120, 480, 1440].map((m) => m * MIN)
 
 // X allows automated DMs only to people who asked for them, so the API path needs a confirmed, recent invitation.
 export function apiSendBlock(contact: Contact, now: Date): string | null {
@@ -177,18 +180,23 @@ export class SendingService {
     for (const attempt of stale) await this.markUnknown(attempt.id, now)
   }
 
-  // The reviewer said they sent it by hand. Upgrade to sent when our message is in the conversation; never downgrade.
+  // A chat was opened for a hand-send, or the reviewer said they sent it. Upgrade to sent when our message is in the conversation; never downgrade.
   // updatedAt stays the report time, so the daily count does not move the message to the day it was verified.
-  async verifyManual(attemptId: number): Promise<void> {
+  async verifyManual(attemptId: number, now = new Date(), step = 0, fromMs = now.getTime()): Promise<void> {
     const attempt = await this.ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })
-    if (attempt.route !== 'manual' || attempt.status !== 'manual_unverified') return
+    if (attempt.route !== 'manual' || (attempt.status !== 'manual_unverified' && attempt.status !== 'manual_pending')) return
     const draft = await this.ds.getRepository(Draft).findOneByOrFail({ id: attempt.draftId })
     const contact = await this.ds.getRepository(Contact).findOneByOrFail({ id: attempt.contactId })
     const messages = await this.x.getConversation(contact.xUserId, RECONCILE_READ_MAX)
     const since = Math.floor(attempt.createdAt.getTime() / 1000) * 1000
     const copies = messages.filter((m) => m.fromMe && m.text === draft.content && m.createdAt.getTime() >= since)
     const found = copies[0]
-    if (found) await this.ds.getRepository(SendAttempt).update(attemptId, { status: 'sent', verifiedBy: 'api', copiesSeen: copies.length, xConversationId: found.conversationId, xEventId: found.eventId, updatedAt: attempt.updatedAt })
+    if (found) {
+      await this.ds.getRepository(SendAttempt).update(attemptId, { status: 'sent', verifiedBy: 'api', copiesSeen: copies.length, xConversationId: found.conversationId, xEventId: found.eventId, updatedAt: attempt.updatedAt })
+      return
+    }
+    const next = step + 1
+    if (next < WATCH_AT_MS.length) await this.jobs.enqueue('verify_manual', { attemptId, step: next, fromMs }, new Date(fromMs + WATCH_AT_MS[next]))
   }
 
   async reconcile(attemptId: number, now: Date): Promise<void> {

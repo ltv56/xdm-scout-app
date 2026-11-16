@@ -30,7 +30,7 @@ export class Worker {
       else if (job.type === 'reconcile') await this.sending.reconcile(job.payload.attemptId, now)
       else if (job.type === 'discover') await this.discovery.run(job.payload.campaignId, now)
       else if (job.type === 'score') await this.fit.score(job.payload.prospectId, now)
-      else if (job.type === 'verify_manual') await this.sending.verifyManual(job.payload.attemptId)
+      else if (job.type === 'verify_manual') await this.sending.verifyManual(job.payload.attemptId, now, job.payload.step, job.payload.fromMs)
       else if (job.type === 'draft') await this.drafts.generate(job.payload.prospectId, now)
       else if (job.type === 'read_replies') await this.replies.read(job.payload.contactId, now)
       else if (job.type === 'recheck_evidence') await this.evidence.recheckLive(now)

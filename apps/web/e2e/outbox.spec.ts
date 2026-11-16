@@ -65,11 +65,18 @@ test('Outbox: after X is opened the row asks Sent?, also after a reload, and rec
     await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Messages' }).click()
     await page.getByRole('tab', { name: 'Outbox' }).click()
   }
+  let reported = 0
+  await page.route('**/api/drafts/103/opened', (r) => {
+    reported += 1
+    return r.fulfill({ json: { watching: true } })
+  })
   await openOutbox()
   const [popup] = await Promise.all([context.waitForEvent('page'), page.getByRole('link', { name: 'Open chat on X' }).click()])
   await popup.close()
+  await expect.poll(() => reported).toBe(1)
   await expect(page.getByRole('link', { name: 'Open chat on X' })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'open again' })).toBeVisible()
+  // Opening again must not fill the draft in a second time.
+  await expect(page.getByRole('link', { name: 'open chat' })).toHaveAttribute('href', 'https://x.com/messages/compose?recipient_id=201')
 
   await openOutbox()
   await page.getByRole('button', { name: 'Sent?', exact: true }).click()

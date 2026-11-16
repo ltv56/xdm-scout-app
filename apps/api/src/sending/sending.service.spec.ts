@@ -408,3 +408,49 @@ describe('daily cap', () => {
     expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'sent', copiesSeen: 2 })
   })
 })
+
+describe('hand-send watch', () => {
+  const MIN = 60_000
+  const start = new Date('2026-11-16T10:00:00Z')
+  const watchJobs = () => ds.getRepository(Job).find({ where: { type: 'verify_manual' }, order: { id: 'ASC' } })
+  const handOff = async (status: SendAttempt['status'] = 'manual_pending') => {
+    const d = await seedDraft('201', 'Hand')
+    const { attemptId } = await service.approve(d.id, sha(d.content), 'manual')
+    await ds.getRepository(SendAttempt).update(attemptId, { status })
+    return { d, attemptId }
+  }
+
+  it('a chat opened but not sent yet is read again later, each gap longer than the one before', async () => {
+    const { attemptId } = await handOff()
+    await service.verifyManual(attemptId, new Date(start.getTime() + MIN), 0, start.getTime())
+    expect(x.conversationReads).toHaveLength(1)
+    const [next] = await watchJobs()
+    expect(next.payload).toEqual({ attemptId, step: 1, fromMs: start.getTime() })
+    expect(next.runAt.getTime()).toBe(start.getTime() + 3 * MIN)
+
+    await service.verifyManual(attemptId, next.runAt, 1, start.getTime())
+    expect((await watchJobs())[1].runAt.getTime()).toBe(start.getTime() + 10 * MIN)
+  })
+
+  it('stops once the message is in the chat, and marks it sent', async () => {
+    const { d, attemptId } = await handOff()
+    await x.sendDm('201', d.content)
+    await service.verifyManual(attemptId, new Date(), 0, Date.now())
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'sent', verifiedBy: 'api', copiesSeen: 1 })
+    expect(await watchJobs()).toHaveLength(0)
+  })
+
+  it('gives up after the last check and leaves the question to a person', async () => {
+    const { attemptId } = await handOff('manual_unverified')
+    await service.verifyManual(attemptId, new Date(), 6, start.getTime())
+    expect(await watchJobs()).toHaveLength(0)
+    expect((await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).status).toBe('manual_unverified')
+  })
+
+  it('reads nothing once the attempt is no longer waiting on a hand-send', async () => {
+    const { attemptId } = await handOff('cancelled')
+    await service.verifyManual(attemptId, new Date(), 0, start.getTime())
+    expect(x.conversationReads).toHaveLength(0)
+    expect(await watchJobs()).toHaveLength(0)
+  })
+})

@@ -17,6 +17,7 @@ interface DiscoveryRun {
   at: string
   added: number
   addedHandles?: string[]
+  seeds?: { handle: string; following: number }[]
   skipped: { handle: string; reason: string }[]
   spentMicros: number
   stoppedByBudget: boolean
@@ -66,7 +67,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
   const prospects = useQuery<Prospect[]>({
     queryKey: ['prospects', campaignId],
     queryFn: () => getJson(`/campaigns/${campaignId}/prospects`),
-    refetchInterval: waiting ? 5000 : false,
+    refetchInterval: (q) => (waiting || q.state.data?.some((p) => p.scoring) ? 4000 : false),
     refetchIntervalInBackground: true,
   })
   const queue = useQuery<ReviewQueue>({ queryKey: ['review-queue', campaignId], queryFn: () => getJson(`/review-queue?campaignId=${campaignId}`), retry: false })
@@ -79,6 +80,11 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
       setNote(r.queued ? null : (r.reason ?? 'The search did not start.'))
       void qc.invalidateQueries({ queryKey: ['campaign', campaignId] })
     },
+  })
+  // Scoring right here: new people from a search are useless until they are scored.
+  const score = useMutation({
+    mutationFn: () => postJson<{ queued: number }>(`/campaigns/${campaignId}/score`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['prospects', campaignId] }),
   })
   const searchedAt = campaign.data?.lastDiscovery?.at
   const peopleCount = prospects.data?.length
@@ -98,6 +104,13 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
   const counts = { strong: 0, possible: 0, weak: 0, not_a_fit: 0, unscored: 0 }
   for (const p of people) counts[p.fit ?? 'unscored'] += 1
   const drafts = (queue.data?.items ?? []).filter((i) => i.status === 'pending')
+  const scoringNow = people.filter((p) => p.scoring).length
+  const toScore = people.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length
+  const scoreButton = (className: string, label: string) => (
+    <button type="button" className={className} disabled={score.isPending} onClick={() => score.mutate()}>
+      {score.isPending ? 'Starting…' : label}
+    </button>
+  )
   const ready = readyQuery.data?.ready ?? 0
   const byVerdict = (t: string) => drafts.filter((d) => verdict(d).tone === t).length
   const run = c.lastDiscovery
@@ -207,17 +220,23 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
                   {plural(ready, 'person is', 'people are')} ready for a draft in Candidates
                 </button>
               )}
+              {toScore > 0 && scoreButton(btnLink, `Score ${plural(toScore, 'new person', 'new people')}`)}
             </div>
           </>
         ) : counts.unscored > 0 ? (
           <>
             <div>
-              <h2 className="text-lg font-semibold leading-snug">{plural(counts.unscored, 'person', 'people')} found, not scored yet</h2>
-              <p className="mt-1.5 text-sm text-muted">Score them in Candidates: it reads their posts and decides how well they fit. Drafts are written for the good ones.</p>
+              <h2 className="text-lg font-semibold leading-snug">
+                {scoringNow > 0 && toScore === 0 ? `Scoring… ${plural(scoringNow, 'person', 'people')} left` : `${plural(counts.unscored, 'person', 'people')} found, not scored yet`}
+              </h2>
+              <p className="mt-1.5 text-sm text-muted">Scoring reads their recent posts and decides how well each one fits. Drafts are written only for the good ones.</p>
             </div>
-            <button type="button" className={btnPrimary} onClick={() => onProspects('all')}>
-              Go to Candidates
-            </button>
+            <div className="flex flex-col items-start gap-2 sm:items-end">
+              {toScore > 0 ? scoreButton(btnPrimary, `Score ${plural(toScore, 'person', 'people')}`) : <Spinner className="size-5" />}
+              <button type="button" className={btnLink} onClick={() => onProspects('all')}>
+                See them in Candidates
+              </button>
+            </div>
           </>
         ) : (
           <div>
@@ -285,6 +304,11 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
             {!!run.addedHandles?.length && (
               <p className="mt-3 text-sm text-muted">
                 Added: <span className="font-medium text-ink">{run.addedHandles.map((h) => `@${h}`).join(', ')}</span>
+              </p>
+            )}
+            {!!run.seeds?.length && (
+              <p className="mt-2 text-sm text-muted">
+                Seeds: {run.seeds.map((x) => `@${x.handle} ${x.following ? `follows ${x.following}` : 'follows nobody we could read, so it added no one'}`).join(', ')}
               </p>
             )}
             {run.skipped.length > 0 && (

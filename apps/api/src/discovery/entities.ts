@@ -161,6 +161,7 @@ export type DiscoveryRun = {
   added: number
   // Missing on runs saved before it was recorded.
   addedHandles?: string[]
+  seeds?: { handle: string; following: number }[]
   skipped: { handle: string; reason: string }[]
   spentMicros: number
   stoppedByBudget: boolean

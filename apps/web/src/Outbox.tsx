@@ -5,7 +5,7 @@ import type { Outbox as OutboxData, OutboxItem } from '../../api/src/outbox/cont
 import { getJson, postJson } from './api'
 import EmptyState from './EmptyState'
 import { XLogo } from './icons'
-import { markOpened, wasOpened } from './opened'
+import { markOpened, reportOpened, wasOpened, withoutText } from './opened'
 import SentCheck from './SentCheck'
 import { btnApprove, btnLink, chip, COPIED_NOTE, tone, type Tone } from './ui'
 import { useTopBar } from './useTopBar'
@@ -58,13 +58,20 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
   return (
     <section aria-label="Outbox">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-bold">Outbox</h2>
+        <h1 className="text-[28px] font-bold leading-tight">Outbox</h1>
         {topBar && (
           <p className="text-sm text-muted">
             Sent today {topBar.sentToday} of {topBar.dailyCap}
           </p>
         )}
       </div>
+      {items.some((i) => i.route === 'manual') && (
+        <p className="mt-1 text-sm text-muted">
+          {topBar?.mode === 'fake'
+            ? 'Messages you send by hand: the sandbox does not read X, so answer Sent? yourself.'
+            : 'Messages you send by hand: after you open the chat we look for your message there during the next day, and mark it sent once it shows. Answer Sent? to settle it sooner.'}
+        </p>
+      )}
       {outbox.error ? (
         <p className="mt-3 text-sm text-block">Could not load the outbox.</p>
       ) : (
@@ -91,9 +98,12 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
               {i.openInX &&
                 (isOpened(i.draftId) ? (
                   <div className="flex items-center gap-3">
-                    <a className={`${btnLink} text-xs`} href={i.openInX} target="_blank" rel="noreferrer" onClick={() => copy(i.attemptId, i.text)}>
-                      open again
+                    <a className={`${btnLink} text-xs`} href={withoutText(i.openInX)} target="_blank" rel="noreferrer" onClick={() => reportOpened(i.draftId)}>
+                      open chat
                     </a>
+                    <button type="button" className={`${btnLink} text-xs`} onClick={() => copy(i.attemptId, i.text)}>
+                      copy draft
+                    </button>
                     <SentCheck pending={sentByHand.isPending} onAnswer={(outcome) => sentByHand.mutate({ draftId: i.draftId, outcome })} />
                   </div>
                 ) : (
@@ -105,6 +115,7 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
                     aria-label="Open chat on X"
                     onClick={() => {
                       markOpened(i.draftId)
+                      reportOpened(i.draftId)
                       setOpened((cur) => new Set(cur).add(i.draftId))
                       copy(i.attemptId, i.text)
                     }}

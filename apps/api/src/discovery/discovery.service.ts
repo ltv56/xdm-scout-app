@@ -83,8 +83,10 @@ export class DiscoveryService {
       const user = known.get(handle)
       if (user) candidates.set(user.xUserId, { handle, user, relationship: 'cold', seedCount: 0 })
     }
-    const seedIds = new Set(seeds.flatMap((s) => known.get(s)?.xUserId ?? []))
-    if (!(await this.addFromSeeds(campaign, seedIds, candidates, now))) stoppedByBudget = true
+    const seedUsers = seeds.flatMap((handle) => { const u = known.get(handle); return u ? [{ handle, id: u.xUserId }] : [] })
+    const seedIds = new Set(seedUsers.map((u) => u.id))
+    const seedReport: { handle: string; following: number }[] = []
+    if (!(await this.addFromSeeds(campaign, seedUsers, seedIds, candidates, now, seedReport))) stoppedByBudget = true
     if (!(await this.addFromSearch(campaign, seedIds, candidates, now))) stoppedByBudget = true
 
     const kept: Candidate[] = []
@@ -127,7 +129,7 @@ export class DiscoveryService {
       }
     }
 
-    const result = { added: addedHandles.length, addedHandles, skipped, spentMicros: (await this.spent(campaignId)) - startSpent, stoppedByBudget, postsPending }
+    const result = { added: addedHandles.length, addedHandles, seeds: seedReport, skipped, spentMicros: (await this.spent(campaignId)) - startSpent, stoppedByBudget, postsPending }
     await this.ds.getRepository(Campaign).update(campaignId, { lastDiscovery: { at: now.toISOString(), ...result } })
     return result
   }
@@ -140,15 +142,17 @@ export class DiscoveryService {
   }
 
   // Returns false when the budget stopped a read.
-  private async addFromSeeds(campaign: Campaign, seedIds: Set<string>, candidates: Map<string, Candidate>, now: Date) {
+  // report gets how many accounts each seed follows, so a seed that adds nobody is visible.
+  private async addFromSeeds(campaign: Campaign, seedUsers: { handle: string; id: string }[], seedIds: Set<string>, candidates: Map<string, Candidate>, now: Date, report: { handle: string; following: number }[]) {
     let complete = true
-    for (const seedId of seedIds) {
+    for (const { handle, id: seedId } of seedUsers) {
       const max = Math.min(MAX_FOLLOWING_PER_SEED, Math.floor((await this.remaining(campaign)) / PRICES.following))
       if (max <= 0) {
         complete = false
         continue
       }
       const following = await this.x.getFollowing(seedId, max)
+      report.push({ handle, following: following.length })
       await this.recordUsage(campaign.id, 'following', following.length, PRICES.following)
       for (const p of following) {
         if (seedIds.has(p.id)) continue

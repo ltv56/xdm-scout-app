@@ -36,6 +36,18 @@ export class JobsService {
       .getExists()
   }
 
+  // Moves a pending job with this payload key to runAt; false when there is none.
+  async moveOpen(type: string, key: string, value: number, runAt: Date, em: EntityManager = this.ds.manager) {
+    const res = await em
+      .createQueryBuilder()
+      .update(Job)
+      .set({ runAt })
+      .where("type = :type AND status = 'pending'", { type })
+      .andWhere(`JSON_EXTRACT(payload, :path) = :value`, { path: `$.${key}`, value })
+      .execute()
+    return !!res.affected
+  }
+
   async retry(id: number, runAt: Date) {
     await this.ds.getRepository(Job).update(id, { status: 'pending', runAt })
   }
