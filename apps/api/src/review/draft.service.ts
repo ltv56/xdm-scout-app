@@ -1,3 +1,4 @@
+import { currentSender } from '../auth/current-sender'
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { z } from 'zod'
@@ -8,7 +9,7 @@ import { JobsService } from '../jobs/jobs.service'
 import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
 import { withMeter } from '../llm/with-meter'
 import { KnownUser } from '../known/known-user.entity'
-import { Contact, DoNotContact, Draft, SenderAccount, XUser } from '../sending/entities'
+import { Contact, DoNotContact, Draft, XUser } from '../sending/entities'
 import { apiSendBlock } from '../sending/sending.service'
 import { Setting } from '../setting.entity'
 import { StoredSentence, StoredSource } from './checks'
@@ -135,8 +136,8 @@ export class DraftService {
   async generate(prospectId: number, now = new Date(), reviewerNote?: string): Promise<number> {
     const prospect = await this.ds.getRepository(Prospect).findOneByOrFail({ id: prospectId })
     const profile = await this.profile()
-    const sender = await this.ds.getRepository(SenderAccount).find({ order: { id: 'ASC' }, take: 1 })
-    if (!sender[0]) throw new Error('Connect the sender account first')
+    const sender = await currentSender(this.ds)
+    if (!sender) throw new Error('Connect the sender account first')
 
     const opening = prospect.openingEvidenceId ? await this.ds.getRepository(Evidence).findOneBy({ id: prospect.openingEvidenceId }) : null
     if (!opening) throw new Error('This person has no opening to write about')
@@ -157,7 +158,7 @@ export class DraftService {
     const sentences = applyFrame(opener, asked, profile.frame)
 
     // Draft jobs run side by side; the same person in two campaigns must still get one contact.
-    const key = { senderAccountId: sender[0].id, xUserId: prospect.xUserId }
+    const key = { senderAccountId: sender.id, xUserId: prospect.xUserId }
     await this.ds.createQueryBuilder().insert().into(Contact).values({ ...key, relationshipContext: prospect.relationship }).orIgnore().updateEntity(false).execute()
     const contact = await this.ds.getRepository(Contact).findOneByOrFail(key)
     const content = layoutText(sentences)

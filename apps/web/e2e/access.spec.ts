@@ -47,18 +47,19 @@ test('When the session ends, the next API call brings the sign-in screen back', 
   await ensureCampaign(request)
   let signedIn = true
   await page.route('**/api/access', (r) => r.fulfill({ json: { gate: true, setUp: true, signedIn } }))
-  await page.goto('/')
-  await expect(page.getByRole('navigation', { name: 'Sections' })).toBeVisible()
-  // The session ends exactly when the API first says so.
+  // Signed in when the page opens; the session ends the moment a data call is answered 401 (the Overview reads the candidates).
+  let refused = false
   await page.route('**/api/campaigns/*/prospects', (r) => {
     signedIn = false
+    refused = true
     return r.fulfill({ status: 401, json: { message: 'Sign in first.' } })
   })
-  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Candidates' }).click()
+  await page.goto('/')
   await expect(page.getByRole('form', { name: 'Sign in' })).toBeVisible()
+  expect(refused).toBe(true)
 })
 
-test('The account menu offers sign out only on a server with the gate', async ({ page, request }) => {
+test('The account menu offers sign out only on a server with the gate; it asks first and ends every session', async ({ page, request }) => {
   await ensureCampaign(request)
   await page.goto('/')
   await page.getByRole('button', { name: 'Account' }).click()
@@ -72,7 +73,14 @@ test('The account menu offers sign out only on a server with the gate', async ({
   })
   await page.reload()
   await page.getByRole('button', { name: 'Account' }).click()
-  await page.getByRole('button', { name: 'Sign out everywhere' }).click()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Sign out on every device?' })
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toHaveCount(0)
+  expect(out).toBe('')
+  await page.getByRole('button', { name: 'Account' }).click()
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await dialog.getByRole('button', { name: 'Sign out' }).click()
   expect(out).toBe('/api/access/sign-out-everywhere')
 })
 

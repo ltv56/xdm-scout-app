@@ -6,6 +6,7 @@ import { getJson, postJson } from '../api'
 import Select from '../ui/Select'
 import TagInput from '../ui/TagInput'
 import SourceFields from './SourceFields'
+import { useFeatures } from '../useFeatures'
 import { btnPrimary, btnSecondary, field as baseField } from '../ui/ui'
 
 const field = `${baseField} mt-1`
@@ -38,6 +39,7 @@ const Star = () => (
 
 export default function NewCampaign({ first, wide = false, onCreated, onCancel }: Props) {
   const qc = useQueryClient()
+  const { callPost } = useFeatures()
   const [name, setName] = useState(first ? DEFAULT_NAME : '')
   const [keywords, setKeywords] = useState<string[]>(first ? DEFAULT_KEYWORDS : [])
   const [handleText, setHandleText] = useState<string[]>([])
@@ -166,7 +168,7 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
           )}
           <details className="rounded-2xl border border-rule px-5 py-4">
             <summary className="cursor-pointer text-sm font-medium">
-              More options <span className="font-normal text-muted">(who to look at, fund criteria, a call post, a budget)</span>
+              More options <span className="font-normal text-muted">({callPost ? 'who to look at, fund criteria, a call post, a budget' : 'who to look at, fund criteria, a budget'})</span>
             </summary>
             <div className="mt-5 space-y-6">
               <SourceFields
@@ -178,21 +180,23 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
                 <textarea aria-label="Fund criteria" placeholder={'Based in or building for Southeast Asia\nPre-Series A, no $100M+ fund yet'} rows={3} value={criteria} onChange={(e) => setCriteria(e.target.value)} className={field} />
                 <p className="mt-1 text-xs text-muted">One per line, up to 5. Each is checked against the person's posts and shown on their Fit card. Write each one so that met is good: “Pre-Series A, no $100M+ fund yet”, not “Has not raised a big round”.</p>
               </details>
-              <details>
-                <summary className="cursor-pointer text-sm font-medium">Call post (optional)</summary>
-                <p className="mt-2 text-xs text-muted">
-                  Post it on X yourself, for example “Building agents in SEA? DM us ‘build’ for an Agentic AI Build Week invite.” xdm-scout does not post. People who DM you after it are added to this campaign, and you can reply to them from here.
-                </p>
-                <label htmlFor="call-url" className="mt-3 block text-sm text-muted">
-                  Link of the post
-                </label>
-                <input id="call-url" type="url" inputMode="url" value={callUrl} onChange={(e) => setCallUrl(e.target.value)} className={field} />
-                <label htmlFor="call-keyword" className="mt-3 block text-sm text-muted">
-                  Keyword people DM
-                </label>
-                <input id="call-keyword" value={callKeyword} maxLength={40} onChange={(e) => setCallKeyword(e.target.value)} className={`${field} max-w-60`} />
-                <p className="mt-1 text-xs text-muted">We read when the post went up from its link, so only DMs sent after it count.</p>
-              </details>
+              {callPost && (
+                <details>
+                  <summary className="cursor-pointer text-sm font-medium">Call post (optional)</summary>
+                  <p className="mt-2 text-xs text-muted">
+                    Post it on X yourself, for example “Building agents in SEA? DM us ‘build’ for an Agentic AI Build Week invite.” xdm-scout does not post. People who DM you after it are added to this campaign, and you can reply to them from here.
+                  </p>
+                  <label htmlFor="call-url" className="mt-3 block text-sm text-muted">
+                    Link of the post
+                  </label>
+                  <input id="call-url" type="url" inputMode="url" value={callUrl} onChange={(e) => setCallUrl(e.target.value)} className={field} />
+                  <label htmlFor="call-keyword" className="mt-3 block text-sm text-muted">
+                    Keyword people DM
+                  </label>
+                  <input id="call-keyword" value={callKeyword} maxLength={40} onChange={(e) => setCallKeyword(e.target.value)} className={`${field} max-w-60`} />
+                  <p className="mt-1 text-xs text-muted">We read when the post went up from its link, so only DMs sent after it count.</p>
+                </details>
+              )}
               <div>
                 <label htmlFor="budget" className="text-sm font-medium">
                   Discovery budget in USD (optional)
@@ -236,21 +240,23 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
             <p className="mt-1 text-xs text-muted">Every draft in this campaign offers this program, with its link and deadline.</p>
           </div>
 
-          <details>
-            <summary className="cursor-pointer text-sm font-medium">Call post (optional)</summary>
-            <p className="mt-2 text-xs text-muted">
-              Post it on X yourself, for example “Building agents in SEA? DM us ‘build’ for an Agentic AI Build Week invite.” xdm-scout does not post. People who DM you after it are added to this campaign, and you can reply to them from here.
-            </p>
-            <label htmlFor="call-url" className="mt-3 block text-sm text-muted">
-              Link of the post
-            </label>
-            <input id="call-url" type="url" inputMode="url" value={callUrl} onChange={(e) => setCallUrl(e.target.value)} className={field} />
-            <label htmlFor="call-keyword" className="mt-3 block text-sm text-muted">
-              Keyword people DM
-            </label>
-            <input id="call-keyword" value={callKeyword} maxLength={40} onChange={(e) => setCallKeyword(e.target.value)} className={`${field} max-w-60`} />
-            <p className="mt-1 text-xs text-muted">We read when the post went up from its link, so only DMs sent after it count.</p>
-          </details>
+          {callPost && (
+            <details>
+              <summary className="cursor-pointer text-sm font-medium">Call post (optional)</summary>
+              <p className="mt-2 text-xs text-muted">
+                Post it on X yourself, for example “Building agents in SEA? DM us ‘build’ for an Agentic AI Build Week invite.” xdm-scout does not post. People who DM you after it are added to this campaign, and you can reply to them from here.
+              </p>
+              <label htmlFor="call-url" className="mt-3 block text-sm text-muted">
+                Link of the post
+              </label>
+              <input id="call-url" type="url" inputMode="url" value={callUrl} onChange={(e) => setCallUrl(e.target.value)} className={field} />
+              <label htmlFor="call-keyword" className="mt-3 block text-sm text-muted">
+                Keyword people DM
+              </label>
+              <input id="call-keyword" value={callKeyword} maxLength={40} onChange={(e) => setCallKeyword(e.target.value)} className={`${field} max-w-60`} />
+              <p className="mt-1 text-xs text-muted">We read when the post went up from its link, so only DMs sent after it count.</p>
+            </details>
+          )}
 
           <div>
             <label htmlFor="budget" className="text-sm font-medium">

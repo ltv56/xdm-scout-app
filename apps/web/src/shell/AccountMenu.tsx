@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAccess } from '../access/useAccess'
 import { postJson } from '../api'
+import SignOutDialog from './SignOutDialog'
 
 // The avatar opens Profile (who sends and signs) and Settings (is the system ready).
 export default function AccountMenu({ current, onSelect, children }: {
@@ -13,8 +14,13 @@ export default function AccountMenu({ current, onSelect, children }: {
   const qc = useQueryClient()
   // Sign-out shows only on a deploy with the sign-in gate.
   const access = useAccess()
-  const signOut = (path: '/access/sign-out' | '/access/sign-out-everywhere') =>
-    void postJson(path).finally(() => void qc.resetQueries())
+  const [confirmOut, setConfirmOut] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+  // One owner, one way out: signing out ends every session, so a forgotten browser cannot stay signed in.
+  const signOut = () => {
+    setSigningOut(true)
+    void postJson('/access/sign-out-everywhere').finally(() => void qc.resetQueries())
+  }
   const box = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
 
@@ -72,19 +78,22 @@ export default function AccountMenu({ current, onSelect, children }: {
             <>
               <li aria-hidden="true" className="my-1 border-t border-rule" />
               <li>
-                <button type="button" className={row} onClick={() => signOut('/access/sign-out')}>
+                <button
+                  type="button"
+                  className={row}
+                  onClick={() => {
+                    setOpen(false)
+                    setConfirmOut(true)
+                  }}
+                >
                   Sign out
-                </button>
-              </li>
-              <li>
-                <button type="button" className={row} title="Ends every session, on every device" onClick={() => signOut('/access/sign-out-everywhere')}>
-                  Sign out everywhere
                 </button>
               </li>
             </>
           )}
         </ul>
       )}
+      {confirmOut && <SignOutDialog pending={signingOut} onConfirm={signOut} onClose={() => setConfirmOut(false)} />}
     </div>
   )
 }

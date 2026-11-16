@@ -41,8 +41,8 @@ describe('AuthController status', () => {
 })
 
 describe('AuthController callback', () => {
-  it('goes back to Profile in the app once the account is connected', async () => {
+  it('ends on a small page that closes the login window, or opens Profile when there is no window to close', async () => {
     const auth = { handleCallback: async () => undefined } as unknown as AuthService
-    expect(await new AuthController(auth, mode('live')).callback('code', 'state')).toEqual({ url: '/#profile' })
+    expect(await new AuthController(auth, mode('live')).callback('code', 'state')).toEqual({ url: '/x-connected.html' })
   })
 })

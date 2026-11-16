@@ -5,11 +5,13 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { SenderAccount } from '../sending/entities'
 import { createTestDataSource } from '../test/db'
 import { AuthService } from './auth.service'
+import { currentSender } from './current-sender'
 
 let ds: DataSource
 let service: AuthService
 let calls: { url: string; body: string }[]
 let tokenResponses: Record<string, unknown>[]
+let me: { id: string; username: string }
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -17,6 +19,7 @@ const json = (status: number, body: unknown) =>
 beforeEach(async () => {
   ds = await createTestDataSource()
   calls = []
+  me = { id: '100', username: 'leviath' }
   tokenResponses = [
     { access_token: 'access-1', refresh_token: 'refresh-1', expires_in: 7200, scope: 'dm.read dm.write' },
     { access_token: 'access-2', refresh_token: 'refresh-2', expires_in: 7200, scope: 'dm.read dm.write' },
@@ -27,7 +30,7 @@ beforeEach(async () => {
       const next = tokenResponses.shift()
       return next ? json(200, next) : json(400, { error: 'invalid_request' })
     }
-    if (String(url).endsWith('/2/users/me')) return json(200, { data: { id: '100', username: 'leviath' } })
+    if (String(url).endsWith('/2/users/me')) return json(200, { data: me })
     return json(404, {})
   }
   service = new AuthService(ds, {
@@ -66,6 +69,18 @@ describe('AuthService', () => {
     expect(account.refreshTokenEnc).not.toContain('refresh-1')
     const exchange = calls.find((c) => c.url.endsWith('/2/oauth2/token'))
     expect(exchange?.body).toContain('code_verifier=')
+  })
+
+  it('connecting another X account makes it the sender: status, session and drafts use it, the old one keeps no tokens', async () => {
+    await connect()
+    me = { id: '200', username: 'dnawi56' }
+    await connect()
+    expect((await service.status('live')).handle).toBe('dnawi56')
+    expect((await service.session()).userId).toBe('200')
+    expect((await currentSender(ds))?.xUserId).toBe('200')
+    const old = await ds.getRepository(SenderAccount).findOneByOrFail({ xUserId: '100' })
+    expect(old.accessTokenEnc).toBeNull()
+    expect(old.refreshTokenEnc).toBeNull()
   })
 
   it('rejects a callback with an unknown state', async () => {

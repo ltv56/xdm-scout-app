@@ -1,3 +1,4 @@
+import { currentSender } from '../auth/current-sender'
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, IsNull, Not } from 'typeorm'
 import { ApiUsage, Campaign, Prospect } from '../discovery/entities'
@@ -27,8 +28,8 @@ export class InboundLaneService {
   async attach(campaignId: number): Promise<{ attached: number; read: number }> {
     const campaign = await this.ds.getRepository(Campaign).findOneBy({ id: campaignId })
     if (!campaign) throw new NotFoundException('Campaign not found')
-    const sender = await this.ds.getRepository(SenderAccount).find({ take: 1 })
-    if (!campaign.callKeyword || !campaign.callPostedAt || !sender[0]) return { attached: 0, read: 0 }
+    const sender = await currentSender(this.ds)
+    if (!campaign.callKeyword || !campaign.callPostedAt || !sender) return { attached: 0, read: 0 }
     const { callKeyword, callPostedAt } = campaign
 
     const read = await this.x.getInboundDms(READ_MAX)
@@ -48,8 +49,8 @@ export class InboundLaneService {
         const call = { relationship: 'messaged_us' as const, callEventId: dm.eventId, callText: dm.text.slice(0, 512), callAt: dm.createdAt }
         if (existing) await em.update(Prospect, existing.id, call)
         else await em.save(Prospect, { campaignId, xUserId: dm.senderId, source: 'call', ...call })
-        if (!(await em.existsBy(Contact, { senderAccountId: sender[0].id, xUserId: dm.senderId }))) {
-          await em.save(Contact, { senderAccountId: sender[0].id, xUserId: dm.senderId, relationshipContext: 'messaged_us' })
+        if (!(await em.existsBy(Contact, { senderAccountId: sender.id, xUserId: dm.senderId }))) {
+          await em.save(Contact, { senderAccountId: sender.id, xUserId: dm.senderId, relationshipContext: 'messaged_us' })
         }
         return true
       })

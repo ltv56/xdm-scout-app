@@ -10,11 +10,14 @@ x-env: &env
   ALLOWED_HOSTS: ${DOMAIN:?set DOMAIN in .env}
   X_REDIRECT_URI: https://${DOMAIN:?set DOMAIN in .env}/api/auth/x/callback
   ACCESS_GATE: "on"
+  # The call post lane is not offered on the hosted deploy yet.
+  CALL_POST: "off"
   INVITE_CODE: ${INVITE_CODE:?set INVITE_CODE in .env}
   TOKEN_KEY: ${TOKEN_KEY:?set TOKEN_KEY in .env}
   # Empty: the live default (gpt-6-luna), with the OpenAI key the owner saves on Settings > Keys.
   LLM_MODEL: ""
-  DECISION_MODEL: ""
+  # Yes/no checks go to the OpenAI Decisions API, which returns a probability per answer.
+  DECISION_MODEL: gpt-6-luna
 
 services:
   db:

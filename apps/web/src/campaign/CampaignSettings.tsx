@@ -5,6 +5,7 @@ import { getJson, patchJson } from '../api'
 import Select from '../ui/Select'
 import TagInput from '../ui/TagInput'
 import SourceFields from './SourceFields'
+import { useFeatures } from '../useFeatures'
 import { btnPrimary, field as baseField } from '../ui/ui'
 
 const field = `${baseField} mt-1`
@@ -49,6 +50,7 @@ export default function CampaignSettings({ campaignId }: { campaignId: number })
 
 function CampaignForm({ row }: { row: CampaignRow }) {
   const qc = useQueryClient()
+  const { callPost } = useFeatures()
   const [name, setName] = useState(row.name)
   const [keywords, setKeywords] = useState(list(row.keywords))
   const [handles, setHandles] = useState(list(row.handles))
@@ -173,16 +175,18 @@ function CampaignForm({ row }: { row: CampaignRow }) {
         )}
       </div>
 
-      <div>
-        <label htmlFor="campaign-call-url" className="text-sm font-medium">
-          Link of the call post (optional)
-        </label>
-        <input id="campaign-call-url" type="url" inputMode="url" value={callUrl} onChange={(e) => setCallUrl(e.target.value)} className={field} />
-        <label htmlFor="campaign-call-keyword" className="mt-3 block text-sm text-muted">
-          Keyword people DM
-        </label>
-        <input id="campaign-call-keyword" value={callKeyword} maxLength={40} onChange={(e) => setCallKeyword(e.target.value)} className={`${field} max-w-60`} />
-      </div>
+      {callPost && (
+        <div>
+          <label htmlFor="campaign-call-url" className="text-sm font-medium">
+            Link of the call post (optional)
+          </label>
+          <input id="campaign-call-url" type="url" inputMode="url" value={callUrl} onChange={(e) => setCallUrl(e.target.value)} className={field} />
+          <label htmlFor="campaign-call-keyword" className="mt-3 block text-sm text-muted">
+            Keyword people DM
+          </label>
+          <input id="campaign-call-keyword" value={callKeyword} maxLength={40} onChange={(e) => setCallKeyword(e.target.value)} className={`${field} max-w-60`} />
+        </div>
+      )}
 
       <div>
         <label htmlFor="campaign-budget" className="text-sm font-medium">

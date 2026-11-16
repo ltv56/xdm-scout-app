@@ -9,6 +9,7 @@ import KeysSection from '../settings/KeysSection'
 import { useXAppKeys } from '../settings/useXAppKeys'
 import OnboardingTips from './OnboardingTips'
 import QuickProfile from './QuickProfile'
+import { connectX, X_LOGIN } from '../settings/connectX'
 import { btnApprove, btnLink, btnPrimary } from '../ui/ui'
 
 type Step = 'connect' | 'profile' | 'campaign'
@@ -43,14 +44,14 @@ function ConnectStep({ status, onContinue }: { status: XStatus | undefined; onCo
               Continue
             </button>
             {live && (
-              <a className={btnLink} href="/api/auth/x/login">
+              <a className={btnLink} href={X_LOGIN} onClick={connectX}>
                 Reconnect X account
               </a>
             )}
           </>
         ) : live ? (
           keys.ready ? (
-            <a className={btnPrimary} href="/api/auth/x/login">
+            <a className={btnPrimary} href={X_LOGIN} onClick={connectX}>
               Connect X account
             </a>
           ) : (

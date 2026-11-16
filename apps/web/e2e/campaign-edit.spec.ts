@@ -90,3 +90,15 @@ test('Settings: Save is off until something changes, and off again once saved', 
   await expect(form.getByRole('status')).toHaveCount(0)
   await expect(save).toBeEnabled()
 })
+
+test('A server with call posts turned off shows no call post fields, in Settings or in New campaign', async ({ page }) => {
+  await page.route('**/api/features', (r) => r.fulfill({ json: { callPost: false } }))
+  await page.reload()
+  const form = await openSettings(page)
+  await expect(form.getByLabel(/Link of the call post/)).toHaveCount(0)
+  await expect(form.getByLabel('Name')).toBeVisible()
+
+  await page.getByRole('button', { name: /^Campaign/ }).click()
+  await page.getByRole('button', { name: 'New campaign' }).click()
+  await expect(page.getByText('Call post (optional)')).toHaveCount(0)
+})

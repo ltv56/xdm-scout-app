@@ -57,6 +57,8 @@ import { LiveXClient } from './x/live-x-client'
 import { lazyChatReader } from './x/chat-wiring'
 import { X_CLIENT, XClient } from './x/x-client'
 import { AccessController } from './access/access.controller'
+import { featuresFrom } from './feature-flags'
+import { FEATURES, FeaturesController } from './features'
 import { AccessService } from './access/access.service'
 import type { KeyName } from './keys/contract'
 import { KEYS_ENV, KeyStore } from './keys/key-store'
@@ -95,6 +97,7 @@ function liveClient(config: ConfigService, auth: AuthService): XClient {
     ProspectDraftController,
     ReviewController,
     AuthController,
+    FeaturesController,
     AccessController,
     KeysController,
     CampaignsController,
@@ -120,6 +123,7 @@ function liveClient(config: ConfigService, auth: AuthService): XClient {
     Worker,
     AuthService,
     { provide: KEYS_ENV, useExisting: ConfigService },
+    { provide: FEATURES, inject: [ConfigService], useFactory: (config: ConfigService) => featuresFrom(config) },
     { provide: KeyStore, inject: [DataSource, ConfigService], useFactory: (ds: DataSource, config: ConfigService) => new KeyStore(ds, config) },
     { provide: AccessService, inject: [DataSource, ConfigService], useFactory: (ds: DataSource, config: ConfigService) => new AccessService(ds, config) },
     {

@@ -1,10 +1,12 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Optional, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
 import { DataSource, IsNull } from 'typeorm'
 import { z } from 'zod'
 import { JobsService } from '../jobs/jobs.service'
 import { resolveLane } from './campaign-lane'
 import { DiscoveryService, uniqueHandles } from './discovery.service'
 import { Campaign, Prospect } from './entities'
+import { FEATURES } from '../features'
+import type { Features } from '../feature-flags'
 import { ProspectsService } from './prospects.service'
 
 const NO_SOURCE = 'Give at least one handle, seed account or search query'
@@ -47,7 +49,13 @@ export class CampaignsController {
     private readonly jobs: JobsService,
     private readonly discovery: DiscoveryService,
     private readonly prospects: ProspectsService,
+    @Optional() @Inject(FEATURES) private readonly features: Features = { callPost: true },
   ) {}
+
+  // Clearing a call post (null) is always fine; setting one only where the lane is on.
+  private refuseCallPost(callPostUrl: string | null | undefined, callKeyword: string | null | undefined) {
+    if (!this.features.callPost && (callPostUrl || callKeyword)) throw new BadRequestException('Call posts are turned off on this server.')
+  }
 
   @Get()
   listCampaigns() {
@@ -59,6 +67,7 @@ export class CampaignsController {
     const parsed = createBody.safeParse(body)
     if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join('; '))
     const { budgetUsd, programId, callPostUrl, callKeyword, ...rest } = parsed.data
+    this.refuseCallPost(callPostUrl, callKeyword)
     const lane = await resolveLane(this.ds, { programId, callPostUrl, callKeyword })
     return this.ds.getRepository(Campaign).save({
       ...rest,
@@ -76,6 +85,7 @@ export class CampaignsController {
     const parsed = updateBody.safeParse(body)
     if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join('; '))
     const { budgetUsd, programId, callPostUrl, callKeyword, handles, seeds, ...rest } = parsed.data
+    this.refuseCallPost(callPostUrl, callKeyword)
     const patch: Partial<Campaign> = { ...rest }
     if (handles) patch.handles = uniqueHandles(handles)
     if (seeds) patch.seeds = uniqueHandles(seeds)

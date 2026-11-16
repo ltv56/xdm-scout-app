@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { postJson, SIGNED_OUT_EVENT } from '../api'
 import { btnPrimary, field } from '../ui/ui'
 import { useAccess } from './useAccess'
+import { onXConnected } from '../settings/connectX'
 
 
 // On a hosted deploy (ACCESS_GATE=on) nothing but this screen shows until the owner signs in.
@@ -14,7 +15,11 @@ export default function Gate({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onSignedOut = () => void qc.invalidateQueries({ queryKey: ['access'] })
     window.addEventListener(SIGNED_OUT_EVENT, onSignedOut)
-    return () => window.removeEventListener(SIGNED_OUT_EVENT, onSignedOut)
+    const stop = onXConnected(() => void Promise.all(['x-status', 'preflight', 'keys'].map((key) => qc.invalidateQueries({ queryKey: [key] }))))
+    return () => {
+      window.removeEventListener(SIGNED_OUT_EVENT, onSignedOut)
+      stop()
+    }
   }, [qc])
 
   if (access.isLoading) return null

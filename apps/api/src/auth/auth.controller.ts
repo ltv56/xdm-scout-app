@@ -31,7 +31,8 @@ export class AuthController {
       throw new BadRequestException(err instanceof Error ? err.message : 'OAuth failed')
     }
     // Relative, so it lands on whichever host X sent the browser back to (Vite in dev, the API itself when hosted).
-    return { url: '/#profile' }
+    // The page closes the login window the app opened, so the app's own tab gets no X page in its history.
+    return { url: '/x-connected.html' }
   }
 
   // Only with X_MODE=fake: a made-up sender so drafts work without logging in to X.

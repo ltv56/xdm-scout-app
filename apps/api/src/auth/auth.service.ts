@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { createHash, randomBytes } from 'node:crypto'
-import { DataSource } from 'typeorm'
+import { DataSource, Not } from 'typeorm'
 import { z } from 'zod'
 import { SenderAccount } from '../sending/entities'
+import { currentSender } from './current-sender'
 import { decryptToken, encryptToken } from './token-crypto'
 
 export const X_AUTH_CONFIG = Symbol('X_AUTH_CONFIG')
@@ -78,7 +79,11 @@ export class AuthService {
     const account = (await repo.findOneBy({ xUserId: me.id })) ?? repo.create({ xUserId: me.id })
     account.handle = me.username
     this.applyTokens(account, tokens)
-    await repo.save(account)
+    await this.ds.transaction(async (em) => {
+      const saved = await em.save(account)
+      // One account sends at a time: a login for another account ends the old one's.
+      await em.update(SenderAccount, { id: Not(saved.id) }, { accessTokenEnc: null, refreshTokenEnc: null, tokenExpiresAt: null })
+    })
   }
 
   // Fake X needs no tokens; drafts and the ledger only need a sender row to hang contacts on.
@@ -88,7 +93,7 @@ export class AuthService {
   }
 
   async status(mode: string): Promise<XAccountStatus> {
-    const account = await this.ds.getRepository(SenderAccount).findOne({ where: {}, order: { id: 'ASC' } })
+    const account = await currentSender(this.ds)
     const none = { connected: false, handle: null, tokenExpiresAt: null, missingScopes: [] }
     if (!account) return none
     if (!account.accessTokenEnc) return mode === 'fake' ? { ...none, connected: true, handle: account.handle } : none
@@ -102,18 +107,14 @@ export class AuthService {
   }
 
   async session(now = new Date()): Promise<XSession> {
-    const account = await this.ds.getRepository(SenderAccount).findOne({ where: {}, order: { id: 'ASC' } })
+    const account = await currentSender(this.ds)
     if (!account?.accessTokenEnc || !account.refreshTokenEnc) throw new Error('No X account connected')
     const fresh = this.freshSession(account, account.accessTokenEnc, now)
     if (fresh) return fresh
 
     // API and worker both call X; the row lock makes one of them refresh and the other reuse the result.
     return this.ds.transaction(async (em) => {
-      const locked = await em
-        .createQueryBuilder(SenderAccount, 'a')
-        .setLock('pessimistic_write')
-        .orderBy('a.id', 'ASC')
-        .getOne()
+      const locked = await em.createQueryBuilder(SenderAccount, 'a').setLock('pessimistic_write').where('a.id = :id', { id: account.id }).getOne()
       if (!locked?.accessTokenEnc || !locked.refreshTokenEnc) throw new Error('No X account connected')
       const refreshedMeanwhile = this.freshSession(locked, locked.accessTokenEnc, now)
       if (refreshedMeanwhile) return refreshedMeanwhile

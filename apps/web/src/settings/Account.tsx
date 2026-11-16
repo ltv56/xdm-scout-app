@@ -3,6 +3,7 @@ import { getJson, postJson } from '../api'
 import { useXAppKeys } from './useXAppKeys'
 import SenderProfile from './SenderProfile'
 import { XLogo } from '../ui/icons'
+import { connectX, X_LOGIN } from './connectX'
 import { btnSecondary } from '../ui/ui'
 
 export interface XStatus {
@@ -48,7 +49,7 @@ function XAccount() {
         </div>
         {s?.mode === 'live' ? (
           keys.ready ? (
-            <a className={btnSecondary} href="/api/auth/x/login">
+            <a className={btnSecondary} href={X_LOGIN} onClick={connectX}>
               {s.connected ? 'Reconnect X account' : 'Connect X account'}
             </a>
           ) : (

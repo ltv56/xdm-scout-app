@@ -1,3 +1,4 @@
+import { currentSender } from '../auth/current-sender'
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { CriterionResult, Prospect, XPost } from '../discovery/entities'
@@ -167,7 +168,7 @@ export class ReviewService {
     for (const p of posts) postsBy.set(p.xUserId, [...(postsBy.get(p.xUserId) ?? []), p])
     return {
       profile: parsed.success ? parsed.data : { intro: '', programs: [], signer: '', sampleMessages: [] },
-      sender: (await this.ds.getRepository(SenderAccount).find({ order: { id: 'ASC' }, take: 1 }))[0] ?? null,
+      sender: await currentSender(this.ds),
       prospects: new Map(prospects.map((p) => [p.id, p])),
       users: new Map((xUserIds.length ? await this.ds.getRepository(XUser).findBy({ xUserId: In(xUserIds) }) : []).map((u) => [u.xUserId, u])),
       contacts: new Map((drafts.length ? await this.ds.getRepository(Contact).findBy({ id: In(drafts.map((d) => d.contactId)) }) : []).map((c) => [c.id, c])),

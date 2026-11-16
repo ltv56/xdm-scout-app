@@ -141,6 +141,17 @@ describe('program and call post', () => {
     await expect(controller.update(c.id, { programId: 3, callPostUrl: url, callKeyword: null })).rejects.toBeInstanceOf(BadRequestException)
     await expect(controller.update(999, { programId: null, callPostUrl: null, callKeyword: null })).rejects.toBeInstanceOf(NotFoundException)
   })
+
+  it('with CALL_POST=off refuses to set a call post, but still takes a program and clearing it', async () => {
+    const off = new CampaignsController(ds, new JobsService(ds), new DiscoveryService(ds, new FakeXClient()), new ProspectsService(ds), { callPost: false })
+    const url = post('2026-11-01T03:00:00Z')
+    const refused = await off.create({ ...base, callPostUrl: url, callKeyword: 'build' }).catch((e: unknown) => e)
+    expect(refused).toBeInstanceOf(BadRequestException)
+    expect((refused as BadRequestException).message).toBe('Call posts are turned off on this server.')
+    const c = await off.create({ ...base, programId: 3 })
+    await expect(off.update(c.id, { callPostUrl: url, callKeyword: 'build' })).rejects.toBeInstanceOf(BadRequestException)
+    expect(await off.update(c.id, { programId: 3, callPostUrl: null, callKeyword: null })).toMatchObject({ programId: 3, callPostUrl: null })
+  })
 })
 
 describe('editing a campaign', () => {
