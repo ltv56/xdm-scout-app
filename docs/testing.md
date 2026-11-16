@@ -236,6 +236,7 @@ docker exec xdm-scout-db-1 mysql -uxdm -pxdm xdm -e "SELECT id, replyClass, clas
 - Each reply with text gets a class when it is stored. A stop phrase (stop messaging, unsubscribe, remove me, don't message, leave me alone) is `Opt-out` by rule, with no LLM call. Anything else goes to the LLM (task `reply`). Below 0.7, or bad JSON twice, it is `Unclear`. In fake mode with no LLM key, every reply the rule does not catch is `Unclear`.
 - `Not interested` and `Opt-out` add the person to `do_not_contact` (source `reply`) and close the reply. `Not now` closes it. Open replies list Interested first, then Question.
 - The operator can change the class on the card. Moving a reply out of `Not interested` or `Opt-out` keeps the person in `do_not_contact`.
+- With `X_MODE=live` and `XCHAT_KEYS_FILE` set (README, Live mode), each read also covers the X Chat conversation with that person. The unit tests (`apps/api/src/x/chat-reader.spec.ts`) use fake keys and fake events; the fake X has no Chat.
 - The fake X keeps its messages in the worker's memory, so a fake reply cannot be sent from outside. The browser test writes a row into `replies` instead.
 
 ## Browser walkthroughs (web)
