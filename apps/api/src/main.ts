@@ -4,6 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express'
 import { DataSource } from 'typeorm'
 import { AppModule } from './app.module'
 import { SandboxReload } from './sandbox/sandbox-reset'
+import { createHostGuard, parseAllowedHosts } from './security/host-guard'
 import { serveWeb } from './serve-web'
 import { FakeXClient } from './x/fake-x-client'
 import { X_CLIENT } from './x/x-client'
@@ -13,6 +14,8 @@ const RELOAD_EVERY_MS = 5_000
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
   app.setGlobalPrefix('api')
+  // ALLOWED_HOSTS: public host names of this deploy, comma separated (the local names are always allowed).
+  app.use(createHostGuard(parseAllowedHosts(process.env.ALLOWED_HOSTS)))
   // Set only in the Docker image, where one process serves the API and the built web app.
   if (process.env.WEB_DIST) serveWeb(app, process.env.WEB_DIST)
   await app.listen(process.env.PORT ?? 3001)

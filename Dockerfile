@@ -23,5 +23,6 @@ COPY --from=build /app/apps/api/package.json ./package.json
 COPY --from=build /app/apps/web/dist /app/apps/web/dist
 COPY fixtures /app/fixtures
 ENV WEB_DIST=/app/apps/web/dist
+USER node
 EXPOSE 3001
 CMD ["sh", "-c", "node /app/node_modules/typeorm/cli.js -d dist/data-source.js migration:run && exec node dist/main.js"]
