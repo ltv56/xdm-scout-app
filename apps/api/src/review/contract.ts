@@ -200,7 +200,6 @@ export const campaignLane = z.object({
   callKeyword: z.string().nullable(),
   callPostedAt: z.string().nullable(),
 })
-export const campaignLaneBody = campaignLane.omit({ callPostedAt: true })
 
 // Send acts on the hash the reviewer saw when approving.
 export const sendBody = z.object({ contentHash: z.string().length(64) })

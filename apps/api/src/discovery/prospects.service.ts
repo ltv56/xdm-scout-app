@@ -3,6 +3,7 @@ import { DataSource, In } from 'typeorm'
 import { Claim, Evidence } from '../fit/entities'
 import { openingFreshness } from '../fit/fit.service'
 import { KnownUser } from '../known/known-user.entity'
+import { Job } from '../jobs/job.entity'
 import { Contact, XUser } from '../sending/entities'
 import { Prospect, XPost } from './entities'
 import { LANDS_IN_RANK, landsIn } from './lands-in'
@@ -31,6 +32,7 @@ export class ProspectsService {
     const fundLists = new Map((await this.ds.getRepository(KnownUser).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((k) => [k.xUserId, k]))
     const contacts = new Map((await this.ds.getRepository(Contact).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((c) => [c.xUserId, c]))
     const lastPosts = await this.lastPostDates(prospects.map((p) => p.xUserId))
+    const scoring = await this.openScoreJobs(prospects.map((p) => p.id))
 
     const rows = prospects.map((p) => {
       const user = users.get(p.xUserId)
@@ -55,6 +57,7 @@ export class ProspectsService {
         landsIn: lands(p),
         seedCount: p.seedCount,
         status: p.status,
+        scoring: scoring.has(p.id),
         fit: p.fit,
         role: p.role,
         areas: p.areas ?? [],
@@ -80,6 +83,19 @@ export class ProspectsService {
     })
 
     return rows
+  }
+
+  // Candidates with a score job waiting for the worker or running.
+  private async openScoreJobs(ids: number[]) {
+    if (!ids.length) return new Set<number>()
+    const rows = await this.ds
+      .getRepository(Job)
+      .createQueryBuilder('j')
+      .select("JSON_EXTRACT(j.payload, '$.prospectId')", 'pid')
+      .where("j.type = 'score' AND j.status IN ('pending', 'running')")
+      .getRawMany<{ pid: number | string }>()
+    const wanted = new Set(ids)
+    return new Set(rows.map((r) => Number(r.pid)).filter((id) => wanted.has(id)))
   }
 
   private async lastPostDates(xUserIds: string[]) {

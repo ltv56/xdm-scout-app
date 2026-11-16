@@ -231,7 +231,7 @@ type Candidate = { handle: string; user: XUser; relationship: RelationshipContex
 
 const unique = <T>(items: T[]) => [...new Set(items)]
 
-const uniqueHandles = (handles: string[]) => unique(handles.map((h) => h.replace(/^@/, '').toLowerCase()))
+export const uniqueHandles = (handles: string[]) => unique(handles.map((h) => h.replace(/^@/, '').toLowerCase()))
 
 const isStale = (user: XUser | undefined, now: Date) => !user?.fetchedAt || now.getTime() - user.fetchedAt.getTime() > FRESH_MS
 

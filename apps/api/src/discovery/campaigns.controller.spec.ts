@@ -9,6 +9,7 @@ import { createTestDataSource } from '../test/db'
 import { FakeXClient } from '../x/fake-x-client'
 import { CampaignsController } from './campaigns.controller'
 import { DiscoveryService } from './discovery.service'
+import { Prospect } from './entities'
 import { ProspectsService } from './prospects.service'
 
 let ds: DataSource
@@ -35,6 +36,50 @@ describe('campaigns API', () => {
     expect(await controller.discover(campaign.id)).toEqual({ queued: true })
     expect(await controller.discover(campaign.id)).toEqual({ queued: false, reason: 'Discovery is already running for this campaign' })
     expect(await ds.getRepository(Job).countBy({ type: 'discover' })).toBe(1)
+  })
+
+  it('says whether a discovery is pending or running for the campaign', async () => {
+    const campaign = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+    const other = await controller.create({ name: 'o', keywords: ['ai'], handles: ['bob'] })
+    expect((await controller.get(campaign.id)).searching).toBe(false)
+    await controller.discover(campaign.id)
+    expect((await controller.get(campaign.id)).searching).toBe(true)
+    expect((await controller.get(other.id)).searching).toBe(false)
+    await ds.getRepository(Job).update({ type: 'discover' }, { status: 'done' })
+    expect((await controller.get(campaign.id)).searching).toBe(false)
+  })
+
+  it('scores one candidate on request and does not queue the same one twice', async () => {
+    const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+    const p = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500' })
+    expect(await controller.scoreOne(c.id, p.id)).toEqual({ queued: true })
+    expect(await controller.scoreOne(c.id, p.id)).toEqual({ queued: false, reason: 'Already being scored' })
+    expect(await ds.getRepository(Job).countBy({ type: 'score' })).toBe(1)
+
+    await ds.getRepository(Job).update({ type: 'score' }, { status: 'done' })
+    await ds.getRepository(Prospect).update(p.id, { scoredAt: new Date() })
+    expect(await controller.scoreOne(c.id, p.id)).toEqual({ queued: false, reason: 'Already scored' })
+    await expect(controller.scoreOne(c.id + 1, p.id)).rejects.toBeInstanceOf(NotFoundException)
+  })
+
+  it('score all leaves out anyone who is already being scored', async () => {
+    const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+    const first = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500' })
+    await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '501' })
+    await controller.scoreOne(c.id, first.id)
+    expect(await controller.score(c.id)).toEqual({ queued: 1 })
+    expect(await controller.score(c.id)).toEqual({ queued: 0 })
+    expect(await ds.getRepository(Job).countBy({ type: 'score' })).toBe(2)
+  })
+
+  it('lists whether each candidate is being scored', async () => {
+    const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+    const queued = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500' })
+    const idle = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '501' })
+    await controller.scoreOne(c.id, queued.id)
+    const rows = await controller.list(c.id)
+    expect(rows.find((r) => r.id === queued.id)?.scoring).toBe(true)
+    expect(rows.find((r) => r.id === idle.id)?.scoring).toBe(false)
   })
 
   it('lists campaigns, newest first, with id and name only', async () => {
@@ -74,9 +119,9 @@ describe('program and call post', () => {
   it('updates them, and clears the call post when both fields are null', async () => {
     const c = await controller.create(base)
     const url = post('2026-11-01T03:00:00Z')
-    await controller.updateLane(c.id, { programId: 3, callPostUrl: url, callKeyword: 'build' })
+    await controller.update(c.id, { programId: 3, callPostUrl: url, callKeyword: 'build' })
     expect(await controller.get(c.id)).toMatchObject({ programId: 3, callPostUrl: url })
-    await controller.updateLane(c.id, { programId: 3, callPostUrl: null, callKeyword: null })
+    await controller.update(c.id, { programId: 3, callPostUrl: null, callKeyword: null })
     expect(await controller.get(c.id)).toMatchObject({ callPostUrl: null, callKeyword: null, callPostedAt: null })
   })
 
@@ -93,7 +138,92 @@ describe('program and call post', () => {
     ]
     for (const extra of bad) await expect(controller.create({ ...base, ...extra })).rejects.toBeInstanceOf(BadRequestException)
     const c = await controller.create(base)
-    await expect(controller.updateLane(c.id, { programId: 3, callPostUrl: url, callKeyword: null })).rejects.toBeInstanceOf(BadRequestException)
-    await expect(controller.updateLane(999, { programId: null, callPostUrl: null, callKeyword: null })).rejects.toBeInstanceOf(NotFoundException)
+    await expect(controller.update(c.id, { programId: 3, callPostUrl: url, callKeyword: null })).rejects.toBeInstanceOf(BadRequestException)
+    await expect(controller.update(999, { programId: null, callPostUrl: null, callKeyword: null })).rejects.toBeInstanceOf(NotFoundException)
+  })
+})
+
+describe('editing a campaign', () => {
+  const profile = { intro: 'We back founders.', programs: [{ id: 3, name: 'Intro to investors', description: 'Intro to investors', link: 'https://genaifund.ai/', deadline: null }], signer: 'Vinh', sampleMessages: [] }
+  const post = `https://x.com/genaifund_ai/status/${BigInt(Date.parse('2026-11-01T03:00:00Z') - 1288834974657) << 22n}`
+  const base = { name: 'c', keywords: ['ai'], handles: ['alice'] }
+
+  beforeEach(async () => {
+    await ds.getRepository(Setting).save({ key: 'sender_profile', value: profile })
+  })
+
+  it('changes every field it is given', async () => {
+    const c = await controller.create(base)
+    await controller.update(c.id, {
+      name: 'robotics',
+      keywords: ['robots', 'agents'],
+      handles: ['bob'],
+      seeds: ['carol'],
+      queries: ['robotics founder'],
+      criteria: ['Based in Southeast Asia'],
+      budgetUsd: 2.5,
+    })
+    expect(await controller.get(c.id)).toMatchObject({
+      name: 'robotics',
+      keywords: ['robots', 'agents'],
+      handles: ['bob'],
+      seeds: ['carol'],
+      queries: ['robotics founder'],
+      criteria: ['Based in Southeast Asia'],
+      budgetMicros: 2_500_000,
+    })
+  })
+
+  it('keeps what it is not given, including the program and the call post', async () => {
+    const c = await controller.create({ ...base, programId: 3, callPostUrl: post, callKeyword: 'build' })
+    await controller.update(c.id, { name: 'renamed' })
+    expect(await controller.get(c.id)).toMatchObject({ name: 'renamed', keywords: ['ai'], handles: ['alice'], programId: 3, callPostUrl: post, callKeyword: 'build' })
+  })
+
+  it('a program and call post change leaves the search fields alone', async () => {
+    const c = await controller.create(base)
+    await controller.update(c.id, { programId: 3, callPostUrl: post, callKeyword: 'build' })
+    expect(await controller.get(c.id)).toMatchObject({ keywords: ['ai'], handles: ['alice'], programId: 3, callKeyword: 'build' })
+  })
+
+  it('stores handles and seeds without @, in lower case and without repeats, on create and on edit', async () => {
+    const c = await controller.create({ ...base, handles: ['@Alice', 'alice', 'Bob'], seeds: ['@Carol'] })
+    expect(await controller.get(c.id)).toMatchObject({ handles: ['alice', 'bob'], seeds: ['carol'] })
+    await controller.update(c.id, { handles: ['@Dave', 'DAVE'], seeds: [] })
+    expect(await controller.get(c.id)).toMatchObject({ handles: ['dave'], seeds: [] })
+  })
+
+  it('refuses what create refuses', async () => {
+    const c = await controller.create({ ...base, queries: ['ai'] })
+    const bad = [
+      { keywords: [] },
+      { handles: [], queries: [] },
+      { seeds: Array.from({ length: 11 }, (_, i) => `s${i}`) },
+      { queries: Array.from({ length: 11 }, (_, i) => `q${i}`) },
+      { criteria: Array.from({ length: 6 }, (_, i) => `c${i}`) },
+      { criteria: ['x'.repeat(201)] },
+      { name: '' },
+      { budgetUsd: 0 },
+      { budgetUsd: 101 },
+      { surprise: true },
+    ]
+    for (const extra of bad) await expect(controller.update(c.id, extra)).rejects.toBeInstanceOf(BadRequestException)
+    expect(await controller.get(c.id)).toMatchObject({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+  })
+
+  it('says why in the same words as create', async () => {
+    const c = await controller.create(base)
+    await expect(controller.update(c.id, { handles: [] })).rejects.toThrow('Give at least one handle, seed account or search query')
+  })
+
+  it('does not touch the people already found', async () => {
+    const c = await controller.create(base)
+    await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500' })
+    await controller.update(c.id, { keywords: ['other'], handles: ['zed'] })
+    expect(await ds.getRepository(Prospect).countBy({ campaignId: c.id })).toBe(1)
+  })
+
+  it('answers 404 for a campaign that does not exist', async () => {
+    await expect(controller.update(999, { name: 'x' })).rejects.toBeInstanceOf(NotFoundException)
   })
 })
