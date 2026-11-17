@@ -8,6 +8,8 @@ import TagInput from '../ui/TagInput'
 import SourceFields from './SourceFields'
 import ReadLimits from './ReadLimits'
 import { readLimitsProblem } from './read-limits'
+import { builderQuery } from '../../../api/src/discovery/search-query'
+import { SEA_REGIONS } from '../../../api/src/discovery/regions'
 import { useFeatures } from '../useFeatures'
 import { btnPrimary, btnSecondary, field as baseField } from '../ui/ui'
 
@@ -32,6 +34,10 @@ const DEFAULT_NAME = 'AI and robotics builders'
 const DEFAULT_KEYWORDS = ['robotics', 'embodied AI', 'LLM', 'AI agents', 'developer tools', 'AI infrastructure']
 // The people the fake X knows. Used only in the sandbox, so the first search has someone to find.
 const SANDBOX_HANDLES = ['mina_builds', 'tomas_agents', 'lena_embodied', 'robotco', 'private_dev', 'nobody_here']
+// First live campaign: the three seeds whose followers were most often SEA AI builders out of 11 measured (20 Nov: 12%, 12%, 10%).
+const LIVE_FOLLOWERS_OF = ['aisingapore', 'lorong_ai', 'sginnovate']
+const LIVE_PER_SEED = '40'
+const LIVE_BUDGET = '4'
 
 const Star = () => (
   <span aria-hidden className="ml-0.5 text-block">
@@ -46,12 +52,14 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
   const [keywords, setKeywords] = useState<string[]>(first ? DEFAULT_KEYWORDS : [])
   const [handleText, setHandleText] = useState<string[]>([])
   const [seeds, setSeeds] = useState<string[]>([])
+  // null until the person types, so the live defaults can follow the X mode once it is known.
+  const [followersOfIn, setFollowersOf] = useState<string[] | null>(null)
   const [queries, setQueries] = useState<string[]>([])
-  const sources = { handles: handleText, seeds, queries, onHandles: setHandleText, onSeeds: setSeeds, onQueries: setQueries }
+  const [regionsIn, setRegions] = useState<string[] | null>(null)
   const [criteria, setCriteria] = useState('')
-  const [budget, setBudget] = useState('')
+  const [budgetIn, setBudget] = useState<string | null>(null)
   const [searchMax, setSearchMax] = useState('20')
-  const [followingMax, setFollowingMax] = useState('100')
+  const [followingMaxIn, setFollowingMax] = useState<string | null>(null)
   const [followersMax, setFollowersMax] = useState('50000')
   const [programId, setProgramId] = useState<number | null>(null)
   const [callUrl, setCallUrl] = useState('')
@@ -69,6 +77,13 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
     retry: false,
   })
   const programs = profile.data?.programs ?? []
+  const live = first && !sandbox
+  const followersOf = followersOfIn ?? (live ? LIVE_FOLLOWERS_OF : [])
+  const budget = budgetIn ?? (live ? LIVE_BUDGET : '')
+  const followingMax = followingMaxIn ?? (live ? LIVE_PER_SEED : '100')
+  // The seeds above are Southeast Asian, so the first live campaign looks there.
+  const regions = regionsIn ?? (live ? SEA_REGIONS : [])
+  const sources = { handles: handleText, seeds, followersOf, queries, onHandles: setHandleText, onSeeds: setSeeds, onFollowersOf: setFollowersOf, onQueries: setQueries, regions, onRegions: setRegions }
   const chosen = programId ?? programs[0]?.id ?? null
 
   const create = useMutation({
@@ -82,7 +97,8 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
 
   const untouched = !handleText.length && !seeds.length && !queries.length
   const handleList = first && untouched && sandbox ? SANDBOX_HANDLES : handleText
-  const queryList = first && untouched && !sandbox ? keywords.slice(0, 10) : queries
+  const firstQuery = builderQuery(keywords)
+  const queryList = first && untouched && !sandbox && !followersOf.length ? (firstQuery ? [firstQuery] : []) : queries
 
   const submit = () => {
     const budgetUsd = budget.trim() ? Number(budget) : undefined
@@ -90,7 +106,7 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
       ? 'Give the campaign a name.'
       : !keywords.length
         ? 'Add at least one keyword.'
-        : !handleList.length && !seeds.length && !queryList.length
+        : !handleList.length && !seeds.length && !followersOf.length && !queryList.length
           ? 'Add at least one handle, seed account or search query.'
           : budgetUsd !== undefined && !(budgetUsd > 0 && budgetUsd <= 100)
             ? 'Budget must be above 0 and at most 100 USD.'
@@ -111,7 +127,9 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
       keywords,
       handles: handleList,
       seeds,
+      followersOf,
       queries: queryList,
+      regions,
       criteria: lines(criteria),
       ...(budgetUsd !== undefined && { budgetUsd }),
       searchMax: Number(searchMax),
@@ -183,7 +201,7 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
             <div className="mt-5 space-y-6">
               <SourceFields
                 {...sources}
-                handlesNote={`Left empty here and in the next two boxes: ${sandbox ? 'the example people are used.' : 'the app searches X for your keywords.'}`}
+                handlesNote={`Left empty here, in Seed accounts and in Search queries: ${sandbox ? 'the example people are used.' : 'the people who follow the accounts in Followers of are read; with that empty too, the app searches X for recent posts where someone built or launched something matching your keywords.'}`}
               />
               <details>
                 <summary className="cursor-pointer text-sm font-medium">Fund criteria (optional)</summary>

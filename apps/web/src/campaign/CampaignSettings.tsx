@@ -21,8 +21,10 @@ interface CampaignRow {
   keywords: string[]
   handles: string[]
   seeds: string[] | null
+  followersOf: string[] | null
   queries: string[] | null
   criteria: string[] | null
+  regions: string[] | null
   budgetMicros: number
   searchMax: number
   followingMax: number
@@ -35,7 +37,7 @@ interface CampaignRow {
 const text = (items: string[] | null) => (items ?? []).join('\n')
 const list = (items: string[] | null) => items ?? []
 const snapshot = (r: CampaignRow) =>
-  JSON.stringify([r.name, r.keywords, list(r.handles), list(r.seeds), list(r.queries), text(r.criteria), String(r.budgetMicros / 1_000_000), r.programId, r.callPostUrl ?? '', r.callKeyword ?? '', String(r.searchMax), String(r.followingMax), String(r.followersMax)])
+  JSON.stringify([r.name, r.keywords, list(r.handles), list(r.seeds), list(r.followersOf), list(r.queries), list(r.regions), text(r.criteria), String(r.budgetMicros / 1_000_000), r.programId, r.callPostUrl ?? '', r.callKeyword ?? '', String(r.searchMax), String(r.followingMax), String(r.followersMax)])
 
 export default function CampaignSettings({ campaignId }: { campaignId: number }) {
   const campaign = useQuery<CampaignRow>({ queryKey: ['campaign', campaignId], queryFn: () => getJson(`/campaigns/${campaignId}`), retry: false })
@@ -60,8 +62,10 @@ function CampaignForm({ row }: { row: CampaignRow }) {
   const [keywords, setKeywords] = useState(list(row.keywords))
   const [handles, setHandles] = useState(list(row.handles))
   const [seeds, setSeeds] = useState(list(row.seeds))
+  const [followersOf, setFollowersOf] = useState(list(row.followersOf))
   const [queries, setQueries] = useState(list(row.queries))
   const [criteria, setCriteria] = useState(text(row.criteria))
+  const [regions, setRegions] = useState(list(row.regions))
   const [budget, setBudget] = useState(String(row.budgetMicros / 1_000_000))
   const [searchMax, setSearchMax] = useState(String(row.searchMax))
   const [followingMax, setFollowingMax] = useState(String(row.followingMax))
@@ -73,7 +77,7 @@ function CampaignForm({ row }: { row: CampaignRow }) {
   const [saved, setSaved] = useState(() => snapshot(row))
   // Text typed in a tag box is added on Save, so typing alone counts as a change.
   const [typed, setTyped] = useState(false)
-  const current = JSON.stringify([name, keywords, handles, seeds, queries, criteria, budget, programId, callUrl, callKeyword, searchMax, followingMax, followersMax])
+  const current = JSON.stringify([name, keywords, handles, seeds, followersOf, queries, regions, criteria, budget, programId, callUrl, callKeyword, searchMax, followingMax, followersMax])
   const dirty = typed || current !== saved
 
   const profile = useQuery<SenderProfile>({ queryKey: ['sender-profile'], queryFn: () => getJson('/sender-profile'), retry: false })
@@ -86,8 +90,10 @@ function CampaignForm({ row }: { row: CampaignRow }) {
       setKeywords(list(saved.keywords))
       setHandles(list(saved.handles))
       setSeeds(list(saved.seeds))
+      setFollowersOf(list(saved.followersOf))
       setQueries(list(saved.queries))
       setCriteria(text(saved.criteria))
+      setRegions(list(saved.regions))
       setBudget(String(saved.budgetMicros / 1_000_000))
       setSearchMax(String(saved.searchMax))
       setFollowingMax(String(saved.followingMax))
@@ -107,7 +113,7 @@ function CampaignForm({ row }: { row: CampaignRow }) {
       ? 'Give the campaign a name.'
       : !keywords.length
         ? 'Add at least one keyword.'
-        : !handles.length && !seeds.length && !queries.length
+        : !handles.length && !seeds.length && !followersOf.length && !queries.length
           ? 'Add at least one handle, seed account or search query.'
           : !budget.trim() || !(budgetUsd > 0 && budgetUsd <= 100)
             ? 'Budget must be above 0 and at most 100 USD.'
@@ -126,8 +132,10 @@ function CampaignForm({ row }: { row: CampaignRow }) {
       keywords,
       handles,
       seeds,
+      followersOf,
       queries,
       criteria: lines(criteria),
+      regions,
       budgetUsd,
       searchMax: Number(searchMax),
       followingMax: Number(followingMax),
@@ -162,7 +170,7 @@ function CampaignForm({ row }: { row: CampaignRow }) {
 
       <fieldset className="space-y-5">
         <legend className="text-sm font-medium">Where to find people (at least one)</legend>
-        <SourceFields handles={handles} seeds={seeds} queries={queries} onHandles={setHandles} onSeeds={setSeeds} onQueries={setQueries} />
+        <SourceFields handles={handles} seeds={seeds} followersOf={followersOf} queries={queries} onHandles={setHandles} onSeeds={setSeeds} onFollowersOf={setFollowersOf} onQueries={setQueries} regions={regions} onRegions={setRegions} />
       </fieldset>
 
       <div>

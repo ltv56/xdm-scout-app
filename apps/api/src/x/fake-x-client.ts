@@ -153,6 +153,13 @@ export class FakeXClient implements XClient {
     this.following.set(userId, handles)
   }
 
+  // Everyone whose following list holds this user, in the order they were added.
+  async getFollowers(userId: string, max: number): Promise<XProfile[]> {
+    const handle = [...this.profiles.values()].find((p) => p.id === userId)?.handle.toLowerCase()
+    const ids = [...this.following.entries()].filter(([, hs]) => hs.some((h) => h.toLowerCase() === handle)).map(([id]) => id)
+    return ids.slice(0, max).flatMap((id) => [...this.profiles.values()].find((p) => p.id === id) ?? [])
+  }
+
   async getFollowing(userId: string, max: number): Promise<XProfile[]> {
     const handles = (this.following.get(userId) ?? []).slice(0, max)
     return handles.flatMap((h) => this.profiles.get(h.toLowerCase()) ?? [])

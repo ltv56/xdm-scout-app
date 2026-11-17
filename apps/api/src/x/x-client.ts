@@ -51,6 +51,7 @@ export interface XClient {
   lookupUsers(handles: string[]): Promise<XProfile[]>
   getRecentPosts(userId: string, max: number): Promise<XPost[]>
   getFollowing(userId: string, max: number): Promise<XProfile[]>
+  getFollowers(userId: string, max: number): Promise<XProfile[]>
   // The ids among these posts that X still serves; the rest were deleted or hidden. X bills each post read.
   getPostsExist(ids: string[]): Promise<Set<string>>
   // Recent posts (7 days) matching the query, with their authors.

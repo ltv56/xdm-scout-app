@@ -46,6 +46,7 @@ export const SKIP_TEXT: Record<string, string> = {
   'already-contacted': 'Already messaged, from this or another campaign',
   'off-topic': 'No campaign keyword in their bio',
   'too-many-followers': 'More followers than this campaign allows',
+  'outside-regions': 'X location is outside the campaign regions',
   budget: 'The budget ran out before their profile was read',
 }
 

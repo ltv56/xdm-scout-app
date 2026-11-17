@@ -2,7 +2,7 @@
 
 Find AI and robotics builders on X, draft DMs backed by their own posts, send each one only after a person approves it, and track replies. A person never gets the same first message twice.
 
-- **Find:** keywords, seed accounts, handles and recent posts, within a budget per campaign.
+- **Find:** keywords, seed accounts (who they follow or who follows them), handles and recent posts, within a budget per campaign.
 - **Explain:** a Fit label (Strong, Possible, Weak, Not a fit) with the posts behind each reason.
 - **Draft:** every sentence links to its source; unbacked claims are flagged. English, Vietnamese, Thai or Indonesian.
 - **Send:** only the approved text. The API sends only to people who messaged first; everyone else is sent by hand in X. [Why](docs/how-it-works.md#two-ways-to-send)

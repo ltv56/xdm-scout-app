@@ -207,7 +207,15 @@ export class LiveXClient implements XClient {
   }
 
   // X bills each user returned, so stop paging once max is reached.
-  async getFollowing(userId: string, max: number): Promise<XProfile[]> {
+  getFollowing(userId: string, max: number): Promise<XProfile[]> {
+    return this.users(userId, 'following', max)
+  }
+
+  getFollowers(userId: string, max: number): Promise<XProfile[]> {
+    return this.users(userId, 'followers', max)
+  }
+
+  private async users(userId: string, list: 'following' | 'followers', max: number): Promise<XProfile[]> {
     const out: XProfile[] = []
     let token: string | undefined
     do {
@@ -216,7 +224,7 @@ export class LiveXClient implements XClient {
         'user.fields': USER_FIELDS,
         ...(token && { pagination_token: token }),
       })
-      const parsed = usersResponse.parse(await (await this.call(`/2/users/${userId}/following?${query}`, 'GET')).json())
+      const parsed = usersResponse.parse(await (await this.call(`/2/users/${userId}/${list}?${query}`, 'GET')).json())
       out.push(...(parsed.data ?? []).map(toProfile))
       token = parsed.meta?.next_token
     } while (token && out.length < max)

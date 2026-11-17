@@ -3,9 +3,10 @@ import { DataSource, In, Not } from 'typeorm'
 import { KnownUser } from '../known/known-user.entity'
 import { Contact, DoNotContact, RelationshipContext, SendAttempt, XUser } from '../sending/entities'
 import { X_CLIENT, XClient, XProfile } from '../x/x-client'
-import { ApiUsage, Campaign, Prospect, XPost } from './entities'
+import { ApiUsage, Campaign, DiscoveryRun, Prospect, XPost } from './entities'
 import { MAX_POSTS_PER_USER, MIN_SEARCH_RESULTS, PRICES } from './pricing'
 import { bioHasKeyword, companyHandle } from './keywords'
+import { outsideRegions } from './regions'
 
 const FRESH_MS = 7 * 86_400_000
 
@@ -18,6 +19,7 @@ export type SkipReason =
   | 'already-contacted'
   | 'off-topic'
   | 'too-many-followers'
+  | 'outside-regions'
   | 'budget'
 
 @Injectable()
@@ -31,15 +33,16 @@ export class DiscoveryService {
     const campaign = await this.ds.getRepository(Campaign).findOneByOrFail({ id: campaignId })
     const handles = uniqueHandles(campaign.handles)
     const seeds = uniqueHandles(campaign.seeds ?? [])
+    const followersOf = uniqueHandles(campaign.followersOf ?? [])
     const known = await this.knownByHandle()
-    const profiles = unique([...handles, ...seeds]).filter((h) => isStale(known.get(h), now)).length
+    const profiles = unique([...handles, ...seeds, ...followersOf]).filter((h) => isStale(known.get(h), now)).length
     let needPosts = 0
     for (const h of handles) {
       const user = known.get(h)
       if (!user || !(await this.hasPosts(user.xUserId))) needPosts += 1
     }
     const maxPosts = needPosts * MAX_POSTS_PER_USER
-    const maxFollowing = seeds.length * campaign.followingMax
+    const maxFollowing = (seeds.length + followersOf.length) * campaign.followingMax
     const maxSearch = (campaign.queries ?? []).length * campaign.searchMax
     return {
       profiles,
@@ -58,11 +61,12 @@ export class DiscoveryService {
     const campaign = await this.ds.getRepository(Campaign).findOneByOrFail({ id: campaignId })
     const handles = uniqueHandles(campaign.handles)
     const seeds = uniqueHandles(campaign.seeds ?? [])
+    const followersOf = uniqueHandles(campaign.followersOf ?? [])
     const startSpent = await this.spent(campaignId)
     let stoppedByBudget = false
 
     const known = await this.knownByHandle()
-    const stale = unique([...handles, ...seeds]).filter((h) => isStale(known.get(h), now))
+    const stale = unique([...handles, ...seeds, ...followersOf]).filter((h) => isStale(known.get(h), now))
     const affordable = Math.max(0, Math.floor((campaign.budgetMicros - startSpent) / PRICES.profile))
     const unaffordable = new Set(stale.slice(affordable))
     const toFetch = stale.slice(0, affordable)
@@ -76,7 +80,7 @@ export class DiscoveryService {
 
     const skipped: { handle: string; reason: SkipReason }[] = []
     const candidates = new Map<string, Candidate>()
-    for (const handle of [...handles, ...seeds]) {
+    for (const handle of unique([...handles, ...seeds, ...followersOf])) {
       if (known.has(handle)) continue
       skipped.push({ handle, reason: unaffordable.has(handle) ? 'budget' : 'not-found' })
       if (unaffordable.has(handle)) stoppedByBudget = true
@@ -85,9 +89,10 @@ export class DiscoveryService {
       const user = known.get(handle)
       if (user) candidates.set(user.xUserId, { handle, user, relationship: 'cold', seedCount: 0 })
     }
-    const seedUsers = seeds.flatMap((handle) => { const u = known.get(handle); return u ? [{ handle, id: u.xUserId }] : [] })
+    const seedUser = (list: 'following' | 'followers') => (handle: string) => { const u = known.get(handle); return u ? [{ handle, id: u.xUserId, list }] : [] }
+    const seedUsers = [...seeds.flatMap(seedUser('following')), ...followersOf.flatMap(seedUser('followers'))]
     const seedIds = new Set(seedUsers.map((u) => u.id))
-    const seedReport: { handle: string; following: number }[] = []
+    const seedReport: NonNullable<DiscoveryRun['seeds']> = []
     if (!(await this.addFromSeeds(campaign, seedUsers, seedIds, candidates, now, seedReport))) stoppedByBudget = true
     if (!(await this.addFromSearch(campaign, seedIds, candidates, now))) stoppedByBudget = true
 
@@ -143,16 +148,16 @@ export class DiscoveryService {
 
   // Returns false when the budget stopped a read.
   // report gets how many accounts each seed follows, so a seed that adds nobody is visible.
-  private async addFromSeeds(campaign: Campaign, seedUsers: { handle: string; id: string }[], seedIds: Set<string>, candidates: Map<string, Candidate>, now: Date, report: { handle: string; following: number }[]) {
+  private async addFromSeeds(campaign: Campaign, seedUsers: { handle: string; id: string; list: 'following' | 'followers' }[], seedIds: Set<string>, candidates: Map<string, Candidate>, now: Date, report: NonNullable<DiscoveryRun['seeds']>) {
     let complete = true
-    for (const { handle, id: seedId } of seedUsers) {
+    for (const { handle, id: seedId, list } of seedUsers) {
       const max = Math.min(campaign.followingMax, Math.floor((await this.remaining(campaign)) / PRICES.following))
       if (max <= 0) {
         complete = false
         continue
       }
-      const following = await this.x.getFollowing(seedId, max)
-      report.push({ handle, following: following.length })
+      const following = list === 'followers' ? await this.x.getFollowers(seedId, max) : await this.x.getFollowing(seedId, max)
+      report.push(list === 'followers' ? { handle, following: following.length, list } : { handle, following: following.length })
       await this.recordUsage(campaign.id, 'following', following.length, PRICES.following)
       for (const p of following) {
         if (seedIds.has(p.id)) continue
@@ -278,7 +283,7 @@ export class DiscoveryService {
   }
 
   // limits null: skip the bio and follower checks (a handle the operator named).
-  private async skipReason(user: XUser, limits: Pick<Campaign, 'keywords' | 'followersMax'> | null): Promise<SkipReason | null> {
+  private async skipReason(user: XUser, limits: Pick<Campaign, 'keywords' | 'followersMax' | 'regions'> | null): Promise<SkipReason | null> {
     if (user.isProtected) return 'protected'
     // X gives the government check to officials as well as offices, so only business marks an organisation.
     if (user.orgType === 'business') return 'organization'
@@ -287,6 +292,7 @@ export class DiscoveryService {
     if (await this.wasContacted(user.xUserId)) return 'already-contacted'
     if (limits && !bioHasKeyword(user.bio ?? '', limits.keywords)) return 'off-topic'
     if (limits && (user.followers ?? 0) > limits.followersMax) return 'too-many-followers'
+    if (limits && outsideRegions(user.location, limits.regions ?? [])) return 'outside-regions'
     return null
   }
 

@@ -88,4 +88,20 @@ describe('discovery from seed accounts', () => {
     expect(estimate.maxFollowing).toBe(2 * FOLLOWING)
     expect(estimate.estimatedMicros).toBe(2 * PRICES.profile + 2 * FOLLOWING * PRICES.following)
   })
+
+  it('adds the people who follow a followers-of seed, and counts them in the report and the estimate', async () => {
+    // alice and bob follow the community account; the community account follows nobody we know.
+    x.addProfile({ id: 's4', handle: 'sea_ai_community', bio: 'AI community' })
+    x.addFollowing('1', ['sea_ai_community'])
+    x.addFollowing('2', ['sea_ai_community'])
+    const campaign = await ds.getRepository(Campaign).save({ name: 'c', keywords: ['robotics', 'llm'], handles: [], seeds: [], followersOf: ['@sea_ai_community'], budgetMicros: 5_000_000 })
+
+    expect((await discovery.estimate(campaign.id, now)).maxFollowing).toBe(FOLLOWING)
+    const result = await discovery.run(campaign.id, now)
+
+    expect(result.seeds).toEqual([{ handle: 'sea_ai_community', following: 2, list: 'followers' }])
+    const added = await ds.getRepository(Prospect).findBy({ campaignId: campaign.id })
+    expect(added.map((p) => [p.xUserId, p.relationship]).sort()).toEqual([['1', 'adjacent'], ['2', 'adjacent']])
+    expect((await usage('following')).reduce((n, u) => n + u.count, 0)).toBe(2)
+  })
 })

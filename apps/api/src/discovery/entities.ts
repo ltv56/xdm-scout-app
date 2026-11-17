@@ -18,6 +18,14 @@ export class Campaign {
   @Column({ type: 'json', nullable: true })
   seeds!: string[] | null
 
+  // Seeds whose followers are read: a community or program account is followed by the people it serves.
+  @Column({ type: 'json', nullable: true })
+  followersOf!: string[] | null
+
+  // Empty or null: no place filter.
+  @Column({ type: 'json', nullable: true })
+  regions!: string[] | null
+
   @Column({ type: 'json', nullable: true })
   queries!: string[] | null
 
@@ -172,7 +180,7 @@ export type DiscoveryRun = {
   added: number
   // Missing on runs saved before it was recorded.
   addedHandles?: string[]
-  seeds?: { handle: string; following: number }[]
+  seeds?: { handle: string; following: number; list?: 'followers' }[]
   skipped: { handle: string; reason: string }[]
   spentMicros: number
   stoppedByBudget: boolean

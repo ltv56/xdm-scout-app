@@ -12,7 +12,7 @@ The API serves the web app; the worker runs searches, scoring, drafts, sends and
 
 ## Search
 
-Sources: handles you name, accounts a seed follows, and authors of recent posts matching a query. The first matching skip reason is shown under Last search:
+Sources: handles you name, accounts a seed follows, followers of a community or program account, and authors of recent posts matching a query. The first live campaign starts from followers of @aisingapore, @lorong_ai and @sginnovate, limited to Southeast Asian regions; with those cleared it searches for posts where someone built or launched something matching its keywords. A campaign with regions skips people whose X location names a place outside them before reading their posts; no location is kept. The first matching skip reason is shown under Last search:
 
 | Reason | Meaning |
 | --- | --- |
@@ -85,7 +85,7 @@ Prices: `apps/api/src/discovery/pricing.ts` and `apps/api/src/llm/llm-pricing.ts
 | --- | --- | --- |
 | Profile | ~$0.01 | search, seeds, handles, company in a bio, Known list import |
 | Post | ~$0.005 | up to 15 per person, search results, quoted-post checks |
-| Following of a seed | ~$0.01 per account | up to the seed limit (default 100) |
+| Following or followers of a seed | ~$0.01 per account | up to the seed limit (default 100) |
 | DM event | ~$0.01 | reply reads, Check now, hand-send checks |
 
 - Each search shows an upper bound first; the campaign budget (default $1, max $100) is a hard stop.

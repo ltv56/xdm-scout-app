@@ -19,7 +19,7 @@ interface DiscoveryRun {
   at: string
   added: number
   addedHandles?: string[]
-  seeds?: { handle: string; following: number }[]
+  seeds?: { handle: string; following: number; list?: 'followers' }[]
   skipped: { handle: string; reason: string }[]
   spentMicros: number
   stoppedByBudget: boolean
@@ -34,6 +34,7 @@ interface Campaign extends CampaignLane {
   criteria: string[] | null
   handles: string[]
   seeds: string[] | null
+  followersOf?: string[] | null
   queries: string[] | null
   lastDiscovery: DiscoveryRun | null
   budgetMicros: number
@@ -114,7 +115,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
   const ready = readyQuery.data?.ready ?? 0
   const byVerdict = (t: string) => drafts.filter((d) => verdict(d).tone === t).length
   const run = c.lastDiscovery
-  const sources = [c.handles.length && plural(c.handles.length, 'handle'), c.seeds?.length && plural(c.seeds.length, 'seed account'), c.queries?.length && plural(c.queries.length, 'search')].filter(Boolean).join(' · ')
+  const sources = [c.handles.length && plural(c.handles.length, 'handle'), c.seeds?.length && plural(c.seeds.length, 'seed account'), c.followersOf?.length && `followers of ${plural(c.followersOf.length, 'account')}`, c.queries?.length && plural(c.queries.length, 'search')].filter(Boolean).join(' · ')
   const firstSearch = !run && people.length === 0 && drafts.length === 0
   const top = people.filter((p) => p.fit === 'strong' || p.fit === 'possible').slice(0, 10)
 
@@ -346,7 +347,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
             )}
             {!!run.seeds?.length && (
               <p className="mt-2 text-sm text-muted">
-                Seeds: {run.seeds.map((x) => `@${x.handle} ${x.following ? `follows ${x.following}` : 'follows nobody we could read, so it added no one'}`).join(', ')}
+                Seeds: {run.seeds.map((x) => `@${x.handle} ${x.list === 'followers' ? (x.following ? `${x.following} followers read` : 'no followers we could read, so it added no one') : x.following ? `follows ${x.following}` : 'follows nobody we could read, so it added no one'}`).join(', ')}
               </p>
             )}
             {run.skipped.length > 0 && (
@@ -422,6 +423,7 @@ function SearchUses({ campaign: c, className = '' }: { campaign: Campaign; class
   ]
   if (c.handles.length) rows.push(['Handles', shown(c.handles.map(at), 4)])
   if (c.seeds?.length) rows.push(['Seed accounts', shown(c.seeds.map(at), 3)])
+  if (c.followersOf?.length) rows.push(['Followers of', shown(c.followersOf.map(at), 3)])
   if (c.queries?.length) rows.push(['Search queries', shown(c.queries, 3)])
   rows.push([
     'Fund criteria',

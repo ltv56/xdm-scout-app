@@ -18,8 +18,10 @@ const fields = {
   keywords: z.array(z.string().min(1)).min(1),
   handles: z.array(z.string().min(1)),
   seeds: z.array(z.string().min(1)).max(10),
+  followersOf: z.array(z.string().min(1)).max(10),
   queries: z.array(z.string().min(1).max(512)).max(10),
   criteria: z.array(z.string().min(1).max(200)).max(5),
+  regions: z.array(z.string().trim().min(1).max(40)).max(60),
   budgetUsd: z.number().positive().max(100),
   programId: z.number().int().positive().nullable(),
   callPostUrl: z.string().nullable(),
@@ -34,8 +36,10 @@ const createBody = z
     ...fields,
     handles: fields.handles.default([]),
     seeds: fields.seeds.default([]),
+    followersOf: fields.followersOf.default([]),
     queries: fields.queries.default([]),
     criteria: fields.criteria.default([]),
+    regions: fields.regions.default([]),
     budgetUsd: fields.budgetUsd.optional(),
     programId: fields.programId.optional(),
     callPostUrl: fields.callPostUrl.optional(),
@@ -45,7 +49,7 @@ const createBody = z
     followersMax: fields.followersMax.optional(),
   })
   .strict()
-  .refine((b) => b.handles.length + b.seeds.length + b.queries.length > 0, { message: NO_SOURCE })
+  .refine((b) => b.handles.length + b.seeds.length + b.followersOf.length + b.queries.length > 0, { message: NO_SOURCE })
 
 // Every field is optional; what is not sent stays as it is.
 const updateBody = z.object(fields).partial().strict()
@@ -81,6 +85,7 @@ export class CampaignsController {
       ...rest,
       handles: uniqueHandles(rest.handles),
       seeds: uniqueHandles(rest.seeds),
+      followersOf: uniqueHandles(rest.followersOf),
       ...lane,
       ...(budgetUsd && { budgetMicros: Math.round(budgetUsd * 1_000_000) }),
     })
@@ -92,12 +97,13 @@ export class CampaignsController {
     const current = await this.campaign(id)
     const parsed = updateBody.safeParse(body)
     if (!parsed.success) throw new BadRequestException(parsed.error.issues.map((i) => i.message).join('; '))
-    const { budgetUsd, programId, callPostUrl, callKeyword, handles, seeds, ...rest } = parsed.data
+    const { budgetUsd, programId, callPostUrl, callKeyword, handles, seeds, followersOf, ...rest } = parsed.data
     this.refuseCallPost(callPostUrl, callKeyword)
     const patch: Partial<Campaign> = { ...rest }
     if (handles) patch.handles = uniqueHandles(handles)
     if (seeds) patch.seeds = uniqueHandles(seeds)
-    const sources = (patch.handles ?? current.handles).length + (patch.seeds ?? current.seeds ?? []).length + (patch.queries ?? current.queries ?? []).length
+    if (followersOf) patch.followersOf = uniqueHandles(followersOf)
+    const sources = (patch.handles ?? current.handles).length + (patch.seeds ?? current.seeds ?? []).length + (patch.followersOf ?? current.followersOf ?? []).length + (patch.queries ?? current.queries ?? []).length
     if (sources === 0) throw new BadRequestException(NO_SOURCE)
     if (budgetUsd !== undefined) patch.budgetMicros = Math.round(budgetUsd * 1_000_000)
     // resolveLane clears what it is not given, so a lane change starts from the stored values.

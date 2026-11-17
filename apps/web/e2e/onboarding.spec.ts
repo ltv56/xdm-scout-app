@@ -161,7 +161,7 @@ test('First run: creating the first campaign opens the full app', async ({ page 
   await expect(page.getByRole('button', { name: 'Account', exact: true })).toBeVisible()
 })
 
-test('First run, live X: with nothing typed the keywords are used as searches', async ({ page }) => {
+test('First run, live X: with nothing typed it reads the followers of three SEA AI accounts within a $4 budget', async ({ page }) => {
   await firstRun(page)
   await page.route('**/api/auth/x/status', (r) => r.fulfill({ json: { ...sandbox(true), mode: 'live', handle: 'fundaccount' } }))
   await page.route('**/api/sender-profile', (r) =>
@@ -172,8 +172,30 @@ test('First run, live X: with nothing typed the keywords are used as searches', 
   const sent = page.waitForRequest((r) => r.url().endsWith('/api/campaigns') && r.method() === 'POST')
   await page.getByRole('button', { name: 'Create campaign' }).click()
   const body = (await sent).postDataJSON()
+  expect(body).toMatchObject({ handles: [], followersOf: ['aisingapore', 'lorong_ai', 'sginnovate'], queries: [], budgetUsd: 4, followingMax: 40 })
+  expect(body.regions).toEqual(expect.arrayContaining(['Singapore', 'Vietnam', 'Indonesia']))
+})
+
+test('First run, live X: with Followers of cleared it searches for people building with the keywords', async ({ page }) => {
+  await firstRun(page)
+  await page.route('**/api/auth/x/status', (r) => r.fulfill({ json: { ...sandbox(true), mode: 'live', handle: 'fundaccount' } }))
+  await page.route('**/api/sender-profile', (r) =>
+    r.fulfill({ json: { intro: ANSWERS.intro, programs: [{ id: 1, ...ANSWERS.program, deadline: null }], signer: ANSWERS.signer, sampleMessages: [] } }),
+  )
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Start your first campaign' })).toBeVisible()
+  await page.getByText('More options').click()
+  await page.getByRole('button', { name: 'Remove aisingapore' }).click()
+  await page.getByRole('button', { name: 'Remove lorong_ai' }).click()
+  await page.getByRole('button', { name: 'Remove sginnovate' }).click()
+  const sent = page.waitForRequest((r) => r.url().endsWith('/api/campaigns') && r.method() === 'POST')
+  await page.getByRole('button', { name: 'Create campaign' }).click()
+  const body = (await sent).postDataJSON()
   expect(body.handles).toEqual([])
-  expect(body.queries).toEqual(['robotics', 'embodied AI', 'LLM', 'AI agents', 'developer tools', 'AI infrastructure'])
+  expect(body.followersOf).toEqual([])
+  expect(body.queries).toHaveLength(1)
+  expect(body.queries[0]).toMatch(/^\(robotics OR "embodied AI" OR LLM OR "AI agents" OR "developer tools" OR "AI infrastructure"\) \("we built"/)
+  expect(body.queries[0]).toContain('-is:retweet')
 })
 
 test('First run: the keywords are tags the person can change before creating the campaign', async ({ page }) => {

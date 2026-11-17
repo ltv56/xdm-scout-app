@@ -206,6 +206,12 @@ describe('LiveXClient discovery reads', () => {
     expect(new URL(calls[1].url).searchParams.get('max_results')).toBe('1')
   })
 
+  it('reads followers from the followers list, not the following list', async () => {
+    const { client, calls } = clientWith(() => json(200, { data: [user('1', 'a')] }))
+    expect((await client.getFollowers('9', 5)).map((p) => p.handle)).toEqual(['a'])
+    expect(new URL(calls[0].url).pathname).toBe('/2/users/9/followers')
+  })
+
   it('searches recent posts with author expansion and returns posts and authors', async () => {
     const { client, calls } = clientWith(() =>
       json(200, {
