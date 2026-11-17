@@ -56,3 +56,35 @@ describe("reading one person's posts after the budget ran out", () => {
     await expect(discovery.readPostsFor(2, prospectId, { raiseBudget: true }, now)).rejects.toThrow(/not found/i)
   })
 })
+
+describe('reading posts for everyone the search left unread', () => {
+  beforeEach(async () => {
+    x.addProfile({ id: '502', handle: 'linh', bio: 'robotics founder' })
+    x.addPosts('502', [{ id: '9101', userId: '502', text: 'Shipped v2', createdAt: new Date('2026-11-16T10:00:00Z') }])
+    x.addProfile({ id: '503', handle: 'tam', bio: 'robotics' })
+    x.addPosts('503', [{ id: '9201', userId: '503', text: 'old post', createdAt: new Date('2026-11-01T10:00:00Z') }])
+    await ds.getRepository(XUser).save([
+      { xUserId: '502', handle: 'linh', bio: 'robotics founder', fetchedAt: now },
+      { xUserId: '503', handle: 'tam', bio: 'robotics', fetchedAt: now },
+    ])
+    await ds.getRepository(Prospect).save([
+      { campaignId: 1, xUserId: '502' },
+      { campaignId: 1, xUserId: '503' },
+    ])
+    // Tam's posts were read already; only Harold and Linh are waiting.
+    await ds.getRepository(XPost).save({ postId: '9201', xUserId: '503', text: 'old post', postedAt: new Date('2026-11-01T10:00:00Z'), fetchedAt: now })
+    await ds.getRepository(Campaign).update(1, { lastDiscovery: { at: now.toISOString(), added: 3, skipped: [], spentMicros: 980_000, stoppedByBudget: true, postsPending: 2 } })
+  })
+
+  it('refuses without the go-ahead, with the cost for everyone waiting', async () => {
+    await expect(discovery.readPendingPosts(1, { raiseBudget: false }, now)).rejects.toThrow(/2 people.*\$0\.15.*\$0\.02 left of \$1\.00/)
+    expect(await ds.getRepository(XPost).count()).toBe(1)
+  })
+
+  it('with the go-ahead, reads only the people waiting, raises the budget just enough and clears the waiting count', async () => {
+    const r = await discovery.readPendingPosts(1, { raiseBudget: true }, now)
+    expect(r).toMatchObject({ people: 2, posts: 3, costMicros: 15_000, spentMicros: 995_000, budgetMicros: 1_130_000 })
+    expect(r.prospectIds).toHaveLength(2)
+    expect((await ds.getRepository(Campaign).findOneByOrFail({ id: 1 })).lastDiscovery?.postsPending).toBe(0)
+  })
+})

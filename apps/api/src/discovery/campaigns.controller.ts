@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Inject, NotFoundException, Optional, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
-import { DataSource, IsNull } from 'typeorm'
+import { DataSource, In, IsNull } from 'typeorm'
 import { z } from 'zod'
 import { JobsService } from '../jobs/jobs.service'
 import { resolveLane } from './campaign-lane'
@@ -138,9 +138,13 @@ export class CampaignsController {
   }
 
   // Score all: everyone not scored yet and not already waiting for the worker.
+  // prospectIds: score these people again instead, for example after their posts were read. A model call each, so only on request.
   @Post(':id/score')
-  async score(@Param('id', ParseIntPipe) id: number) {
-    const pending = await this.ds.getRepository(Prospect).findBy({ campaignId: id, scoredAt: IsNull() })
+  async score(@Param('id', ParseIntPipe) id: number, @Body() body: unknown = {}) {
+    const parsed = z.object({ prospectIds: z.array(z.number().int()).max(1000).optional() }).strict().safeParse(body ?? {})
+    if (!parsed.success) throw new BadRequestException('Send prospectIds as a list of numbers, or nothing.')
+    const ids = parsed.data.prospectIds
+    const pending = await this.ds.getRepository(Prospect).findBy(ids ? { campaignId: id, id: In(ids) } : { campaignId: id, scoredAt: IsNull() })
     let queued = 0
     for (const p of pending) {
       if (await this.jobs.hasOpen('score', 'prospectId', p.id)) continue
@@ -173,6 +177,15 @@ export class CampaignsController {
     const parsed = z.object({ raiseBudget: z.boolean().default(false) }).strict().safeParse(body ?? {})
     if (!parsed.success) throw new BadRequestException('Send raiseBudget true or false.')
     return this.discovery.readPostsFor(id, pid, parsed.data)
+  }
+
+  // Reads the posts of everyone the search left unread. Past the budget it needs raiseBudget, like one person.
+  @Post(':id/read-posts')
+  @HttpCode(200)
+  readPendingPosts(@Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+    const parsed = z.object({ raiseBudget: z.boolean().default(false) }).strict().safeParse(body ?? {})
+    if (!parsed.success) throw new BadRequestException('Send raiseBudget true or false.')
+    return this.discovery.readPendingPosts(id, parsed.data)
   }
 
   @Get(':id/prospects/:pid')

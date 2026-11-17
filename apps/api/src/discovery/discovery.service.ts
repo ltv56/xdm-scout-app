@@ -225,6 +225,29 @@ export class DiscoveryService {
     return { posts, costMicros: spentMicros - before, spentMicros, budgetMicros }
   }
 
+  // Everyone in the campaign whose posts were never read, in one go. Same budget rule as one person.
+  async readPendingPosts(campaignId: number, opts: { raiseBudget: boolean }, now = new Date()) {
+    const campaign = await this.ds.getRepository(Campaign).findOneByOrFail({ id: campaignId })
+    const prospects = await this.ds.getRepository(Prospect).findBy({ campaignId })
+    const waiting = []
+    for (const p of prospects) if (!(await this.hasPosts(p.xUserId))) waiting.push(p)
+    const need = waiting.length * MAX_POSTS_PER_USER * PRICES.post
+    const before = await this.spent(campaignId)
+    let budgetMicros = campaign.budgetMicros
+    if (campaign.budgetMicros - before < need) {
+      if (!opts.raiseBudget) {
+        throw new ConflictException(`Reading posts for ${waiting.length} people costs up to ${usd(need, true)}, and the campaign has ${usd(Math.max(0, campaign.budgetMicros - before))} left of ${usd(campaign.budgetMicros)}.`)
+      }
+      budgetMicros = before + need
+      await this.ds.getRepository(Campaign).update(campaignId, { budgetMicros })
+    }
+    let posts = 0
+    for (const p of waiting) posts += await this.readPosts(campaignId, p.xUserId, now)
+    if (campaign.lastDiscovery) await this.ds.getRepository(Campaign).update(campaignId, { lastDiscovery: { ...campaign.lastDiscovery, postsPending: 0 } })
+    const spentMicros = await this.spent(campaignId)
+    return { people: waiting.length, posts, prospectIds: waiting.map((p) => p.id), costMicros: spentMicros - before, spentMicros, budgetMicros }
+  }
+
   private async readPosts(campaignId: number, xUserId: string, now: Date) {
     const posts = await this.x.getRecentPosts(xUserId, MAX_POSTS_PER_USER)
     if (posts.length) {

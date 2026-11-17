@@ -7,10 +7,11 @@ import Funnel from './Funnel'
 import Spinner from '../ui/Spinner'
 import NeedsAttention from './NeedsAttention'
 import BestMatches from './BestMatches'
+import ReadAllPosts from './ReadAllPosts'
 import type { Filter as CandidateFilter, Prospect } from '../candidates/Prospects'
 import { AlertTriangle, ChevronRight, Search } from '../ui/icons'
 import { verdict } from '../review/labels'
-import { btnLink, btnPrimary, btnSecondary, btnSmall, money } from '../ui/ui'
+import { btnLink, btnPrimary, btnSecondary, money } from '../ui/ui'
 import { SKIP_TEXT } from '../candidates/why'
 import { ago, day, plural } from '../format'
 
@@ -307,19 +308,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
                   The search stopped at the budget: spent <span className="tabular-nums">{money(run.spentMicros)}</span> of{' '}
                   <span className="tabular-nums">{money(c.budgetMicros)}</span>.
                 </p>
-                {run.postsPending > 0 ? (
-                  <>
-                    <p className="mt-1">
-                      {plural(run.postsPending, 'person', 'people')} found but not read yet, so they have no opening and get no draft. Open one in Candidates to read
-                      their posts, up to $0.08 each.
-                    </p>
-                    <button type="button" className={`${btnSmall} mt-3`} onClick={() => onProspects('all')}>
-                      Go to Candidates
-                    </button>
-                  </>
-                ) : (
-                  <p className="mt-1">Raise the budget in Settings to search further.</p>
-                )}
+                <ReadAllPosts campaignId={campaignId} waiting={run.postsPending} onCandidates={() => onProspects('all')} />
               </div>
             </div>
           )}

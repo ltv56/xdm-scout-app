@@ -69,6 +69,14 @@ describe('campaigns API', () => {
     expect(await controller.scoreOne(c.id, p.id, { again: true })).toEqual({ queued: false, reason: 'Already being scored' })
   })
 
+  it('scores the people named again, after their posts were read, and leaves out people of another campaign', async () => {
+    const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+    const a = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500', scoredAt: new Date() })
+    const b = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '501', scoredAt: new Date() })
+    const other = await ds.getRepository(Prospect).save({ campaignId: c.id + 1, xUserId: '502', scoredAt: new Date() })
+    expect(await controller.score(c.id, { prospectIds: [a.id, b.id, other.id] })).toEqual({ queued: 2 })
+  })
+
   it('score all leaves out anyone who is already being scored', async () => {
     const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
     const first = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500' })
