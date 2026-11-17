@@ -11,7 +11,7 @@ import { apiSendBlock, hashContent } from '../sending/sending.service'
 import { Setting } from '../setting.entity'
 import { mainLanguage } from './main-language'
 import { runChecks, StoredSentence } from './checks'
-import { EvidenceItem, MetricsSnapshot, ReviewItem, ReviewQueue, SenderProfile, senderProfile } from './contract'
+import { CheckResult, Decision, EvidenceItem, MetricsSnapshot, ReviewItem, ReviewQueue, SenderProfile, senderProfile } from './contract'
 
 const SESSION_SIZE = 10
 const DAY = 86_400_000
@@ -27,6 +27,14 @@ type Context = {
   posts: Map<string, XPost[]>
   texts: Map<number, string>
   manualSent: Set<number>
+}
+
+// A model never blocks a draft alone, but a No must be read and ticked before Approve.
+function modelSaysNo(decisions: Decision[]): CheckResult[] {
+  const no = decisions.filter((d) => d.band === 'low')
+  if (!no.length) return []
+  const what = [...new Set(no.map((d) => d.question))].join(', ')
+  return [{ code: 'model_says_no', level: 'warn', message: `The AI says no to: ${what}. Read the model checks, then tick.`, needsConfirm: true }]
 }
 
 export const composeUrl = (xUserId: string, text: string) => `https://x.com/messages/compose?recipient_id=${xUserId}&text=${encodeURIComponent(text)}`
@@ -70,7 +78,9 @@ export class ReviewService {
     return Promise.all(
       shown.map(async (d) => {
         const item = this.item(d, ctx, now)
-        return this.decisions ? { ...item, decisions: await this.decisionsOf(this.decisions, d, item, ctx.prospects.get(d.prospectId ?? 0)) } : item
+        if (!this.decisions) return item
+        const decisions = await this.decisionsOf(this.decisions, d, item, ctx.prospects.get(d.prospectId ?? 0))
+        return { ...item, decisions, checks: [...item.checks, ...modelSaysNo(decisions)] }
       }),
     )
   }

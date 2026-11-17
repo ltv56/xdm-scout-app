@@ -8,6 +8,8 @@ import { Job } from '../jobs/job.entity'
 import { KnownUser } from '../known/known-user.entity'
 import { Draft, XUser } from '../sending/entities'
 import { createTestDataSource } from '../test/db'
+import type { DecisionAnswer, DecisionAsk, DecisionClient } from '../decisions/decision-client'
+import { FixtureDecisionClient } from '../decisions/decision-client'
 import { Claim, Evidence } from './entities'
 import { FitService, openingFreshness } from './fit.service'
 
@@ -51,6 +53,54 @@ beforeEach(async () => {
 
 afterAll(async () => {
   if (ds?.isInitialized) await ds.destroy()
+})
+
+// A decision client that answers like the real one (not a fixture): a probability per claim text.
+function decidedBy(probability: (claim: string) => number) {
+  const asked: DecisionAsk[] = []
+  const client: DecisionClient = {
+    decide: async (asks): Promise<DecisionAnswer[]> => {
+      asked.push(...asks)
+      return asks.map((a) => ({ ...a, probability: probability(a.input), answeredBy: 'jev' as const, model: 'gpt-6-luna' }))
+    },
+  }
+  return Object.assign(client, { asked })
+}
+
+describe('claim checks with the decision model', () => {
+  it('marks a reason Verified at 70% or more, Unsure between 30% and 70%, Inferred at 30% or less, and does not ask the LLM', async () => {
+    const llm = llmWith(() => goodFit)
+    const decisions = decidedBy((input) => (input.includes('Open-sourced') ? 0.92 : input.includes('hiring') ? 0.5 : 0.1))
+    await new FitService(ds, llm, decisions).score(prospectId, now)
+    const status = Object.fromEntries((await ds.getRepository(Claim).find()).map((c) => [c.text, c.status]))
+    expect(status['Open-sourced robot policy checkpoints']).toBe('verified')
+    expect(status['Is hiring ML engineers']).toBe('unsure')
+    expect(status['Small following']).toBe('inferred')
+    expect(llm.calls.some((c) => c.task === 'verify')).toBe(false)
+    expect(decisions.asked.every((a) => a.code === 'claim_backed')).toBe(true)
+  })
+
+  it('does not ask about a reason that cites nothing real: it stays Inferred', async () => {
+    const decisions = decidedBy(() => 0.99)
+    await new FitService(ds, llmWith(() => goodFit), decisions).score(prospectId, now)
+    expect((await ds.getRepository(Claim).findOneByOrFail({ text: 'Has a PhD from MIT' })).status).toBe('inferred')
+    expect(decisions.asked.some((a) => a.input.includes('PhD'))).toBe(false)
+  })
+
+  it('keeps the LLM check when the decision client only gives fixture answers', async () => {
+    const llm = llmWith(() => goodFit, (claim) => claim !== 'Is hiring ML engineers')
+    await new FitService(ds, llm, new FixtureDecisionClient()).score(prospectId, now)
+    const status = Object.fromEntries((await ds.getRepository(Claim).find()).map((c) => [c.text, c.status]))
+    expect(status['Open-sourced robot policy checkpoints']).toBe('verified')
+    expect(status['Is hiring ML engineers']).toBe('inferred')
+  })
+
+  it('does not treat an Unsure criterion as met', async () => {
+    await ds.getRepository(Campaign).update(1, { criteria: ['Builds robots'] })
+    const fit = { ...goodFit, criteria: [{ status: 'met', evidence_ids: ['post:910001'] }] }
+    await new FitService(ds, llmWith(() => fit), decidedBy(() => 0.5)).score(prospectId, now)
+    expect((await ds.getRepository(Prospect).findOneByOrFail({ id: prospectId })).criteria).toEqual([{ text: 'Builds robots', status: 'unknown', evidenceIds: [] }])
+  })
 })
 
 describe('fit scoring', () => {

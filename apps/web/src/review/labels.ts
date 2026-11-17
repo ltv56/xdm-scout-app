@@ -87,6 +87,10 @@ export function verdict(item: ReviewItem): Verdict {
   }
   const confirms = item.checks.filter((c) => c.needsConfirm)
   const warns = item.checks.filter((c) => c.level === 'warn' && !c.needsConfirm)
+  if (confirms.length && confirms.every((c) => c.code === 'model_says_no')) {
+    const n = confirms.length + warns.length
+    return { tone: 'warn', chip: `Ready, ${plural(n, 'warning')}`, headline: 'Read the warning, tick, then approve.', points: [...confirms, ...warns].map((c) => c.message) }
+  }
   if (confirms.length) {
     return { tone: 'warn', chip: 'Confirm', headline: 'Confirm what you added, then approve.', points: [...confirms, ...warns].map((c) => c.message) }
   }

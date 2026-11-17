@@ -31,7 +31,8 @@ export class Evidence {
 }
 
 export type ClaimSide = 'for' | 'against' | 'unknown'
-export type ClaimStatus = 'verified' | 'inferred'
+// unsure: the decision model was neither clear yes nor clear no; a person looks at the post.
+export type ClaimStatus = 'verified' | 'inferred' | 'unsure'
 
 @Entity('claims')
 export class Claim {

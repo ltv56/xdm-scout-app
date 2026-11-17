@@ -1,8 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, Optional } from '@nestjs/common'
 import { DataSource } from 'typeorm'
+import { bandOf } from '../decisions/bands'
+import type { DecisionClient } from '../decisions/decision-client'
+import { DECISION_CLIENT } from '../decisions/review-decisions'
 import { Campaign, CriterionResult, Prospect, XPost } from '../discovery/entities'
 import { applyWarmOpening } from '../known/warm-opening'
-import { LLM_CLIENT, LlmClient } from '../llm/llm-client'
+import { LLM_CLIENT, LlmClient, LlmMeter } from '../llm/llm-client'
 import { withMeter } from '../llm/with-meter'
 import { XUser } from '../sending/entities'
 import { Claim, ClaimSide, ClaimStatus, Evidence } from './entities'
@@ -22,6 +25,7 @@ export class FitService {
   constructor(
     private readonly ds: DataSource,
     @Inject(LLM_CLIENT) private readonly llm: LlmClient,
+    @Optional() @Inject(DECISION_CLIENT) private readonly decisions?: DecisionClient,
   ) {}
 
   async score(prospectId: number, now = new Date()) {
@@ -36,9 +40,10 @@ export class FitService {
     const campaign = await this.ds.getRepository(Campaign).findOneBy({ id: prospect.campaignId })
     const criteriaText = campaign?.criteria ?? []
 
-    const llm = withMeter(this.llm, { campaignId: prospect.campaignId, lane: prospect.source })
+    const meter = { campaignId: prospect.campaignId, lane: prospect.source }
+    const llm = withMeter(this.llm, meter)
     const fit = await this.askFit(llm, evidence, criteriaText)
-    const [claims, criteria] = await Promise.all([this.checkClaims(llm, prospectId, fit, byId), this.checkCriteria(llm, criteriaText, fit, byId)])
+    const [claims, criteria] = await Promise.all([this.checkClaims(llm, meter, prospectId, fit, byId), this.checkCriteria(llm, meter, criteriaText, fit, byId)])
     const opening = fit.opening.type !== 'none' && fit.opening.evidence_id ? byId.get(fit.opening.evidence_id) : undefined
 
     await this.ds.transaction(async (em) => {
@@ -60,12 +65,12 @@ export class FitService {
   }
 
   // Met or not met needs evidence that exists and passes the same second check as claims.
-  private async checkCriteria(llm: LlmClient, texts: string[], fit: FitResult, byId: Map<string, Evidence>): Promise<CriterionResult[]> {
+  private async checkCriteria(llm: LlmClient, meter: LlmMeter, texts: string[], fit: FitResult, byId: Map<string, Evidence>): Promise<CriterionResult[]> {
     return Promise.all(
       texts.map(async (text, i): Promise<CriterionResult> => {
         const answer = fit.criteria[i]
         const claim = answer?.status === 'not_met' ? `It is not the case that: ${text}` : text
-        const checked = answer && answer.status !== 'unknown' && (await this.verify(llm, claim, answer.evidence_ids, byId)) === 'verified'
+        const checked = answer && answer.status !== 'unknown' && (await this.verify(llm, meter, claim, answer.evidence_ids, byId)) === 'verified'
         return checked ? { text, status: answer.status, evidenceIds: answer.evidence_ids } : { text, status: 'unknown', evidenceIds: [] }
       }),
     )
@@ -83,20 +88,30 @@ export class FitService {
     throw new Error(`invalid model output after retry: ${lastError}`)
   }
 
-  private async checkClaims(llm: LlmClient, prospectId: number, fit: FitResult, byId: Map<string, Evidence>): Promise<Omit<Claim, 'id'>[]> {
+  private async checkClaims(llm: LlmClient, meter: LlmMeter, prospectId: number, fit: FitResult, byId: Map<string, Evidence>): Promise<Omit<Claim, 'id'>[]> {
     const sides: [ClaimSide, FitResult['reasons_for']][] = [
       ['for', fit.reasons_for],
       ['against', fit.reasons_against],
     ]
     const checked = await Promise.all(
-      sides.flatMap(([side, list]) => list.map(async (c) => ({ prospectId, side, text: c.claim, evidenceIds: c.evidence_ids, status: await this.verify(llm, c.claim, c.evidence_ids, byId) }))),
+      sides.flatMap(([side, list]) => list.map(async (c) => ({ prospectId, side, text: c.claim, evidenceIds: c.evidence_ids, status: await this.verify(llm, meter, c.claim, c.evidence_ids, byId) }))),
     )
     return [...checked, ...fit.unknowns.map((text) => ({ prospectId, side: 'unknown' as const, text, evidenceIds: [], status: 'inferred' as const }))]
   }
 
-  private async verify(llm: LlmClient, claim: string, ids: string[], byId: Map<string, Evidence>): Promise<ClaimStatus> {
+  // The decision model gives a probability: yes is Verified, no is Inferred, in between a person looks (Unsure). Fixture answers (no model set) fall back to the LLM yes/no.
+  private async verify(llm: LlmClient, meter: LlmMeter, claim: string, ids: string[], byId: Map<string, Evidence>): Promise<ClaimStatus> {
     const cited = ids.map((id) => byId.get(id))
     if (!cited.length || cited.some((e) => !e)) return 'inferred'
+    if (this.decisions) {
+      const input = `Sentence: "${claim}"
+Evidence: ${cited.map((e) => `"${e?.excerpt}"`).join(' ')}`
+      const [answer] = await this.decisions.decide([{ code: 'claim_backed', input, sentence: null }], meter)
+      if (answer.answeredBy !== 'fixture') {
+        const band = bandOf(answer.probability)
+        return band === 'high' ? 'verified' : band === 'low' ? 'inferred' : 'unsure'
+      }
+    }
     const user = JSON.stringify({ claim, excerpts: cited.map((e) => ({ id: e?.id, text: e?.excerpt })) })
     const answer = verifySchema.safeParse(await llm.completeJson({ task: 'verify', system: VERIFY_SYSTEM, user }))
     return answer.success && answer.data.supported ? 'verified' : 'inferred'

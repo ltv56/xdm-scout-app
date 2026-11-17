@@ -65,10 +65,11 @@ export const checkResult = z.object({
     'similar_draft',
     'stale_opening',
     'generic_first_line',
+    'model_says_no',
   ]),
   level: z.enum(['block', 'warn']),
   message: z.string(),
-  // Reviewer-written sentence without evidence: a warn the reviewer must tick before approving.
+  // A warn the reviewer must tick before approving: a sentence they wrote with no evidence, or a No from the model checks.
   needsConfirm: z.boolean(),
 })
 

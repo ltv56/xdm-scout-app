@@ -11,6 +11,7 @@ import { Contact, DoNotContact, Draft, SendAttempt, SenderAccount, XUser } from 
 import { hashContent, SendingService } from '../sending/sending.service'
 import { Setting } from '../setting.entity'
 import { createTestDataSource } from '../test/db'
+import { FixtureDecisionClient } from '../decisions/decision-client'
 import { FakeXClient } from '../x/fake-x-client'
 import { DraftService } from './draft.service'
 import { ReviewActionsController } from './review-actions.controller'
@@ -98,6 +99,17 @@ describe('edit', () => {
 })
 
 describe('approve', () => {
+  it('a No from the model checks needs a tick: Approve without it is refused, with it goes through', async () => {
+    const d = await seedDraft()
+    const jobs = new JobsService(ds)
+    const says = new FixtureDecisionClient((ask) => (ask.code === 'no_familiarity' ? 0.1 : 0.9))
+    const withModel = new ReviewActionsService(ds, new ReviewService(ds, says), new SendingService(ds, new FakeXClient(), jobs), new DraftService(ds, new FakeLlmClient(cannedHandler), jobs), jobs)
+    const item = await new ReviewService(ds, says).one(d.id, now)
+    expect(item.checks.find((c) => c.code === 'model_says_no')).toMatchObject({ level: 'warn', needsConfirm: true, message: expect.stringContaining('No made-up familiarity') })
+    await expect(withModel.approve(d.id, { contentHash: hashContent(d.content), confirmedUnbacked: false }, now)).rejects.toThrow(ConflictException)
+    await expect(withModel.approve(d.id, { contentHash: hashContent(d.content), confirmedUnbacked: true }, now)).resolves.toMatchObject({ attemptId: expect.any(Number) })
+  })
+
   it('opens a manual attempt for a hand-off draft: approved, send right taken, nothing queued for the API', async () => {
     const d = await seedDraft()
     const { attemptId } = await actions.approve(d.id, { contentHash: hashContent(d.content), confirmedUnbacked: false }, now)
@@ -138,7 +150,7 @@ describe('approve', () => {
   it('needs the tick for sentences the reviewer added without a post behind them', async () => {
     const d = await seedDraft()
     const edited = await actions.edit(d.id, `${d.sentences![0].text} We met at the meetup. No worries if not.`, now)
-    await expect(actions.approve(d.id, { contentHash: edited.contentHash, confirmedUnbacked: false }, now)).rejects.toThrow(/Confirm/)
+    await expect(actions.approve(d.id, { contentHash: edited.contentHash, confirmedUnbacked: false }, now)).rejects.toThrow(/Tick to confirm/)
     await expect(actions.approve(d.id, { contentHash: edited.contentHash, confirmedUnbacked: true }, now)).resolves.toHaveProperty('attemptId')
   })
 

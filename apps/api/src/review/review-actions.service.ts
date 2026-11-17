@@ -54,7 +54,7 @@ export class ReviewActionsService {
     if (draft.sentences) {
       const { checks } = await this.review.one(draftId, now)
       if (checks.some((c) => c.level === 'block')) throw new ConflictException('Fix the blocking checks first')
-      if (checks.some((c) => c.needsConfirm) && !body.confirmedUnbacked) throw new ConflictException('Confirm the sentences you added')
+      if (checks.some((c) => c.needsConfirm) && !body.confirmedUnbacked) throw new ConflictException('Tick to confirm before approving')
     }
     const result = await this.sending.approve(draftId, body.contentHash, draft.sendPath === 'API_SEND' ? 'api' : 'manual')
     await this.signal('approve', draft, { finalText: draft.content })

@@ -332,7 +332,8 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
           </ul>
           {needsConfirm && blocking.length === 0 && (
             <label className="flex items-center gap-2 font-medium">
-              <input type="checkbox" className="size-4" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />I wrote it myself and it is true
+              <input type="checkbox" className="size-4" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+              {item.checks.some((c) => c.needsConfirm && c.code !== 'model_says_no') ? 'I wrote it myself and it is true' : 'I read it and it is fine to send'}
             </label>
           )}
         </div>

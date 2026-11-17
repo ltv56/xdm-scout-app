@@ -288,8 +288,8 @@ export default function CandidateRow({ p, index, campaignId, inReview, onReview 
               <li key={i} className="flex flex-wrap items-baseline gap-2">
                 <span className="w-20 shrink-0 text-xs uppercase text-muted">{c.side}</span>
                 <span>{c.text}</span>
-                <span className={`rounded-full px-2 text-xs ${c.status === 'verified' ? 'bg-ok-bg font-semibold text-ok' : 'bg-rail text-muted'}`}>
-                  {c.status === 'verified' ? 'Backed by a post' : 'Our guess'}
+                <span className={`rounded-full px-2 text-xs ${c.status === 'verified' ? 'bg-ok-bg font-semibold text-ok' : c.status === 'unsure' ? 'bg-warn-bg font-semibold text-warn' : 'bg-rail text-muted'}`}>
+                  {c.status === 'verified' ? 'Backed by a post' : c.status === 'unsure' ? 'Check the post' : 'Our guess'}
                 </span>
                 {c.evidence.map((e) => (
                   <XLink key={e.id} href={e.url} label={e.id.startsWith('bio:') ? 'Open their bio on X' : 'Open the post on X'} />

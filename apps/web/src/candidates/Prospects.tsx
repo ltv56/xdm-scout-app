@@ -12,7 +12,7 @@ import { btnSecondary } from '../ui/ui'
 interface Claim {
   side: 'for' | 'against' | 'unknown'
   text: string
-  status: 'verified' | 'inferred'
+  status: 'verified' | 'inferred' | 'unsure'
   evidence: { id: string; url: string }[]
 }
 
