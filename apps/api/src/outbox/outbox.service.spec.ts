@@ -70,7 +70,8 @@ describe('OutboxService', () => {
 
   it('still reports work in flight when it is older than the newest 100 rows', async () => {
     await attempt('300', 'queued')
-    for (let n = 0; n < 100; n++) await attempt(String(400 + n), 'sent')
+    // In parallel batches: 100 rows one at a time took most of this file's run time.
+    for (let b = 0; b < 4; b++) await Promise.all(Array.from({ length: 25 }, (_, i) => attempt(String(400 + b * 25 + i), 'sent')))
     const outbox = await service.list(1)
     expect(outbox.items).toHaveLength(100)
     expect(outbox.inFlight).toBe(true)

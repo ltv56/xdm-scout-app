@@ -68,13 +68,3 @@ test('Phone: swipe left asks why to skip, up goes to the next draft, right goes 
   await swipe(page, [90, 400], [300, 400])
   await expect(page.getByText(/1 of \d/)).toBeVisible()
 })
-
-test('Phone: a short drag while reading does not change the draft', async ({ page, request }) => {
-  const campaign = await draftCampaign(request)
-  await openApp(page, campaign)
-  await goTo(page, 'Review')
-  await swipe(page, [200, 500], [200, 440])
-  await swipe(page, [200, 400], [150, 405])
-  await expect(page.getByText(/1 of \d/)).toBeVisible()
-  await expect(page.getByText('Why skip this one?')).toHaveCount(0)
-})

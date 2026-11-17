@@ -5,6 +5,7 @@
 //   node scripts/eval-replies.cjs --set blind.json --list-wrong   # also list its wrong DMs; reading them ends its use as a blind check
 //   node scripts/eval-replies.cjs --write-halves fixtures/eval/reply-halves.json   # freeze the current split
 //   node scripts/eval-replies.cjs --mixed [--similar 0.6]   # no model: families whose DMs carry different labels
+//   node scripts/eval-replies.cjs --half all --thresholds   # also accuracy at each cut from 0.50 to 0.95: chosen on tune, checked on report
 // Needs `npx tsc -p tsconfig.build.json` first. The model comes from the environment only (LLM_MODEL plus its key);
 // with LLM_MODEL empty the canned client answers, which is a dry run. Reads no .env file.
 //
@@ -118,6 +119,22 @@ function confusionTable(rows) {
   return lines
 }
 
+// The class the app would store at this cut: a rule answer stands, a model answer under the cut becomes Unclear.
+const atCut = (got, cut) => (got.classBy === 'rule' || got.said === null ? got.replyClass : got.probability >= cut ? got.said : 'Unclear')
+
+// Picks the cut with the most right answers on tune (the higher cut on a tie, as Unclear only asks a person to read),
+// then shows that cut and the app's 0.7 on report.
+function thresholdTable(answers) {
+  const cuts = Array.from({ length: 10 }, (_, i) => Math.round((0.5 + i * 0.05) * 100) / 100)
+  const rightAt = (h, cut) => answers.filter((a) => a.half === h && atCut(a.got, cut) === a.want).length
+  const size = (h) => answers.filter((a) => a.half === h).length
+  const lines = ['## Cuts', '', '| Cut | Tune right | Report right |', '| --- | --- | --- |']
+  for (const cut of cuts) lines.push(`| ${cut.toFixed(2)} | ${pct(rightAt('tune', cut), size('tune'))} | ${pct(rightAt('report', cut), size('report'))} |`)
+  const best = cuts.reduce((b, cut) => (rightAt('tune', cut) >= rightAt('tune', b) ? cut : b), cuts[0])
+  lines.push('', `Chosen on tune: ${best.toFixed(2)}. Report at that cut: ${pct(rightAt('report', best), size('report'))}; at 0.70: ${pct(rightAt('report', 0.7), size('report'))}.`)
+  return lines
+}
+
 async function main() {
   const llm = createLlmClient(process.env)
   const model = process.env.LLM_MODEL || 'canned (dry run)'
@@ -126,6 +143,7 @@ async function main() {
   const right = { tune: 0, report: 0 }
   const seen = { tune: 0, report: 0 }
   const wrong = []
+  const answers = []
   let failed = 0
   for (const dm of dms) {
     let got
@@ -139,6 +157,7 @@ async function main() {
     }
     by[got.classBy] += 1
     const want = dm.labels.reply_class
+    answers.push({ half: dm.half, want, got })
     const table = confusion[dm.half]
     table[want] ??= {}
     table[want][got.replyClass] = (table[want][got.replyClass] ?? 0) + 1
@@ -164,6 +183,7 @@ async function main() {
       lines.push(`| ${w.id} | ${w.group} | ${w.want} | ${w.got} | ${said} | ${w.text.replace(/\|/g, '/').replace(/\s+/g, ' ').slice(0, 140)} |`)
     }
   }
+  if (args.includes('--thresholds')) lines.push('', ...thresholdTable(answers))
   const text = lines.join('\n')
   console.log(text)
   if (out) fs.writeFileSync(out, `${text}\n`)

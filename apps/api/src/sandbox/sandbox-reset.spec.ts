@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import { join } from 'node:path'
 import { createConnection } from 'mysql2/promise'
 import { DataSource } from 'typeorm'
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { Campaign } from '../discovery/entities'
 import { dataSourceOptions } from '../data-source'
 import { Setting } from '../setting.entity'
@@ -41,10 +41,22 @@ async function fill(source: DataSource) {
 
 const count = async (source: DataSource, table: string) => Number((await source.query(`SELECT COUNT(*) AS n FROM \`${table}\``))[0].n)
 
-beforeEach(async () => {
-  ds = await createTestDataSource()
+// Empties the tables in place: building the schema again for every test took most of this file's run time.
+async function clear(source: DataSource) {
+  const qr = source.createQueryRunner()
+  await qr.query('SET FOREIGN_KEY_CHECKS = 0')
+  for (const m of source.entityMetadatas) await qr.query(`DELETE FROM \`${m.tableName}\``)
+  await qr.query('SET FOREIGN_KEY_CHECKS = 1')
+  await qr.release()
+}
+
+beforeAll(async () => {
   sandbox = await sandboxDataSource()
-  await fill(sandbox)
+})
+
+beforeEach(async () => {
+  await clear(sandbox!)
+  await fill(sandbox!)
 })
 
 afterAll(async () => {
@@ -71,6 +83,7 @@ describe('resetSandbox', () => {
   })
 
   it('refuses a database whose name does not say sandbox or e2e, and wipes nothing', async () => {
+    ds = await createTestDataSource()
     await fill(ds)
     // The test database is named after whoever runs it (xdm_test in CI), so read the name instead of spelling it.
     const [{ name }] = (await ds.query('SELECT DATABASE() AS name')) as { name: string }[]
