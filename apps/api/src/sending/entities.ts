@@ -54,6 +54,9 @@ export class XUser {
   @Column({ type: 'boolean', nullable: true, default: null })
   receivesYourDm!: boolean | null
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  location!: string | null
+
   @Column({ type: 'datetime', precision: 3, nullable: true })
   fetchedAt!: Date | null
 }

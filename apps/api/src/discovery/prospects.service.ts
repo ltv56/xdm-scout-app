@@ -54,6 +54,7 @@ export class ProspectsService {
         handle: user?.handle ?? '',
         name: user?.name ?? '',
         bio: user?.bio ?? '',
+        location: user?.location ?? null,
         followers: user?.followers ?? 0,
         lastPostAt: postStats.get(p.xUserId)?.last ?? null,
         criteria: p.criteria ?? [],

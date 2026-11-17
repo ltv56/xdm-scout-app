@@ -4,6 +4,7 @@ import { bandOf } from '../decisions/bands'
 import type { DecisionClient } from '../decisions/decision-client'
 import { DECISION_CLIENT } from '../decisions/review-decisions'
 import { Campaign, CriterionResult, Prospect, XPost } from '../discovery/entities'
+import { companyHandle } from '../discovery/keywords'
 import { applyWarmOpening } from '../known/warm-opening'
 import { LLM_CLIENT, LlmClient, LlmMeter } from '../llm/llm-client'
 import { withMeter } from '../llm/with-meter'
@@ -33,7 +34,9 @@ export class FitService {
     const user = await this.ds.getRepository(XUser).findOneByOrFail({ xUserId: prospect.xUserId })
     const posts = await this.ds.getRepository(XPost).find({ where: { xUserId: user.xUserId }, order: { postedAt: 'DESC' } })
 
-    const evidence = buildEvidence(user, posts, now)
+    const named = companyHandle(user.bio ?? '', user.handle)
+    const company = named ? await this.ds.getRepository(XUser).createQueryBuilder('u').where('LOWER(u.handle) = :h', { h: named }).getOne() : null
+    const evidence = buildEvidence(user, posts, now, company)
     await this.ds.getRepository(Evidence).save(evidence)
     const byId = new Map(evidence.map((e) => [e.id, e]))
 
@@ -118,7 +121,7 @@ Evidence: ${cited.map((e) => `"${e?.excerpt}"`).join(' ')}`
   }
 }
 
-function buildEvidence(user: XUser, posts: XPost[], now: Date): Evidence[] {
+function buildEvidence(user: XUser, posts: XPost[], now: Date, company: XUser | null): Evidence[] {
   const bio = Object.assign(new Evidence(), {
     id: `bio:${user.xUserId}`,
     xUserId: user.xUserId,
@@ -139,5 +142,20 @@ function buildEvidence(user: XUser, posts: XPost[], now: Date): Evidence[] {
       fetchedAt: p.fetchedAt,
     }),
   )
-  return [bio, ...fromPosts]
+  const profile = (id: string, url: string, excerpt: string, fetchedAt: Date | null) =>
+    Object.assign(new Evidence(), { id, xUserId: user.xUserId, kind: 'bio' as const, url, excerpt, postedAt: null, fetchedAt: fetchedAt ?? now })
+  const extra = [
+    ...(user.location ? [profile(`location:${user.xUserId}`, `https://x.com/${user.handle}`, `Location on their X profile: ${user.location}`, user.fetchedAt)] : []),
+    ...(company
+      ? [
+          profile(
+            `company:${user.xUserId}:${company.xUserId}`,
+            `https://x.com/${company.handle}`,
+            `@${company.handle}, named in their bio: ${company.bio ?? ''}${company.location ? `. Location on X: ${company.location}` : ''}`,
+            company.fetchedAt,
+          ),
+        ]
+      : []),
+  ]
+  return [bio, ...extra, ...fromPosts]
 }

@@ -37,6 +37,7 @@ const usersResponse = z.object({
         protected: z.boolean().optional(),
         verified_type: z.string().optional(),
         receives_your_dm: z.boolean().optional(),
+        location: z.string().optional(),
         public_metrics: z.object({ followers_count: z.number() }).optional(),
       }),
     )
@@ -44,7 +45,7 @@ const usersResponse = z.object({
   meta: z.object({ next_token: z.string().optional() }).optional(),
 })
 
-const USER_FIELDS = 'description,protected,public_metrics,verified_type,receives_your_dm'
+const USER_FIELDS = 'description,protected,public_metrics,verified_type,receives_your_dm,location'
 
 function toProfile(u: NonNullable<z.infer<typeof usersResponse>['data']>[number]): XProfile {
   return {
@@ -56,6 +57,7 @@ function toProfile(u: NonNullable<z.infer<typeof usersResponse>['data']>[number]
     isProtected: u.protected ?? false,
     orgType: u.verified_type === 'business' || u.verified_type === 'government' ? u.verified_type : null,
     receivesYourDm: u.receives_your_dm ?? null,
+    location: u.location?.trim() || null,
   }
 }
 

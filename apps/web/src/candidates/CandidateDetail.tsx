@@ -305,6 +305,11 @@ export default function CandidateDetail({ campaignId, id, inReview, onReview, on
           <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7">
             <Section title="Profile">
               {p.bio && <blockquote className="border-l-2 border-rule pl-3 text-sm wrap-anywhere">{p.bio}</blockquote>}
+              {p.location && (
+                <p className="mt-2 text-sm text-muted wrap-anywhere">
+                  Location on X: <span className="text-ink">{p.location}</span>
+                </p>
+              )}
               <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Stat label="Followers" value={count(p.followers)} />
                 <Stat label="Last post" value={p.lastPostAt ? (shortDate(p.lastPostAt) ?? '-') : 'Not read'} />

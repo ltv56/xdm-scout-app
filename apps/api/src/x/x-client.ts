@@ -20,6 +20,8 @@ export type XProfile = {
   isProtected: boolean
   orgType: 'business' | 'government' | null
   receivesYourDm: boolean | null
+  // Free text the person typed; X does not check it.
+  location: string | null
 }
 
 // lang is X's own language guess for the post ("und" when it has none).

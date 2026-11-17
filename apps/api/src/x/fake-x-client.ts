@@ -140,6 +140,7 @@ export class FakeXClient implements XClient {
       isProtected: false,
       orgType: null,
       receivesYourDm: null,
+      location: null,
       ...p,
     })
   }

@@ -5,7 +5,7 @@ import { Contact, DoNotContact, RelationshipContext, SendAttempt, XUser } from '
 import { X_CLIENT, XClient, XProfile } from '../x/x-client'
 import { ApiUsage, Campaign, Prospect, XPost } from './entities'
 import { MAX_POSTS_PER_USER, MIN_SEARCH_RESULTS, PRICES } from './pricing'
-import { bioHasKeyword } from './keywords'
+import { bioHasKeyword, companyHandle } from './keywords'
 
 const FRESH_MS = 7 * 86_400_000
 
@@ -127,6 +127,8 @@ export class DiscoveryService {
       await this.readPosts(campaignId, user.xUserId, now)
     }
 
+    await this.readCompanies(campaign, added, known, now)
+
     const result = { added: addedHandles.length, addedHandles, seeds: seedReport, skipped, spentMicros: (await this.spent(campaignId)) - startSpent, stoppedByBudget, postsPending }
     await this.ds.getRepository(Campaign).update(campaignId, { lastDiscovery: { at: now.toISOString(), ...result } })
     return result
@@ -182,6 +184,17 @@ export class DiscoveryService {
       }
     }
     return complete
+  }
+
+  // One profile read per company named in a kept person's bio, for the location criteria. Optional, so it never stops the search.
+  private async readCompanies(campaign: Campaign, people: XUser[], known: Map<string, XUser>, now: Date) {
+    const named = unique(people.flatMap((u) => companyHandle(u.bio ?? '', u.handle) ?? []))
+    const toRead = named.filter((h) => isStale(known.get(h), now))
+    const affordable = Math.max(0, Math.floor((await this.remaining(campaign)) / PRICES.profile))
+    if (!toRead.length || !affordable) return
+    const profiles = await this.x.lookupUsers(toRead.slice(0, affordable))
+    for (const p of profiles) known.set(p.handle.toLowerCase(), await this.saveUser(p, now))
+    await this.recordUsage(campaign.id, 'profile', profiles.length, PRICES.profile)
   }
 
   private async remaining(campaign: Campaign) {
@@ -282,6 +295,7 @@ function toUser(p: XProfile, now: Date): XUser {
     isProtected: p.isProtected,
     orgType: p.orgType,
     receivesYourDm: p.receivesYourDm,
+    location: p.location,
     fetchedAt: now,
   })
 }

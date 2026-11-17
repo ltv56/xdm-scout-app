@@ -23,6 +23,7 @@ export interface Prospect {
   handle: string
   name: string
   bio: string
+  location: string | null
   followers: number
   seedCount: number
   lastPostAt: string | null
