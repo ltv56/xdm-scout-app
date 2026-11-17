@@ -27,8 +27,8 @@ export class RetentionService {
       [cutoff],
     )
     await this.ds.query(
-      `UPDATE x_users SET name = NULL, bio = NULL, followers = NULL
-        WHERE fetchedAt < ? AND (name IS NOT NULL OR bio IS NOT NULL OR followers IS NOT NULL)
+      `UPDATE x_users SET name = NULL, bio = NULL, followers = NULL, website = NULL
+        WHERE fetchedAt < ? AND (name IS NOT NULL OR bio IS NOT NULL OR followers IS NOT NULL OR website IS NOT NULL)
         AND xUserId NOT IN (${LIVE_DRAFT_USERS})`,
       [cutoff],
     )

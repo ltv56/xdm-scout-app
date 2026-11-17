@@ -22,6 +22,8 @@ export type XProfile = {
   receivesYourDm: boolean | null
   // Free text the person typed; X does not check it.
   location: string | null
+  // The link field of the profile; a way to reach someone whose DMs are closed.
+  website: string | null
 }
 
 // lang is X's own language guess for the post ("und" when it has none).

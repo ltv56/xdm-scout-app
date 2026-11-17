@@ -15,10 +15,10 @@ export function noOpeningText(n: NonNullable<Prospect['noOpening']>): string {
   return 'None of the posts read gives a recent, specific reason to write.'
 }
 
-export function landsInWhy(p: Pick<Prospect, 'landsIn' | 'relationship'>): string {
+export function landsInWhy(p: Pick<Prospect, 'landsIn' | 'relationship'> & { website?: string | null }): string {
   if (p.landsIn === 'inbox') return p.relationship === 'messaged_us' ? 'They wrote to you first.' : 'They follow you.'
   if (p.landsIn === 'requests') return "They take DMs from anyone, but don't follow you."
-  if (p.landsIn === 'cant_receive') return 'X says their DMs are closed.'
+  if (p.landsIn === 'cant_receive') return p.website ? 'X says their DMs are closed. Their profile links a website, shown under Profile.' : 'X says their DMs are closed.'
   return 'X did not say whether they take DMs.'
 }
 
@@ -26,7 +26,7 @@ export const RELATIONSHIP_WHY: Record<Prospect['relationship'], string> = {
   messaged_us: 'They messaged the fund.',
   engaged: 'They engaged with your posts.',
   follower: 'They follow the sender account.',
-  adjacent: 'One of your seed accounts follows them.',
+  adjacent: 'Linked to a seed account: a seed follows them, or they follow a seed.',
   cold: 'No link found to you or your seeds.',
 }
 

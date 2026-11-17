@@ -325,6 +325,7 @@ function toUser(p: XProfile, now: Date): XUser {
     orgType: p.orgType,
     receivesYourDm: p.receivesYourDm,
     location: p.location,
+    website: p.website?.slice(0, 255) ?? null,
     fetchedAt: now,
   })
 }

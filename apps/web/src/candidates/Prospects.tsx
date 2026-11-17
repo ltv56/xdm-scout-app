@@ -24,6 +24,7 @@ export interface Prospect {
   name: string
   bio: string
   location: string | null
+  website: string | null
   followers: number
   seedCount: number
   lastPostAt: string | null

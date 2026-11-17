@@ -38,6 +38,8 @@ const usersResponse = z.object({
         verified_type: z.string().optional(),
         receives_your_dm: z.boolean().optional(),
         location: z.string().optional(),
+        url: z.string().optional(),
+        entities: z.object({ url: z.object({ urls: z.array(z.object({ expanded_url: z.string().optional() })).optional() }).optional() }).optional(),
         public_metrics: z.object({ followers_count: z.number() }).optional(),
       }),
     )
@@ -45,7 +47,7 @@ const usersResponse = z.object({
   meta: z.object({ next_token: z.string().optional() }).optional(),
 })
 
-const USER_FIELDS = 'description,protected,public_metrics,verified_type,receives_your_dm,location'
+const USER_FIELDS = 'description,protected,public_metrics,verified_type,receives_your_dm,location,url,entities'
 
 function toProfile(u: NonNullable<z.infer<typeof usersResponse>['data']>[number]): XProfile {
   return {
@@ -58,6 +60,7 @@ function toProfile(u: NonNullable<z.infer<typeof usersResponse>['data']>[number]
     orgType: u.verified_type === 'business' || u.verified_type === 'government' ? u.verified_type : null,
     receivesYourDm: u.receives_your_dm ?? null,
     location: u.location?.trim() || null,
+    website: u.entities?.url?.urls?.[0]?.expanded_url || u.url || null,
   }
 }
 

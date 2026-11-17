@@ -190,6 +190,21 @@ describe('LiveXClient receives_your_dm', () => {
       ['silent', null],
     ])
   })
+
+  it('reads the website link of a profile, expanded from the t.co link when X gives it', async () => {
+    const { client, calls } = clientWith(() =>
+      json(200, {
+        data: [
+          { id: '1', username: 'site', name: 's', url: 'https://t.co/abc', entities: { url: { urls: [{ url: 'https://t.co/abc', expanded_url: 'https://acme.ai' }] } } },
+          { id: '2', username: 'short', name: 't', url: 'https://t.co/xyz' },
+          { id: '3', username: 'none', name: 'n', url: '' },
+        ],
+      }),
+    )
+    const profiles = await client.lookupUsers(['site', 'short', 'none'])
+    expect(profiles.map((p) => p.website)).toEqual(['https://acme.ai', 'https://t.co/xyz', null])
+    expect(new URL(calls[0].url).searchParams.get('user.fields')).toContain('url')
+  })
 })
 
 describe('LiveXClient discovery reads', () => {

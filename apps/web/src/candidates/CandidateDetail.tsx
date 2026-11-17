@@ -310,6 +310,14 @@ export default function CandidateDetail({ campaignId, id, inReview, onReview, on
                   Location on X: <span className="text-ink">{p.location}</span>
                 </p>
               )}
+              {p.website && /^https?:\/\//.test(p.website) && (
+                <p className="mt-2 text-sm text-muted wrap-anywhere">
+                  Website:{' '}
+                  <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-ink underline underline-offset-2">
+                    {p.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                  </a>
+                </p>
+              )}
               <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Stat label="Followers" value={count(p.followers)} />
                 <Stat label="Last post" value={p.lastPostAt ? (shortDate(p.lastPostAt) ?? '-') : 'Not read'} />

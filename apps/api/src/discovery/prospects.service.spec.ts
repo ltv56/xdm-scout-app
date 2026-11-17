@@ -98,6 +98,13 @@ describe('prospects list', () => {
     expect(second.lastPostAt).toBeNull()
   })
 
+  it('passes on the website from the X profile', async () => {
+    await addProspect('1', { fit: 'strong' })
+    await ds.getRepository(XUser).update('1', { website: 'https://acme.ai' })
+    const [row] = await new ProspectsService(ds).list(1, now)
+    expect(row.website).toBe('https://acme.ai')
+  })
+
   it('warns that identity is not confirmed for parody or fan accounts', async () => {
     await addProspect('1', {}, 'Parody account of an AI researcher')
     await addProspect('2', {}, 'ai builder')
