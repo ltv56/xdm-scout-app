@@ -1,61 +1,42 @@
 # X app setup
 
-Requirements for connecting an X account.
-
 ## Accounts
 
-- Sender account: the X account that sends the DMs. Set a Chat passcode on it (Settings > Chat). Without a passcode the DM compose window has no message box.
-- Test recipient: a second X account you control, or a person who agreed to receive test messages.
+- **Sender:** the X account that sends. Set a Chat passcode (Settings > Chat); without it the compose window has no message box.
+- **Test recipient:** a second account you control.
 
 ## Create the app
 
-1. Sign in at https://console.x.com with the sender account and register as a developer.
-2. Create an app, then open User authentication settings and set:
-   - App permissions: Read and write and Direct message
-   - Type of app: Web App, Automated App or Bot (confidential client)
-   - Callback URI: `http://localhost:3000/api/auth/x/callback`
-   - Website URL: any valid public URL (`localhost` is rejected)
-3. Save. Copy the Client ID and Client Secret. The secret is shown once; regenerate it if lost.
-4. Put them in `.env` as `X_CLIENT_ID` and `X_CLIENT_SECRET`.
+1. At https://console.x.com, sign in as the sender and choose the pay-per-use plan.
+2. User authentication settings:
+   - Permissions: Read and write and Direct message
+   - Type: Web App, Automated App or Bot
+   - Callback URI: `https://<DOMAIN>/api/auth/x/callback` (hosted) or `http://localhost:3000/api/auth/x/callback` (local)
+   - Website URL: any public URL
+3. Copy the Client ID and Secret into Settings > Keys (hosted) or `.env` (local).
 
-## Scopes
-
-`dm.read dm.write tweet.read users.read follows.read offline.access`
-
-A missing scope returns `403 Forbidden` without naming the scope. `follows.read` is required for followers and following.
-
-## Credits
-
-- Plan: pay-per-use
-
-Pricing: https://docs.x.com/x-api/getting-started/pricing.md
+Scopes: `dm.read dm.write tweet.read users.read follows.read offline.access`. A missing scope returns `403` without naming it.
 
 ## Tokens
 
-- Access token lifetime is 2 hours. The refresh token (scope `offline.access`) renews it.
-- A missing token returns `401`. An invalid token returns `403 unsupported-authentication`. A failed refresh returns `400 invalid_client`.
+Access tokens last 2 hours; `offline.access` refreshes them. Missing token: `401`; invalid: `403 unsupported-authentication`; failed refresh: `400 invalid_client`.
 
 ## Rate limits observed
 
-From the `x-rate-limit-limit` response header on the pay-per-use plan.
-
-| Item | Value |
+| Endpoint | Limit per 15 minutes |
 | --- | --- |
-| DM event read | 15 requests per 15 minutes |
-| User lookup | 900 requests per 15 minutes |
-| Recent search | 300 requests per 15 minutes |
-| Followers / following read | 10,000 requests per 15 minutes |
-| DM send | 99 requests per 15 minutes |
+| DM event read | 15 |
+| DM send | 99 |
+| Recent search | 300 |
+| User lookup | 900 |
+| Followers / following | 10,000 |
 
 ## Sending behaviour
 
-| Recipient | API send result | Where the recipient sees it |
+| Recipient | API result | Shown in |
 | --- | --- | --- |
-| Follows the sender, or has an existing conversation | `201` | Main chat list |
-| Stranger who accepts DMs | `201` | Message Requests > Other |
-| Does not accept DMs | `403` `dm-recipient-not-accepting` | Not delivered |
+| Follower or existing conversation | `201` | Main chat list |
+| Stranger who accepts DMs | `201` | Message Requests |
+| Does not accept DMs | `403 dm-recipient-not-accepting` | Not delivered |
 
-`receives_your_dm` on the user object predicts the `403` case. It can lag after the recipient changes the setting.
-
-`https://x.com/messages/compose?recipient_id=<id>&text=<text>` opens the chat with the text filled in.
-
+`receives_your_dm` predicts the `403` and can lag. `https://x.com/messages/compose?recipient_id=<id>&text=<text>` opens the chat with the text filled in.
