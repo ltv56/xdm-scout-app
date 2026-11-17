@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
-import type { CampaignLane, ReadyToDraft, ReviewQueue, SenderProfile } from '../../../api/src/review/contract'
+import type { CampaignLane, ReadyToDraft, ReviewQueue, SenderProfile, WriteDraftsResult } from '../../../api/src/review/contract'
 import { getJson, postJson } from '../api'
 import { campaignQuery } from '../campaignQuery'
 import Funnel from './Funnel'
@@ -75,6 +75,11 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
     mutationFn: () => postJson<{ queued: number }>(`/campaigns/${campaignId}/score`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['prospects', campaignId] }),
   })
+  // Drafts can be written from here, so a search ends one click away from Review.
+  const write = useMutation({
+    mutationFn: () => postJson<WriteDraftsResult>(`/campaigns/${campaignId}/drafts`, { limit: 10 }),
+    onSuccess: () => Promise.all(['review-queue', 'ready', 'prospects'].map((key) => qc.invalidateQueries({ queryKey: [key] }))),
+  })
   const searchedAt = campaign.data?.lastDiscovery?.at
   const peopleCount = prospects.data?.length
   // The funnel only polls every 30 s; refresh it when a search lands or the people change so Results so far is not stale.
@@ -99,6 +104,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
   for (const p of people) counts[p.fit ?? 'unscored'] += 1
   const drafts = (queue.data?.items ?? []).filter((i) => i.status === 'pending')
   const scoringNow = people.filter((p) => p.scoring).length
+  const draftingNow = people.filter((p) => p.drafting).length
   const toScore = people.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length
   const scoreButton = (className: string, label: string) => (
     <button type="button" className={className} disabled={score.isPending} onClick={() => score.mutate()}>
@@ -243,6 +249,14 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
               {toScore > 0 ? scoreButton(btnPrimary, `Score ${plural(toScore, 'person', 'people')}`) : <Spinner className="size-5" />}
             </div>
           </>
+        ) : draftingNow > 0 ? (
+          <div role="status">
+            <h2 className="flex items-center gap-2 text-lg font-semibold leading-snug">
+              <Spinner className="size-4" />
+              Writing {plural(draftingNow, 'draft')}…
+            </h2>
+            <p className="mt-1.5 text-sm text-muted">Each one shows up in Review when it is done.</p>
+          </div>
         ) : (
           <div>
             <h2 className="text-lg font-semibold leading-snug">
@@ -252,16 +266,22 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
               {loadError
                 ? 'Reload the page when the server is back.'
                 : ready > 0
-                ? 'Nothing is written by itself. In Candidates, write drafts for everyone who is ready, or pick one person.'
+                ? `Drafts for the best fits first, up to 10 at a time. Nothing is sent until you approve it.`
                 : people.length
                   ? 'Search again to find more people.'
                   : 'Check the handles and keywords, then search again.'}
             </p>
             {ready > 0 && (
-              <button type="button" className={`${btnPrimary} mt-4`} onClick={() => onProspects('ready')}>
-                Go to Candidates
-              </button>
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+                <button type="button" className={btnPrimary} disabled={write.isPending} onClick={() => write.mutate()}>
+                  {write.isPending ? 'Starting…' : `Write ${plural(Math.min(ready, 10), 'draft')}`}
+                </button>
+                <button type="button" className={btnLink} onClick={() => onProspects('ready')}>
+                  Pick people in Candidates
+                </button>
+              </div>
             )}
+            {write.error && <p role="alert" className="mt-2 text-sm font-medium text-block">{write.error.message}</p>}
           </div>
         )}
       </section>

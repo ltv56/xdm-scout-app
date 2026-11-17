@@ -1,7 +1,8 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Inject, NotFoundException, Optional, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
-import { DataSource, In, IsNull } from 'typeorm'
+import { DataSource } from 'typeorm'
 import { z } from 'zod'
 import { JobsService } from '../jobs/jobs.service'
+import { queueScores } from './queue-scores'
 import { resolveLane } from './campaign-lane'
 import { MAX_FOLLOWERS_MAX, MAX_FOLLOWING_PER_SEED, MAX_SEARCH_RESULTS, MIN_FOLLOWERS_MAX, MIN_FOLLOWING_PER_SEED, MIN_SEARCH_RESULTS } from './pricing'
 import { DiscoveryService, uniqueHandles } from './discovery.service'
@@ -143,15 +144,7 @@ export class CampaignsController {
   async score(@Param('id', ParseIntPipe) id: number, @Body() body: unknown = {}) {
     const parsed = z.object({ prospectIds: z.array(z.number().int()).max(1000).optional() }).strict().safeParse(body ?? {})
     if (!parsed.success) throw new BadRequestException('Send prospectIds as a list of numbers, or nothing.')
-    const ids = parsed.data.prospectIds
-    const pending = await this.ds.getRepository(Prospect).findBy(ids ? { campaignId: id, id: In(ids) } : { campaignId: id, scoredAt: IsNull() })
-    let queued = 0
-    for (const p of pending) {
-      if (await this.jobs.hasOpen('score', 'prospectId', p.id)) continue
-      await this.jobs.enqueue('score', { prospectId: p.id }, new Date())
-      queued += 1
-    }
-    return { queued }
+    return { queued: await queueScores(this.ds, this.jobs, id, parsed.data.prospectIds) }
   }
 
   @Post(':id/prospects/:pid/score')

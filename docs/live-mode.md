@@ -48,7 +48,7 @@ npm run dev:web                  # http://localhost:3000
 
 Use accounts you control.
 
-- **By hand:** campaign > search > Score > Draft > Approve > **Open chat**, send in X, then **Yes, sent**.
+- **By hand:** campaign > search (scores by itself) > Write drafts > Approve > **Open chat**, send in X, then **Yes, sent**.
 - **API:** set the call post link and keyword on the campaign, DM the keyword from a test account, Check now, **Confirm invitation**, then Draft, Approve and Send.
 
 ## Read replies in X Chat

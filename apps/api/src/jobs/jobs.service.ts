@@ -6,6 +6,10 @@ import { Job } from './job.entity'
 export class JobsService {
   constructor(private readonly ds: DataSource) {}
 
+  get dataSource() {
+    return this.ds
+  }
+
   async enqueue(type: string, payload: Job['payload'], runAt: Date, em: EntityManager = this.ds.manager) {
     await em.save(Job, { type, payload, runAt })
   }

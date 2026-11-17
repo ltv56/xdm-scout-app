@@ -104,6 +104,21 @@ describe('worker', () => {
     expect(await ds.getRepository(Prospect).count()).toBe(1)
   })
 
+  it('a finished search queues a score for each person it added, once', async () => {
+    x.addProfile({ id: '1', handle: 'alice', bio: 'robotics' })
+    x.addProfile({ id: '2', handle: 'bob', bio: 'robotics' })
+    const campaign = await ds.getRepository(Campaign).save({ name: 'c', keywords: ['robotics'], handles: ['alice', 'bob'] })
+    await ds.getRepository(Job).save({ type: 'discover', payload: { campaignId: campaign.id }, runAt: t0 })
+    await worker.tick(t0, ['discover'])
+    const people = await ds.getRepository(Prospect).findBy({ campaignId: campaign.id })
+    const queued = await ds.getRepository(Job).findBy({ type: 'score' })
+    expect(queued.map((j) => j.payload.prospectId).sort()).toEqual(people.map((p) => p.id).sort())
+
+    await ds.getRepository(Job).save({ type: 'discover', payload: { campaignId: campaign.id }, runAt: t0 })
+    await worker.tick(t0, ['discover'])
+    expect(await ds.getRepository(Job).countBy({ type: 'score' })).toBe(2)
+  })
+
   it('marks finished jobs done', async () => {
     await approve()
     await worker.tick(new Date())

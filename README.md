@@ -23,8 +23,8 @@ Without Docker: [Development](docs/development.md#run-locally). With a real X ac
 ## Walkthrough
 
 1. Onboarding: use the sandbox account, fill in the fund profile, create a campaign.
-2. Overview > **Run first search**, then **Score**.
-3. Candidates > **Write drafts**. Open a name to see why each label is there.
+2. Overview > **Run first search**. Scoring follows by itself.
+3. Overview > **Write drafts**, or pick people in Candidates. Open a name to see why each label is there.
 4. Review: Edit, Approve or Skip. Point at a sentence to see its source.
 5. Send through the API, or **Open chat** in X with the text filled in.
 6. Messages shows every send and reply; Needs attention lists what waits for you. In the sandbox the three people answer about 20 seconds after a send (for a hand-send, after you say it was sent): one interested, one declining, one asking to stop.

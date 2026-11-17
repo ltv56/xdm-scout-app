@@ -4,6 +4,7 @@ import { FitService } from '../fit/fit.service'
 import { EvidenceRecheckService } from '../fit/evidence-recheck.service'
 import { InboundLaneService } from '../inbound/inbound-lane.service'
 import { RepliesService } from '../inbox/replies.service'
+import { queueScores } from '../discovery/queue-scores'
 import { JobsService } from '../jobs/jobs.service'
 import { DraftService } from '../review/draft.service'
 import { ReviewService } from '../review/review.service'
@@ -37,7 +38,11 @@ export class Worker {
     try {
       if (job.type === 'send') await this.sending.processAttempt(job.payload.attemptId, now)
       else if (job.type === 'reconcile') await this.sending.reconcile(job.payload.attemptId, now)
-      else if (job.type === 'discover') await this.discovery.run(job.payload.campaignId, now)
+      else if (job.type === 'discover') {
+        await this.discovery.run(job.payload.campaignId, now)
+        // Scoring is model calls only (the search already read the posts), so it starts without another click.
+        await queueScores(this.jobs.dataSource, this.jobs, job.payload.campaignId, undefined, now)
+      }
       else if (job.type === 'score') await this.fit.score(job.payload.prospectId, now)
       else if (job.type === 'verify_manual') await this.sending.verifyManual(job.payload.attemptId, now, job.payload.step, job.payload.fromMs)
       else if (job.type === 'draft') await this.draft(job.payload.prospectId, now)
