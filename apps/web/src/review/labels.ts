@@ -6,7 +6,7 @@ export const FIT_LABEL: Record<ReviewItem['prospect']['fit'], string> = {
   strong: 'Strong',
   possible: 'Possible',
   weak: 'Weak',
-  no_basis: 'No basis',
+  no_basis: 'Not scored',
 }
 
 export const LANDS_IN_LABEL: Record<NonNullable<ReviewItem['prospect']['landsIn']>, string> = { inbox: 'Inbox', requests: 'Message requests', cant_receive: "Can't receive" }

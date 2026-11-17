@@ -102,18 +102,13 @@ export function PersonFacts({ prospect }: { prospect: Prospect }) {
   const [open, setOpen] = useState<number | null>(null)
   return (
     <section aria-label="About this person">
-      <h3 className="text-sm font-semibold">About {name}</h3>
+      <h3 className="text-base font-semibold">About {name}</h3>
       <p className="mt-1 text-sm text-muted">
-        Counted from the {s.sampleSize} latest posts we read, on {day(s.asOf)}.
+        From the {s.sampleSize} latest posts read, on {day(s.asOf)}.
       </p>
       <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4">
         <Fact label="Followers" value={count(s.followers)} />
         <Fact label="Posts per week" value={s.postsPerWeek === null ? 'Not enough posts' : String(s.postsPerWeek)} />
-        <Fact
-          label="Typical reactions"
-          value={s.engagementMedian === null ? 'Not enough posts' : String(s.engagementMedian)}
-          note={s.engagementMedian === null ? undefined : 'per post, median'}
-        />
         <Fact label="Kind of work" value={CONTRIBUTION[s.contribution]} />
         <Fact label="Followed by our seeds" value={String(s.fundTies)} />
         <Fact label="Last active" value={activeLabel(prospect.daysSinceActive).replace('Active ', '')} />
@@ -126,7 +121,7 @@ export function PersonFacts({ prospect }: { prospect: Prospect }) {
         </div>
       )}
       {prospect.criteria.length > 0 && prospect.criteria.every((c) => c.status === 'unknown') && (
-        <p className="mt-5 text-xs text-muted">{prospect.criteria.length} fund criteria unknown: not enough posts read yet.</p>
+        <p className="mt-5 text-xs text-muted">{prospect.criteria.length === 1 ? '1 fund criterion' : `${prospect.criteria.length} fund criteria`} unknown: nothing read shows it either way.</p>
       )}
       {prospect.criteria.some((c) => c.status !== 'unknown') && (
         <ul className="mt-5 space-y-2" aria-label="Fund criteria">
@@ -178,12 +173,37 @@ const BAND = {
 const WORST_FIRST = { low: 0, middle: 1, high: 2 }
 const pctOf = (x: number) => Math.round(x * 100)
 
+// The text a check was given is "Message: ...", "Evidence: ...", "Name: ... Bio: ...": split it so each part has its own heading.
+const PART = /(?:^|\n|(?<=\.)\s)(Message|Evidence|Sentence|Name|Handle|Followers|Bio):\s/g
+
+function inputParts(input: string): { label: string; value: string }[] {
+  const marks = [...input.matchAll(PART)]
+  if (!marks.length) return []
+  return marks.map((m, i) => {
+    const from = (m.index ?? 0) + m[0].length
+    const to = i + 1 < marks.length ? (marks[i + 1].index ?? input.length) : input.length
+    const value = input.slice(from, to).trim().replace(/\.$/, '').replace(/^"([\s\S]*)"$/, '$1')
+    return { label: m[1], value }
+  })
+}
+
 function CheckDetail({ d }: { d: Decision }) {
   const ref = useReveal()
   return (
     <div ref={ref} className="mb-2 rounded-2xl border border-rule bg-paper p-4">
       <p className="text-xs font-semibold text-muted">Given to the model</p>
-      <p className="scroll-thin mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-sm leading-snug [overflow-wrap:anywhere]">{d.input}</p>
+      {inputParts(d.input).length ? (
+        <dl className="scroll-thin mt-2 max-h-72 space-y-3 overflow-y-auto">
+          {inputParts(d.input).map((part, i) => (
+            <div key={i}>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-ink">{part.label}</dt>
+              <dd className="mt-1 whitespace-pre-wrap rounded-lg bg-raised px-3 py-2 text-sm leading-snug [overflow-wrap:anywhere]">{part.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="scroll-thin mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-sm leading-snug [overflow-wrap:anywhere]">{d.input}</p>
+      )}
       <p className="mt-3 text-xs text-muted">
         Answer: {whoAnswers(d) === 'jev' ? `${pctOf(d.probability)}% yes. ` : ''}
         {BAND[d.band].say}. From {ANSWERER[whoAnswers(d)]}.
@@ -219,7 +239,7 @@ export function ModelChecks({ decisions, sentences }: { decisions: Decision[]; s
   const sorted = [...decisions].sort((a, b) => WORST_FIRST[a.band] - WORST_FIRST[b.band])
   return (
     <section aria-label="Model checks">
-      <h3 className="text-sm font-semibold">Model checks</h3>
+      <h3 className="text-base font-semibold">Model checks</h3>
       <p className="mt-1 text-sm text-muted">
         What the AI thinks of each point. Advice only: the checks above decide.
       </p>

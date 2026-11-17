@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CheckItem, DeliveredItem, InboxChecks, ReplyItem } from '../../../api/src/inbox/contract'
 import { ENDS_CONTACT, needsStopConfirm, REPLY_CLASSES, type ClassBy, type ReplyClass } from '../../../api/src/inbox/reply-class'
 import { getJson, postJson } from '../api'
-import { plural } from '../format'
+import { plural, when } from '../format'
 import EmptyState from '../ui/EmptyState'
 import { XLogo } from '../ui/icons'
 import SentCheck from './SentCheck'
@@ -75,19 +75,15 @@ export default function Inbox({ campaignId, onReview }: { campaignId: number; on
         )}
       </section>
       {delivered.length > 0 && (
-      <section aria-labelledby="delivered-heading" className="mt-10">
-        <h2 id="delivered-heading" className="text-lg font-semibold">Delivered</h2>
-        {(
-          <>
-            <p className="mt-1 text-sm text-muted">{readsChats ? 'Replies are read from each chat, encrypted ones too.' : "Replies in encrypted chats don't reach the app. If someone answered in X, mark it here."}</p>
-            <ul className="mt-3 divide-y divide-rule">
-              {delivered.map((d) => (
-                <DeliveredRow key={d.attemptId} item={d} campaignId={campaignId} canMark={!readsChats} />
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
+        <section aria-labelledby="delivered-heading" className="mt-10">
+          <h2 id="delivered-heading" className="text-lg font-semibold">Delivered</h2>
+          <p className="mt-1 text-sm text-muted">{readsChats ? 'Replies are read from each chat, encrypted ones too.' : "Replies in encrypted chats don't reach the app. If someone answered in X, mark it here."}</p>
+          <ul className="mt-3 divide-y divide-rule">
+            {delivered.map((d) => (
+              <DeliveredRow key={d.attemptId} item={d} campaignId={campaignId} canMark={!readsChats} />
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   )
@@ -219,7 +215,7 @@ function CheckNow({ campaignId }: { campaignId: number }) {
         </span>
       )}
       <button type="button" className={btnLink} disabled={check.isPending} onClick={() => check.mutate()} title="Each chat read costs about $0.01">
-        Check now
+        {check.isPending ? 'Checking…' : 'Check now'}
       </button>
     </span>
   )
@@ -274,4 +270,3 @@ function Person({ item }: { item: { name: string | null; handle: string; at: str
   )
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })

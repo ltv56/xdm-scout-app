@@ -222,8 +222,8 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
                       </p>
                     </div>
                   )}
-                  <div className="mt-6 max-w-[62ch] rounded-xl bg-rail px-5 py-3.5 text-sm">
-                    <p className="text-xs font-semibold text-muted">Weakest point</p>
+                  <div className="mt-6 max-w-[62ch] rounded-xl bg-warn-bg/60 px-5 py-3.5 text-sm">
+                    <p className="text-xs font-semibold text-warn">Weakest point</p>
                     <p className="mt-0.5">{item.weakestPoint}</p>
                     {item.sendPath === 'API_SEND' && <p className="mt-1 text-muted">They messaged you first, so xdm-scout may send this reply for you.</p>}
                   </div>
@@ -236,7 +236,7 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
           <aside ref={aside} className="scroll-thin min-w-0 space-y-6 px-5 pb-8 sm:px-12 lg:overflow-y-auto lg:border-l lg:border-rule lg:px-9 lg:py-6 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-rule [&>section:not(:first-child)]:pt-6">
             <PersonFacts prospect={p} />
             <section aria-label="Evidence">
-              <h3 className="mb-3 text-sm font-semibold">Why this opening</h3>
+              <h3 className="mb-3 text-base font-semibold">Why this opening</h3>
               <EvidenceList evidence={evidence} stale={stale} active={activeEvidence} onHover={setHoverEvidence} onPick={pickEvidence} />
             </section>
             <ModelChecks decisions={item.decisions} sentences={item.sentences} />

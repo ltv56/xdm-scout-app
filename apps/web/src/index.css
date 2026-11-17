@@ -14,8 +14,10 @@
   --accent-hover: #424245;
   --block: #c42318;
   --block-bg: #ffe2df;
-  --warn: #1d1d1f;
+  --warn: #8a4b00;
   --warn-bg: #fff2a8;
+  /* Bars, dots and borders only: text stays --warn, which is dark enough to read. */
+  --caution: #ff9f0a;
   --ok: #087529;
   --ok-bg: #d2f6dc;
   --mark: #e8e8ed;
@@ -41,6 +43,7 @@
   --color-block-bg: var(--block-bg);
   --color-warn: var(--warn);
   --color-warn-bg: var(--warn-bg);
+  --color-caution: var(--caution);
   --color-ok: var(--ok);
   --color-ok-bg: var(--ok-bg);
   --color-mark: var(--mark);
@@ -99,6 +102,12 @@ select {
 
 button {
   cursor: pointer;
+}
+button,
+a,
+summary,
+select {
+  touch-action: manipulation;
 }
 button:disabled {
   cursor: not-allowed;

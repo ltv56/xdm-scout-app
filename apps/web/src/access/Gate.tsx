@@ -65,17 +65,17 @@ function AccessScreen({ setUp, onDone }: { setUp: boolean; onDone: () => void })
         {!setUp && (
           <label className="mt-6 block text-sm font-medium">
             Invite code
-            <input className={`${field} mt-1`} value={invite} onChange={(e) => setInvite(e.target.value)} autoComplete="off" spellCheck={false} required />
+            <input name="invite" className={`${field} mt-1`} value={invite} onChange={(e) => setInvite(e.target.value)} autoComplete="off" spellCheck={false} required />
           </label>
         )}
         <label className="mt-4 block text-sm font-medium">
           {setUp ? 'Password' : 'New password (at least 12 characters)'}
-          <input type="password" className={`${field} mt-1`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={setUp ? 'current-password' : 'new-password'} required autoFocus />
+          <input type="password" name="password" className={`${field} mt-1`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={setUp ? 'current-password' : 'new-password'} required autoFocus />
         </label>
         {!setUp && (
           <label className="mt-4 block text-sm font-medium">
             Password again
-            <input type="password" className={`${field} mt-1`} value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" required />
+            <input type="password" name="password-again" className={`${field} mt-1`} value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" required />
           </label>
         )}
         {(problem || submit.error) && (
