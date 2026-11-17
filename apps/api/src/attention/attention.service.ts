@@ -9,6 +9,7 @@ import { Contact, Draft, SendAttempt, XUser } from '../sending/entities'
 import type { StoredSentence } from '../review/checks'
 import type { AttentionItem } from './contract'
 
+const ASK_AFTER_MS = 24 * 3_600_000
 const OUTSIDE_REPLY = 'Someone already replied outside xdm-scout'
 
 const usd = (micros: number) => `$${(micros / 1_000_000).toFixed(2)}`
@@ -26,7 +27,7 @@ export class AttentionService {
   ) {}
 
   async list(campaignId: number, now = new Date()): Promise<AttentionItem[]> {
-    const items = [...(await this.system(now)), ...(await this.people(campaignId)), ...(await this.budget(campaignId))]
+    const items = [...(await this.system(now)), ...(await this.people(campaignId)), ...(await this.handSends(campaignId, now)), ...(await this.budget(campaignId))]
     const since = (i: AttentionItem) => (i.since ? new Date(i.since).getTime() : Infinity)
     return items.sort((a, b) => a.priority - b.priority || since(a) - since(b))
   }
@@ -103,6 +104,29 @@ export class AttentionService {
         goTo: 'inbox',
       }
     })
+  }
+
+  // A chat opened for a hand-send a day ago and nobody said whether it went out: the person stays held until someone answers.
+  private async handSends(campaignId: number, now: Date): Promise<AttentionItem[]> {
+    const rows = await this.ds
+      .createQueryBuilder(SendAttempt, 'a')
+      .innerJoin(Draft, 'd', 'd.id = a.draftId')
+      .innerJoin(Prospect, 'p', 'p.id = d.prospectId AND p.campaignId = :campaignId', { campaignId })
+      .innerJoin(Contact, 'c', 'c.id = a.contactId')
+      .leftJoin(XUser, 'u', 'u.xUserId = c.xUserId')
+      .where("a.status = 'manual_pending' AND a.chatOpenedAt <= :cutoff", { cutoff: new Date(now.getTime() - ASK_AFTER_MS) })
+      .select(['a.id AS id', 'a.chatOpenedAt AS at', 'c.xUserId AS xUserId', 'u.handle AS handle'])
+      .orderBy('a.id', 'ASC')
+      .getRawMany<{ id: number; at: Date; xUserId: string; handle: string | null }>()
+    return rows.map<AttentionItem>((r) => ({
+      id: `hand-send-${r.id}`,
+      kind: 'hand_send',
+      priority: 2,
+      title: r.handle ?? r.xUserId,
+      reason: 'You opened the chat a day ago. Did you send it? Answer in Review.',
+      since: new Date(r.at).toISOString(),
+      goTo: 'review',
+    }))
   }
 
   // A live draft quotes a post that X no longer has; the claim must go before the message can.

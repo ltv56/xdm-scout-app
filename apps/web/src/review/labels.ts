@@ -35,6 +35,7 @@ export const PATH_LABEL: Record<ReviewItem['sendPath'], string> = {
 export const STATUS_LABEL: Record<ReviewItem['status'], string> = {
   pending: '',
   approved: 'Approved',
+  chat_opened: 'Chat opened',
   skipped: 'Skipped',
   superseded: 'Replaced',
   sent_manually: 'Sent by you',
@@ -61,7 +62,7 @@ export function activeLabel(days: number | null) {
   return `Active ${days} days ago`
 }
 
-export const isDone = (item: ReviewItem) => item.status !== 'pending' && item.status !== 'approved'
+export const isDone = (item: ReviewItem) => item.status !== 'pending' && item.status !== 'approved' && item.status !== 'chat_opened'
 
 export interface Verdict {
   tone: Tone
@@ -76,6 +77,7 @@ export function verdict(item: ReviewItem): Verdict {
     const by = item.sendPath === 'API_SEND' ? 'Now send it from xdm-scout or yourself in X.' : 'Now send it yourself in X.'
     return { tone: 'ok', chip: 'Approved', headline: 'Approved.', points: [by] }
   }
+  if (item.status === 'chat_opened') return { tone: 'warn', chip: 'Chat opened', headline: 'Chat opened in X.', points: [] }
   if (item.status === 'sent_manually') return { tone: 'ok', chip: 'Sent by hand', headline: 'Sent by hand.', points: [] }
   if (item.status === 'not_sent') return { tone: 'done', chip: 'Not sent', headline: 'Marked as not sent.', points: [] }
   if (item.status === 'skipped') return { tone: 'done', chip: 'Skipped', headline: 'Skipped.', points: [] }

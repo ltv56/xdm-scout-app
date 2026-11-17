@@ -2,7 +2,8 @@ import 'reflect-metadata'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { Campaign, Prospect } from '../discovery/entities'
-import { AttemptStatus, Draft, SendAttempt } from '../sending/entities'
+import { Reply } from '../inbox/reply.entity'
+import { AttemptStatus, Draft, SendAttempt, XUser } from '../sending/entities'
 import { createTestDataSource } from '../test/db'
 import { seedDraft, sha } from '../test/seed'
 import { OutboxService } from './outbox.service'
@@ -51,9 +52,22 @@ describe('OutboxService', () => {
     expect((await service.list(1)).items).toEqual([])
   })
 
-  it('does not show an approved hand-off as sent', async () => {
+  it('does not show an approved hand-off as sent, and asks once the chat was opened', async () => {
     await attempt('201', 'manual_pending')
-    expect((await service.list(1)).items.map((i) => i.label)).toEqual(['Send in X'])
+    const opened = await attempt('202', 'manual_pending')
+    await ds.getRepository(SendAttempt).update(opened.id, { chatOpenedAt: new Date() })
+    expect(Object.fromEntries((await service.list(1)).items.map((i) => [i.handle, i.label]))).toEqual({ u201: 'Send in X', u202: 'Did you send it?' })
+  })
+
+  it('shows the name, the start of the message and the reply class', async () => {
+    const a = await attempt('201', 'sent')
+    await ds.getRepository(XUser).update({ xUserId: '201' }, { name: 'Mina Park' })
+    await ds.getRepository(Draft).update(a.draftId, { content: 'Hi Mina!\nYour robot policy checkpoints stood out to me.' })
+    await ds.getRepository(Reply).save({ contactId: a.contactId, attemptId: a.id, xEventId: 'e1', text: 'Yes!', source: 'api', at: new Date(), replyClass: 'Interested', classBy: 'llm' })
+    await attempt('202', 'sent')
+    const items = (await service.list(1)).items
+    expect(items.find((i) => i.handle === 'u201')).toMatchObject({ name: 'Mina Park', preview: 'Your robot policy checkpoints stood out to me.', reply: 'Interested' })
+    expect(items.find((i) => i.handle === 'u202')).toMatchObject({ name: null, preview: 'Hi 202', reply: null })
   })
 
   it('gives a hand-off the link that opens X with the draft and the text to copy, and nothing for other sends', async () => {

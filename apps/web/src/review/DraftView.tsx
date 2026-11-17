@@ -209,7 +209,7 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
                       <XLogo className="size-4" />
                       {item.kind === 'reply' ? 'Reply to' : 'Direct message to'} @{p.handle}
                       {item.language !== 'en' && <span className="font-normal text-muted">· in {LANGUAGE_NAME[item.language]}</span>}
-                      {(item.status === 'pending' || item.status === 'approved') && <span className="font-normal text-muted">· not sent yet</span>}
+                      {(item.status === 'pending' || item.status === 'approved' || item.status === 'chat_opened') && <span className="font-normal text-muted">· not sent yet</span>}
                     </p>
                     <Draft item={item} shownSentence={shownSentence} setHoverSentence={setHoverSentence} pinnedSentence={pinnedSentence} onPick={pickSentence} activeEvidence={activeEvidence} />
                   </div>

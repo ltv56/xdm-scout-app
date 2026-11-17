@@ -1,6 +1,6 @@
 import { currentSender } from '../auth/current-sender'
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common'
-import { DataSource, In } from 'typeorm'
+import { DataSource, In, IsNull, Not } from 'typeorm'
 import { CriterionResult, Prospect, XPost } from '../discovery/entities'
 import { landsIn } from '../discovery/lands-in'
 import { DecisionClient } from '../decisions/decision-client'
@@ -27,6 +27,7 @@ type Context = {
   posts: Map<string, XPost[]>
   texts: Map<number, string>
   manualSent: Set<number>
+  chatOpened: Set<number>
 }
 
 // A model never blocks a draft alone, but a No must be read and ticked before Approve.
@@ -115,7 +116,7 @@ export class ReviewService {
     return {
       draftId: draft.id,
       contentHash: hashContent(draft.content),
-      status: draft.status === 'approved' && ctx.manualSent.has(draft.id) ? 'sent_manually' : draft.status,
+      status: draft.status !== 'approved' ? draft.status : ctx.manualSent.has(draft.id) ? 'sent_manually' : ctx.chatOpened.has(draft.id) ? 'chat_opened' : draft.status,
       sendPath: draft.sendPath,
       kind: draft.kind,
       editedByReviewer: draft.editedByReviewer,
@@ -185,6 +186,7 @@ export class ReviewService {
       evidence: new Map((evidenceIds.length ? await this.ds.getRepository(Evidence).findBy({ id: In(evidenceIds) }) : []).map((e) => [e.id, e])),
       posts: postsBy,
       manualSent: new Set((drafts.length ? await this.ds.getRepository(SendAttempt).findBy({ draftId: In(drafts.map((d) => d.id)), route: 'manual', status: In(['manual_unverified', 'sent']) }) : []).map((a) => a.draftId)),
+      chatOpened: new Set((drafts.length ? await this.ds.getRepository(SendAttempt).findBy({ draftId: In(drafts.map((d) => d.id)), route: 'manual', status: 'manual_pending', chatOpenedAt: Not(IsNull()) }) : []).map((a) => a.draftId)),
       texts: new Map(live.map((d) => [d.id, (d.sentences ?? []).map((s) => s.text).join(' ') || d.content])),
     }
   }

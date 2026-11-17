@@ -33,7 +33,7 @@ function useDraftMutations(item: ReviewItem, onFinished: () => void) {
       mutationFn: (outcome: 'sent' | 'not_sent') => postJson(`${base}/manual`, { outcome }),
       onSuccess: () => refresh().then(onFinished),
     }),
-    // Opening the chat counts as sent by hand; Not sent undoes it.
+    // Opening the chat is recorded; the reviewer then says whether it was sent.
     opened: useMutation({
       mutationFn: () => postJson(`${base}/opened`, {}),
       onSuccess: () => Promise.all([refresh(), qc.invalidateQueries({ queryKey: ['outbox'] }), qc.invalidateQueries({ queryKey: ['inbox-checks'] })]),
@@ -256,12 +256,43 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   // A reply the app may send gets both ways. Sending from here needs a connected X account, which the app cannot do yet.
   const byApp = item.sendPath === 'API_SEND'
   const xBtn = 'inline-flex items-center gap-2'
+  const reopen = item.openInXUrl && (
+    <a className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-raised px-3 py-1.5 text-sm font-medium transition-colors hover:border-ink hover:bg-rail" href={withoutText(item.openInXUrl)} target="_blank" rel="noreferrer" aria-label={`Open the chat with @${item.prospect.handle} on X`}>
+      Open chat
+      <XLogo className="size-3.5" />
+    </a>
+  )
+  const askSent =
+    item.status === 'chat_opened' ? (
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 rounded-xl bg-warn-bg/60 px-4 py-3">
+          <p className="text-sm">
+            <span className="font-semibold">Did you send it in X?</span> <span className="text-muted">It counts as sent only when you say so.</span>
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {reopen}
+            <button type="button" className={btnSecondary} disabled={m.manual.isPending} onClick={() => m.manual.mutate('not_sent')}>
+              No
+            </button>
+            <button type="button" className={btnApprove} disabled={m.manual.isPending} onClick={() => m.manual.mutate('sent')}>
+              Yes, sent
+            </button>
+          </div>
+        </div>
+        {copied && (
+          <p role="status" className="anim-fade-in mt-2 text-right text-xs text-muted">
+            {COPIED_NOTE}
+          </p>
+        )}
+        <ErrorLine error={m.manual.error} />
+      </div>
+    ) : null
   const sentByHand =
     item.status === 'sent_manually' ? (
       <div>
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
           <p className="text-sm">
-            <span className="font-semibold">Sent by hand.</span> <span className="text-muted">Opening the chat counts as sent. Didn't send it? Take it back.</span>
+            <span className="font-semibold">Sent by hand.</span> <span className="text-muted">Didn't send it after all? Take it back.</span>
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <ConfirmInline
@@ -273,12 +304,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
               onConfirm={() => m.manual.mutate('not_sent')}
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition hover:bg-rail hover:text-ink"
             />
-            {item.openInXUrl && (
-              <a className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-raised px-3 py-1.5 text-sm font-medium transition-colors hover:border-ink hover:bg-rail" href={withoutText(item.openInXUrl)} target="_blank" rel="noreferrer" aria-label={`Open the chat with @${item.prospect.handle} on X`}>
-                Open chat
-                <XLogo className="size-3.5" />
-              </a>
-            )}
+            {reopen}
             <button type="button" className={btnApprove} onClick={onFinished}>
               Next person
             </button>
@@ -293,6 +319,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
       </div>
     ) : null
   const send =
+    askSent ??
     sentByHand ??
     (!(pending || handoff) ? null : (
       <div>

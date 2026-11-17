@@ -51,9 +51,11 @@ test('Review: reading a draft, the source of a sentence, approving it, and Open 
   await popup.close()
   await expect.poll(readClipboard).toBe(draft)
   await expect(page.getByRole('status').filter({ hasText: 'Draft copied' })).toBeVisible()
-  // Opening the chat counts as sent by hand; Not sent is there to take it back.
-  await expect(page.getByText('Sent by hand.', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Not sent' })).toBeVisible()
+  // Opening the chat is not sending: Review asks, and Yes moves on to the next person.
+  await expect(page.getByText('Did you send it in X?', { exact: true })).toBeVisible()
+  const sent = page.waitForResponse((r) => r.url().endsWith('/manual') && r.ok())
+  await page.getByRole('button', { name: 'Yes, sent' }).click()
+  await sent
 })
 
 test('Review: Skip asks for a reason and moves on', async ({ page }) => {

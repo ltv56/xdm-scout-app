@@ -115,7 +115,7 @@ export class ReviewActionsService {
     await this.ds.transaction(async (em) => {
       const draft = await em.findOne(Draft, { where: { id: draftId } })
       if (!draft || draft.status !== 'approved') throw new ConflictException('Approve the draft first')
-      // Not sent can also undo an opened chat, which already counts as sent by hand.
+      // Not sent also takes back a send already confirmed by hand.
       const statuses: SendAttempt['status'][] = outcome === 'sent' ? ['manual_pending', 'approved'] : ['manual_pending', 'approved', 'manual_unverified']
       const attempt = await em.findOne(SendAttempt, { where: { draftId, status: In(statuses) } })
       if (!attempt) throw new ConflictException('Already recorded')
@@ -133,11 +133,11 @@ export class ReviewActionsService {
     return outcome === 'not_sent' ? { ...item, status: 'not_sent' } : item
   }
 
-  // Opening the chat counts as sent by hand; Not sent undoes it. The watch upgrades it to sent if X shows the message.
+  // Opening the chat is not sending: it is recorded and the reviewer is asked. The watch upgrades it to sent if X shows the message.
   async opened(draftId: number, now = new Date()): Promise<{ watching: boolean }> {
     const attempt = await this.ds.getRepository(SendAttempt).findOne({ where: { draftId, route: 'manual', status: In(['manual_pending', 'manual_unverified']) } })
     if (!attempt) return { watching: false }
-    await this.ds.getRepository(SendAttempt).update({ id: attempt.id, status: 'manual_pending' }, { status: 'manual_unverified' })
+    await this.ds.getRepository(SendAttempt).update({ id: attempt.id, status: 'manual_pending' }, { chatOpenedAt: now })
     if (!this.chats) return { watching: false }
     if (!(await this.jobs.hasOpen('verify_manual', 'attemptId', attempt.id))) {
       await this.jobs.enqueue('verify_manual', { attemptId: attempt.id, step: 0, fromMs: now.getTime() }, new Date(now.getTime() + WATCH_AT_MS[0]))

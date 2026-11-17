@@ -11,7 +11,7 @@ async function campaignId(request: APIRequestContext): Promise<number> {
   return list.find((c: { name: string }) => c.name === campaign).id
 }
 
-// Approves drafts and opens their chats, which counts as sent by hand.
+// Approves drafts, opens their chats and says they were sent by hand.
 async function sendByHand(request: APIRequestContext, count: number) {
   const queue = await (await request.get(`/api/review-queue?campaignId=${await campaignId(request)}`)).json()
   const drafts = queue.items.filter((i: { status: string; sendPath: string }) => i.status === 'pending' && i.sendPath === 'HUMAN_HANDOFF').slice(0, count)
@@ -19,6 +19,7 @@ async function sendByHand(request: APIRequestContext, count: number) {
   for (const d of drafts) {
     expect((await request.post(`/api/drafts/${d.draftId}/approve`, { data: { contentHash: d.contentHash, confirmedUnbacked: true } })).ok()).toBe(true)
     expect((await request.post(`/api/drafts/${d.draftId}/opened`, { data: {} })).ok()).toBe(true)
+    expect((await request.post(`/api/drafts/${d.draftId}/manual`, { data: { outcome: 'sent' } })).ok()).toBe(true)
   }
 }
 

@@ -130,7 +130,7 @@ export const language = z.enum(['en', 'vi', 'th', 'id'])
 export const reviewItem = z.object({
   draftId: z.number(),
   contentHash: z.string().length(64),
-  status: z.enum(['pending', 'approved', 'skipped', 'superseded', 'sent_manually', 'not_sent']),
+  status: z.enum(['pending', 'approved', 'chat_opened', 'skipped', 'superseded', 'sent_manually', 'not_sent']),
   sendPath: z.enum(['API_SEND', 'HUMAN_HANDOFF']),
   kind: z.enum(['first_message', 'reply']),
   editedByReviewer: z.boolean(),

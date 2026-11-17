@@ -15,6 +15,7 @@ const KIND: Record<AttentionItem['kind'], { label: string; tone: Tone; bar: stri
   check: { label: 'Check in X', tone: 'warn', bar: 'border-l-caution' },
   evidence_deleted: { label: 'Post deleted', tone: 'warn', bar: 'border-l-caution' },
   budget_out: { label: 'Budget used up', tone: 'warn', bar: 'border-l-caution' },
+  hand_send: { label: 'Sent or not?', tone: 'warn', bar: 'border-l-caution' },
   reply: { label: 'New reply', tone: 'ok', bar: 'border-l-ok' },
 }
 

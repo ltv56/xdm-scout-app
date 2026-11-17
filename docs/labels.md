@@ -45,7 +45,8 @@ A scored person with no usable opening shows **No reason to reach out yet**, wit
 | Checking | Result unknown; the app reads the chat and never resends |
 | Sent | X returned the message |
 | Send in X | Approved for a hand-send; chat not opened yet |
-| Sent by hand | Chat opened; Not sent takes it back |
+| Did you send it? | Chat opened, not counted as sent until you answer |
+| Sent by hand | You said it was sent; Not sent takes it back |
 | Check in X | X did not confirm; check the chat |
 | Failed | X refused; the reason is shown |
 | Cancelled | Taken back before sending |

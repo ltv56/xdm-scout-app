@@ -144,17 +144,18 @@ describe('manual outcome', () => {
     await expect(actions.manual(d.id, 'sent', now)).rejects.toBeInstanceOf(ConflictException)
   })
 
-  it('opening the chat counts as sent by hand, with one watch half a minute later however often it is opened', async () => {
+  it('opening the chat only records it and asks: nothing counts as sent until the reviewer says so, one watch however often it is opened', async () => {
     const d = await seedDraft()
     const { attemptId } = await actions.approve(d.id, body(d), now)
     expect(await actions.opened(d.id, now)).toEqual({ watching: true })
     await actions.opened(d.id, now)
-    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'manual_unverified' })
-    expect((await new ReviewService(ds).one(d.id, now)).status).toBe('sent_manually')
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'manual_pending', chatOpenedAt: now })
+    expect((await new ReviewService(ds).one(d.id, now)).status).toBe('chat_opened')
     const jobs = await ds.getRepository(Job).findBy({ type: 'verify_manual' })
     expect(jobs).toHaveLength(1)
     expect(jobs[0].payload).toEqual({ attemptId, step: 0, fromMs: now.getTime() })
     expect(jobs[0].runAt.getTime()).toBe(now.getTime() + 30_000)
+    expect((await actions.manual(d.id, 'sent', now)).status).toBe('sent_manually')
   })
 
   it('"Not sent" after opening the chat takes it back: attempt cancelled, send right free, draft back in Review', async () => {
@@ -167,13 +168,13 @@ describe('manual outcome', () => {
     expect((await ds.getRepository(Draft).findOneByOrFail({ id: d.id })).status).toBe('pending')
   })
 
-  it('without X Chat keys, opening the chat still counts as sent by hand but starts no watch that could never see it', async () => {
+  it('without X Chat keys, opening the chat is recorded but starts no watch that could never see it', async () => {
     const d = await seedDraft()
     const jobs = new JobsService(ds)
     const blind = new ReviewActionsService(ds, new ReviewService(ds), sending, new DraftService(ds, new FakeLlmClient(cannedHandler), jobs), jobs, false)
     const { attemptId } = await blind.approve(d.id, body(d), now)
     expect(await blind.opened(d.id, now)).toEqual({ watching: false })
-    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'manual_unverified' })
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'manual_pending', chatOpenedAt: now })
     expect(await ds.getRepository(Job).countBy({ type: 'verify_manual' })).toBe(0)
   })
 

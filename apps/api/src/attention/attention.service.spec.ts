@@ -45,6 +45,16 @@ afterAll(async () => {
 })
 
 describe('AttentionService', () => {
+  it('asks about a chat opened over a day ago that nobody said was sent or not', async () => {
+    const old = await seedAttempt('201', 'manual_pending')
+    await ds.getRepository(SendAttempt).update(old.attempt.id, { route: 'manual', chatOpenedAt: new Date(NOW.getTime() - 25 * 3_600_000) })
+    const fresh = await seedAttempt('202', 'manual_pending')
+    await ds.getRepository(SendAttempt).update(fresh.attempt.id, { route: 'manual', chatOpenedAt: new Date(NOW.getTime() - 3_600_000) })
+    await seedAttempt('203', 'manual_pending')
+    const items = await service.list(1, NOW)
+    expect(items.map((i) => [i.kind, i.title, i.goTo])).toEqual([['hand_send', 'u201', 'review']])
+  })
+
   it('has nothing to say when the sender is connected, the worker runs and nothing waits', async () => {
     await ds.getRepository(Campaign).save({ id: 1, name: 'c1', keywords: [], handles: [] })
     expect(await service.list(1, NOW)).toEqual([])

@@ -212,6 +212,10 @@ export class SendAttempt {
   @Column({ type: 'int', nullable: true })
   copiesSeen!: number | null
 
+  // A hand-send whose chat was opened: still not sent until the reviewer says so, so the daily count and the reply watch wait.
+  @Column({ type: 'datetime', precision: 3, nullable: true })
+  chatOpenedAt!: Date | null
+
   @CreateDateColumn()
   createdAt!: Date
 

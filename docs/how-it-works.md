@@ -38,7 +38,7 @@ X allows automated DMs only after the person messaged first, so:
 | Who | Sent by | Confirmed by |
 | --- | --- | --- |
 | Messaged first, invitation confirmed, within 30 days | API | X's answer, then a chat read |
-| Everyone else | You, from **Open chat** in X | Opening the chat (Not sent takes it back); with Chat keys, a read of the chat |
+| Everyone else | You, from **Open chat** in X | You answer Yes after opening the chat (No or Not sent takes it back); with Chat keys, a read of the chat. Unanswered for a day: Needs attention |
 
 People whose DMs are closed cannot be approved or opened.
 
