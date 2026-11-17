@@ -21,7 +21,7 @@ Fund criteria are met, not met or unknown. Met and not met need evidence that pa
 
 ## Evidence
 
-Reasons cite `bio:`, `location:`, `company:` or `post:` ids. A reason citing nothing stored is Inferred without a model call. Otherwise the decision model bands the answer: 70% or more Verified (Backed by a post), 30% or less Inferred (Our guess), in between Unsure (Check the post). Only Verified reasons go to Draft.
+Reasons cite `bio:`, `location:`, `company:` or `post:` ids. A reason citing nothing stored is Inferred without a model call. Otherwise the decision model bands the answer: 70% or more Verified (Backed by evidence), 30% or less Inferred (Our guess), in between Unsure (Check the post). Only Verified reasons go to Draft.
 
 ## Draft and checks
 

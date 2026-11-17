@@ -116,7 +116,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 
 const PAGE_SIZE = 5
 
-export default function Prospects({ campaignId, onReview, onOverview, initialFilter = 'all' }: { campaignId: number; onReview: () => void; onOverview: () => void; initialFilter?: Filter }) {
+export default function Prospects({ campaignId, onReview, onOverview, initialFilter = 'all' }: { campaignId: number; onReview: (handle?: string) => void; onOverview: () => void; initialFilter?: Filter }) {
   const [filter, setFilter] = useState<Filter>(initialFilter)
   const [relationship, setRelationship] = useState<RelationshipFilter>('any')
   const [landsIn, setLandsIn] = useState<LandsInFilter>('any')

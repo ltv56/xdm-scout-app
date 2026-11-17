@@ -108,7 +108,7 @@ export default function Onboarding({ onCreated }: { onCreated: (id: number) => v
         )}
         <div className={`relative ${step === 'connect' ? 'w-full max-w-[680px]' : ''}`}>
         {/* Beside the card when there is room, a slim note above it on a laptop. */}
-        {step !== 'connect' && <OnboardingTips className="mb-3 min-[1640px]:absolute min-[1640px]:left-full min-[1640px]:top-8 min-[1640px]:ml-6 min-[1640px]:mb-0 min-[1640px]:w-80" />}
+        {step !== 'connect' && <OnboardingTips key={step} start={step === 'campaign' ? 4 : 0} className="mb-3 min-[1640px]:absolute min-[1640px]:left-full min-[1640px]:top-8 min-[1640px]:ml-6 min-[1640px]:mb-0 min-[1640px]:w-80" />}
         <div className="rounded-3xl bg-raised p-6 shadow-soft sm:p-8">
           {error ? (
             <p role="alert" className="text-sm font-medium text-block">Could not reach the API: {error.message}</p>

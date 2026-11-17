@@ -7,6 +7,9 @@ import { btnPrimary, field } from '../ui/ui'
 const isLink = (s: string) => /^https?:\/\/\S+$/.test(s)
 const area = `${field} field-sizing-content min-h-20`
 const hint = 'mt-1.5 text-xs text-muted'
+const FIELDS = ['intro', 'p-name', 'p-link', 'p-desc', 'signer'] as const
+type Field = (typeof FIELDS)[number]
+type Errors = Partial<Record<Field, string>>
 
 // The fund profile on a first run: only what a draft cannot be written without. The wording around the message, sample messages
 // and more programs are in Profile later.
@@ -19,7 +22,7 @@ export default function QuickProfile({ profile, onSaved }: { profile: Profile; o
   const [link, setLink] = useState(first?.link ?? '')
   const [signer, setSigner] = useState(profile.signer)
   const [contact, setContact] = useState(profile.frame?.contactLine ?? '')
-  const [missing, setMissing] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Errors>({})
 
   const save = useMutation({
     mutationFn: () =>
@@ -37,18 +40,28 @@ export default function QuickProfile({ profile, onSaved }: { profile: Profile; o
   })
 
   const submit = () => {
-    const gap = !intro.trim()
-      ? 'Say who you are.'
-      : !name.trim() || !description.trim()
-        ? 'Give the program a name and one sentence.'
-        : !isLink(link.trim())
-          ? 'Give the program a link that starts with https://.'
-          : !signer.trim()
-            ? 'Say who signs the message.'
-            : null
-    setMissing(gap)
-    if (!gap) save.mutate()
+    const found: Errors = {}
+    if (!intro.trim()) found.intro = 'Say who you are.'
+    if (!name.trim()) found['p-name'] = 'Name the program.'
+    if (!isLink(link.trim())) found['p-link'] = 'A link that starts with https://.'
+    if (!description.trim()) found['p-desc'] = 'One sentence about the program.'
+    if (!signer.trim()) found.signer = 'Say who signs the message.'
+    setErrors(found)
+    const firstGap = FIELDS.find((id) => found[id])
+    if (firstGap) document.getElementById(firstGap)?.focus()
+    else save.mutate()
   }
+
+  const invalid = (id: Field) => (errors[id] ? { 'aria-invalid': true, 'aria-describedby': `${id}-err` } : {})
+  const below = (id: Field, text: string) =>
+    errors[id] ? (
+      <p id={`${id}-err`} className="mt-1.5 text-xs font-medium text-block">
+        {errors[id]}
+      </p>
+    ) : (
+      text && <p className={hint}>{text}</p>
+    )
+  const gaps = Object.keys(errors).length
 
   return (
     <form
@@ -68,12 +81,12 @@ export default function QuickProfile({ profile, onSaved }: { profile: Profile; o
             rows={3}
             maxLength={400}
             value={intro}
-            placeholder="I'm on the team at GenAI Fund. We back builders of AI agents in Southeast Asia."
-           
+            placeholder="e.g. I'm on the team at GenAI Fund. We back builders of AI agents in Southeast Asia."
             onChange={(e) => setIntro(e.target.value)}
             className={`${area} mt-1.5`}
+            {...invalid('intro')}
           />
-          <p className={hint}>One or two sentences.</p>
+          {below('intro', 'One or two sentences.')}
         </div>
 
         <div>
@@ -82,13 +95,15 @@ export default function QuickProfile({ profile, onSaved }: { profile: Profile; o
               <label htmlFor="p-name" className="text-sm font-semibold">
                 What you offer<span aria-hidden className="ml-0.5 text-block">*</span>
               </label>
-              <input id="p-name" value={name} maxLength={80} placeholder="FastTrack AI Accelerator" onChange={(e) => setName(e.target.value)} className={`${field} mt-1.5`} />
+              <input id="p-name" value={name} maxLength={80} placeholder="e.g. FastTrack AI Accelerator" onChange={(e) => setName(e.target.value)} className={`${field} mt-1.5`} {...invalid('p-name')} />
+              {below('p-name', '')}
             </div>
             <div>
               <label htmlFor="p-link" className="text-sm font-semibold">
                 Link<span aria-hidden className="ml-0.5 text-block">*</span>
               </label>
-              <input id="p-link" type="url" inputMode="url" value={link} maxLength={300} placeholder="https://genaifund.ai/" onChange={(e) => setLink(e.target.value)} className={`${field} mt-1.5`} />
+              <input id="p-link" type="url" inputMode="url" value={link} maxLength={300} placeholder="e.g. https://genaifund.ai/" onChange={(e) => setLink(e.target.value)} className={`${field} mt-1.5`} {...invalid('p-link')} />
+              {below('p-link', '')}
             </div>
           </div>
           <label htmlFor="p-desc" className="mt-5 block text-sm font-semibold">
@@ -99,12 +114,12 @@ export default function QuickProfile({ profile, onSaved }: { profile: Profile; o
             rows={2}
             maxLength={200}
             value={description}
-            placeholder="GPU credits and technical experts for early AI startups."
-           
+            placeholder="e.g. GPU credits and technical experts for early AI startups."
             onChange={(e) => setDescription(e.target.value)}
             className={`${area} mt-1.5 min-h-16`}
+            {...invalid('p-desc')}
           />
-          <p className={hint}>You can add more programs in Profile later.</p>
+          {below('p-desc', 'You can add more programs in Profile later.')}
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -112,21 +127,21 @@ export default function QuickProfile({ profile, onSaved }: { profile: Profile; o
             <label htmlFor="signer" className="text-sm font-semibold">
               Who signs the message<span aria-hidden className="ml-0.5 text-block">*</span>
             </label>
-            <input id="signer" value={signer} maxLength={64} placeholder="Linh at GenAI Fund" onChange={(e) => setSigner(e.target.value)} className={`${field} mt-1.5`} />
-            <p className={hint}>The name at the end of each message.</p>
+            <input id="signer" value={signer} maxLength={64} placeholder="e.g. Linh at GenAI Fund" onChange={(e) => setSigner(e.target.value)} className={`${field} mt-1.5`} {...invalid('signer')} />
+            {below('signer', 'The name at the end of each message.')}
           </div>
           <div>
             <label htmlFor="contact" className="text-sm font-semibold">
               Contact line <span className="font-normal text-muted">(optional)</span>
             </label>
-            <input id="contact" value={contact} maxLength={160} placeholder="Write to me at name@example.com" onChange={(e) => setContact(e.target.value)} className={`${field} mt-1.5`} />
+            <input id="contact" value={contact} maxLength={160} placeholder="e.g. Write to me at name@example.com" onChange={(e) => setContact(e.target.value)} className={`${field} mt-1.5`} />
             <p className={hint}>Goes last in every message, so they can reach you elsewhere.</p>
           </div>
         </div>
 
-        {missing && (
+        {gaps > 0 && (
           <p role="alert" className="text-sm font-medium text-block">
-            {missing}
+            Fill in the {gaps === 1 ? 'field' : `${gaps} fields`} marked in red.
           </p>
         )}
         {save.error && (

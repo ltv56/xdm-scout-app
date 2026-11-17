@@ -99,7 +99,7 @@ function DraftNav({ items, index, onSelect }: { items: ReviewItem[]; index: numb
 }
 
 // Fills the panel it is placed in.
-export default function ReviewQueue({ campaignId, onGo }: { campaignId: number; onGo: (page: 'overview') => void }) {
+export default function ReviewQueue({ campaignId, focus = null, onGo }: { campaignId: number; focus?: string | null; onGo: (page: 'overview') => void }) {
   const { data, error, isLoading } = useQuery<Queue>({
     queryKey: ['review-queue', campaignId],
     queryFn: () => getJson(`/review-queue?campaignId=${campaignId}`),
@@ -107,7 +107,8 @@ export default function ReviewQueue({ campaignId, onGo }: { campaignId: number; 
   const [selected, setSelected] = useState<number | null>(null)
 
   const items = data?.items ?? []
-  const index = Math.max(0, items.findIndex((i) => i.draftId === selected))
+  const chosen = selected ?? (focus ? (items.find((i) => i.prospect.handle === focus)?.draftId ?? null) : null)
+  const index = Math.max(0, items.findIndex((i) => i.draftId === chosen))
   const current = items[index]
 
   const go = (to: number) => items[to] && setSelected(items[to].draftId)

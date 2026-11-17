@@ -46,6 +46,12 @@ export default function App() {
   const [candidateFilter, setCandidateFilter] = useState<CandidateFilter>('all')
   const [campaignId, setCampaignId] = useState<number | null>(start.campaignId)
   const [creating, setCreating] = useState(false)
+  // Open in Review on a candidate opens that person's draft, not the first in the queue.
+  const [reviewFocus, setReviewFocus] = useState<string | null>(null)
+  const openReview = (handle: string | null = null) => {
+    setReviewFocus(handle)
+    setTab('review')
+  }
   const health = useQuery<Health>({ queryKey: ['health'], queryFn: () => getJson('/health') })
   const campaigns = useQuery<CampaignSummary[]>({ queryKey: ['campaigns'], queryFn: () => getJson('/campaigns') })
 
@@ -127,6 +133,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setTab(t.id)
+                setReviewFocus(null)
                 setCreating(false)
               }}
               aria-current={tab === t.id && !creating ? 'page' : undefined}
@@ -186,19 +193,19 @@ export default function App() {
             </div>
           ) : tab === 'overview' ? (
             <div className={scroll}>
-              <Overview campaignId={active} onReview={() => setTab('review')} onSettings={() => setTab('settings')} onGo={(page) => page !== 'overview' && go(page)} onProspects={(f) => {
+              <Overview campaignId={active} onReview={() => openReview()} onSettings={() => setTab('settings')} onGo={(page) => page !== 'overview' && go(page)} onProspects={(f) => {
                   setCandidateFilter(f)
                   setTab('prospects')
                 }}
               />
             </div>
           ) : tab === 'review' ? (
-            <ReviewQueue campaignId={active} onGo={setTab} />
+            <ReviewQueue campaignId={active} focus={reviewFocus} onGo={setTab} />
           ) : tab === 'messages' ? (
-            <Messages campaignId={active} tab={messagesTab} onTab={setMessagesTab} onReview={() => setTab('review')} />
+            <Messages campaignId={active} tab={messagesTab} onTab={setMessagesTab} onReview={() => openReview()} />
           ) : (
             <div className={scroll}>
-              <Prospects key={candidateFilter} campaignId={active} onReview={() => setTab('review')} onOverview={() => setTab('overview')} initialFilter={candidateFilter} />
+              <Prospects key={candidateFilter} campaignId={active} onReview={(handle) => openReview(handle ?? null)} onOverview={() => setTab('overview')} initialFilter={candidateFilter} />
             </div>
           )}
           </div>

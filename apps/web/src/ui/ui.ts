@@ -10,7 +10,7 @@ export const btnApprove =
 export const btnSmall = 'rounded-md bg-ink px-2.5 py-1 text-xs font-semibold text-white transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60'
 export const btnSmallQuiet = 'rounded-md bg-rail px-2.5 py-1 text-xs font-semibold transition hover:bg-rule active:scale-[0.98] disabled:text-muted'
 export const btnLink = 'text-sm font-medium underline decoration-rule decoration-2 underline-offset-4 transition-colors hover:decoration-ink'
-export const field = 'w-full rounded-xl border border-rule bg-raised px-3.5 py-2.5 text-sm'
+export const field = 'w-full rounded-xl border border-rule aria-invalid:border-block bg-raised px-3.5 py-2.5 text-sm'
 export const chip = 'rounded-full px-2.5 py-0.5 text-xs font-semibold'
 export const card = 'rounded-2xl bg-raised shadow-soft'
 

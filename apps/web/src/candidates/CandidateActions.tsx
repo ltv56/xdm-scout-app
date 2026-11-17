@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { WriteDraftsResult } from '../../../api/src/review/contract'
 import { postJson } from '../api'
 import Spinner from '../ui/Spinner'
@@ -10,6 +10,17 @@ import { plural } from '../format'
 export default function CandidateActions({ campaignId, unscored, scoring, drafting, ready }: { campaignId: number; unscored: number; scoring: number; drafting: number; ready: number }) {
   const qc = useQueryClient()
   const [note, setNote] = useState<string | null>(null)
+  const [wrote, setWrote] = useState(0)
+  const [seenDrafting, setSeenDrafting] = useState(false)
+  if (drafting > 0 && !seenDrafting) setSeenDrafting(true)
+  // A fast worker can finish between two polls, so stop waiting to see it after a while.
+  useEffect(() => {
+    if (wrote === 0 || seenDrafting) return
+    const t = setTimeout(() => setSeenDrafting(true), 10_000)
+    return () => clearTimeout(t)
+  }, [wrote, seenDrafting])
+  // The worker writes in the background: say "writing" until the drafts we asked for have come and gone.
+  const writing = wrote > 0 && (drafting > 0 || !seenDrafting)
 
   const score = useMutation({
     mutationFn: () => postJson<{ queued: number }>(`/campaigns/${campaignId}/score`),
@@ -18,16 +29,18 @@ export default function CandidateActions({ campaignId, unscored, scoring, drafti
   const write = useMutation({
     mutationFn: () => postJson<WriteDraftsResult>(`/campaigns/${campaignId}/drafts`, { limit: 10 }),
     onSuccess: (r) => {
+      setWrote(r.drafted)
+      setSeenDrafting(false)
       setNote(
         r.drafted === 0
           ? `Nobody is ready for a draft.${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed.` : ''}`
-          : `Writing ${plural(r.drafted, 'draft')}. Each one shows up in Review when it is done.${r.readyToDraft ? ` ${plural(r.readyToDraft, 'more person', 'more people')} still waiting.` : ''}${r.noOpening ? ` ${plural(r.noOpening, 'person', 'people')} skipped: no reason to reach out yet.` : ''}${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed.` : ''}`,
+          : `${r.readyToDraft ? ` ${plural(r.readyToDraft, 'more person', 'more people')} still waiting.` : ''}${r.noOpening ? ` ${plural(r.noOpening, 'person', 'people')} skipped: no reason to reach out yet.` : ''}${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed.` : ''}`.trim(),
       )
       return Promise.all(['review-queue', 'ready', 'prospects'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
     },
   })
 
-  if (unscored === 0 && scoring === 0 && drafting === 0 && ready === 0 && !note) return null
+  if (unscored === 0 && scoring === 0 && drafting === 0 && ready === 0 && !note && wrote === 0) return null
   const batch = Math.min(ready, 10)
   return (
     <div className="mt-5">
@@ -38,7 +51,7 @@ export default function CandidateActions({ campaignId, unscored, scoring, drafti
             Scoring… {plural(scoring, 'person', 'people')} left
           </span>
         )}
-        {drafting > 0 && (
+        {drafting > 0 && !writing && (
           <span role="status" className="inline-flex items-center gap-2 text-sm text-muted">
             <Spinner className="size-3.5" />
             Writing drafts… {drafting} left
@@ -60,8 +73,9 @@ export default function CandidateActions({ campaignId, unscored, scoring, drafti
           </>
         )}
       </div>
-      {note && (
+      {(note || wrote > 0) && (
         <p className="mt-3 text-sm font-medium" role="status">
+          {wrote > 0 && (writing ? `Writing ${plural(wrote, 'draft')}. Each one shows up in Review when it is done. ` : `${plural(wrote, 'draft')} written. Open Review to read them. `)}
           {note}
         </p>
       )}

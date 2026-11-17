@@ -4,7 +4,7 @@ import type { Prospect } from './Prospects'
 // One place for the words that say why a label is there. docs/labels.md says the same.
 
 export const CLAIM_CHIP: Record<'verified' | 'unsure' | 'inferred', { label: string; meaning: string; className: string }> = {
-  verified: { label: 'Backed by a post', meaning: 'The post or bio line it cites says this.', className: 'bg-ok-bg font-semibold text-ok' },
+  verified: { label: 'Backed by evidence', meaning: 'A post, bio or profile line it cites says this.', className: 'bg-ok-bg font-semibold text-ok' },
   unsure: { label: 'Check the post', meaning: 'The check was not sure either way. Open the post and decide.', className: 'bg-warn-bg font-semibold text-warn' },
   inferred: { label: 'Our guess', meaning: 'No post says this, or the check said no. Not used in drafts.', className: 'bg-rail text-muted' },
 }

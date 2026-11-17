@@ -104,7 +104,7 @@ export function PersonFacts({ prospect }: { prospect: Prospect }) {
     <section aria-label="About this person">
       <h3 className="text-base font-semibold">About {name}</h3>
       <p className="mt-1 text-sm text-muted">
-        From the {s.sampleSize} latest posts read, on {day(s.asOf)}.
+        From the {s.sampleSize === 1 ? 'latest post' : `${s.sampleSize} latest posts`} read, on {day(s.asOf)}.
       </p>
       <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4">
         <Fact label="Followers" value={count(s.followers)} />
@@ -241,7 +241,7 @@ export function ModelChecks({ decisions, sentences }: { decisions: Decision[]; s
     <section aria-label="Model checks">
       <h3 className="text-base font-semibold">Model checks</h3>
       <p className="mt-1 text-sm text-muted">
-        What the AI thinks of each point. Advice only: the checks above decide.
+        What the AI thinks of each point. Advice only: the rule checks decide whether a draft is ready.
       </p>
       <p className="mt-1 text-xs text-muted">70% or more counts as yes, 30% or less counts as no, in between is a warning.</p>
       <ul className="mt-3 space-y-1">

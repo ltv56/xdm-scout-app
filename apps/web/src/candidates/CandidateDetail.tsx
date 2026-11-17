@@ -196,7 +196,7 @@ interface Props {
   campaignId: number
   id: number
   inReview: boolean
-  onReview: () => void
+  onReview: (handle?: string) => void
   onClose: () => void
 }
 

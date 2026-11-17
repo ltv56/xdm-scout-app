@@ -30,7 +30,7 @@ A scored person with no usable opening shows **No reason to reach out yet**, wit
 | --- | --- |
 | Ready for a draft | Strong or Possible, a usable opening, no draft, DMs not closed |
 | Draft written, In Outbox | A draft waits in Review, or was approved |
-| Backed by a post | Verified: the cited text supports the reason |
+| Backed by evidence | Verified: the cited text supports the reason |
 | Check the post | Unsure: open the post and decide |
 | Our guess | Inferred: no real citation, or the check said no |
 | Inbox, Message requests, Can't receive | Where X would show the message; Can't receive turns off Approve and Open chat |

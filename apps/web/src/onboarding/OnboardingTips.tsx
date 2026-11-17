@@ -12,8 +12,8 @@ const TIPS = [
 const EVERY_MS = 7000
 
 // A note in the empty space beside the card.
-export default function OnboardingTips({ className = '' }: { className?: string }) {
-  const [at, setAt] = useState(0)
+export default function OnboardingTips({ className = '', start = 0 }: { className?: string; start?: number }) {
+  const [at, setAt] = useState(start % TIPS.length)
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return

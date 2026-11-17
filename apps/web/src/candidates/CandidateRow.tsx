@@ -20,7 +20,7 @@ function daysAgo(iso: string) {
 }
 
 // "Draft a message": one person, on request. It writes the draft and puts it in Review. Anyone but Not a fit, and only with an opening.
-export function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; campaignId: number; inReview: boolean; onReview: () => void }) {
+export function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; campaignId: number; inReview: boolean; onReview: (handle?: string) => void }) {
   const qc = useQueryClient()
   const make = useMutation({
     mutationFn: () =>
@@ -32,7 +32,7 @@ export function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospec
   if (p.outbox) return null
   if (inReview || make.isSuccess) {
     return (
-      <button type="button" className={btnOutline} onClick={onReview}>
+      <button type="button" className={btnOutline} onClick={() => onReview(p.handle)}>
         Open in Review
       </button>
     )
@@ -208,7 +208,7 @@ interface Props {
   index: number
   campaignId: number
   inReview: boolean
-  onReview: () => void
+  onReview: (handle?: string) => void
   onOpen: (opener: HTMLElement) => void
 }
 

@@ -78,7 +78,9 @@ test('First run: a missing answer is named, then saving moves on to the first ca
   await page.getByRole('button', { name: 'Use sandbox account' }).click()
 
   await page.getByRole('button', { name: 'Save and continue' }).click()
-  await expect(page.getByRole('alert')).toHaveText('Say who you are.')
+  await expect(page.getByRole('alert')).toHaveText('Fill in the 5 fields marked in red.')
+  await expect(page.getByText('Say who you are.')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Who you are' })).toBeFocused()
   await fillProfile(page)
   await page.getByRole('button', { name: 'Save and continue' }).click()
 

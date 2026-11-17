@@ -48,9 +48,9 @@ test('The detail says why each label is there, and Back returns to the same plac
   await expect(detail.getByRole('heading', { name: /^Why (Strong|Possible) fit$/ })).toBeVisible()
   await expect(detail.getByText('Mainly because:')).toBeVisible()
   // Every label has an (i) that explains it on hover, focus or tap.
-  const tip = detail.getByRole('button', { name: 'About Backed by a post: The post or bio line it cites says this.' }).first()
+  const tip = detail.getByRole('button', { name: 'About Backed by evidence: A post, bio or profile line it cites says this.' }).first()
   await tip.hover()
-  await expect(page.getByRole('tooltip')).toContainText('The post or bio line it cites says this.')
+  await expect(page.getByRole('tooltip')).toContainText('A post, bio or profile line it cites says this.')
   await expect(detail.getByRole('button', { name: /^About Fit:/ })).toBeVisible()
   await expect(detail.getByRole('button', { name: /^About Opening:/ })).toBeVisible()
   for (const section of ['Profile', 'Reaching out', 'Posts read']) {
