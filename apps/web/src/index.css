@@ -209,11 +209,21 @@ button:disabled {
 .anim-pop {
   animation: pop-in 0.16s ease-out backwards;
 }
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+.anim-slide-in {
+  animation: slide-in 0.22s ease-out backwards;
+}
 @media (prefers-reduced-motion: reduce) {
   .anim-fade-up,
   .anim-pop,
   .anim-expand,
-  .anim-fade-in {
+  .anim-fade-in,
+  .anim-slide-in {
     animation: none;
   }
 }

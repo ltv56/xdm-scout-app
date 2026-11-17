@@ -28,20 +28,45 @@ async function openCandidates(page: Page, request: APIRequestContext) {
   return row
 }
 
-test('A candidate shows who they are and what to do, and keeps the evidence one click away', async ({ page, request }) => {
+test('A candidate shows who they are, what to do and why in one line, and keeps the evidence one click away', async ({ page, request }) => {
   const row = await openCandidates(page, request)
-  await expect(row.getByRole('link', { name: /Tomas Reyes/ })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Tomas Reyes', exact: true })).toBeVisible()
   await expect(row.getByRole('button', { name: 'Draft a message' })).toBeVisible()
   await expect(row.getByText(/followers/)).toBeVisible()
   await expect(row.getByRole('note')).toHaveCount(0)
   await expect(row.getByText(/^Opening/)).toBeVisible()
+  await expect(row.getByText('Mainly because:')).toBeVisible()
+  await expect(row.getByRole('button', { name: /^See why/ })).toBeVisible()
+})
 
-  // The evidence list is folded away until asked for.
-  const why = row.getByText(/^Why this fit/)
-  await expect(why).toBeVisible()
-  await expect(row.getByText('Backed by a post').first()).toBeHidden()
-  await why.click()
-  await expect(row.getByText('Backed by a post').first()).toBeVisible()
+test('The detail says why each label is there, and Back returns to the same place', async ({ page, request }) => {
+  const row = await openCandidates(page, request)
+  const name = row.getByRole('button', { name: 'Tomas Reyes', exact: true })
+  await name.click()
+  const detail = page.getByRole('dialog', { name: 'Tomas Reyes' })
+  await expect(detail).toBeVisible()
+  await expect(detail.getByRole('heading', { name: /^Why (Strong|Possible) fit$/ })).toBeVisible()
+  await expect(detail.getByText('Mainly because:')).toBeVisible()
+  // Every label has an (i) that explains it on hover, focus or tap.
+  const tip = detail.getByRole('button', { name: 'About Backed by a post: The post or bio line it cites says this.' }).first()
+  await tip.hover()
+  await expect(page.getByRole('tooltip')).toContainText('The post or bio line it cites says this.')
+  await expect(detail.getByRole('button', { name: /^About Fit:/ })).toBeVisible()
+  await expect(detail.getByRole('button', { name: /^About Opening:/ })).toBeVisible()
+  for (const section of ['Profile', 'Reaching out', 'Posts read']) {
+    await expect(detail.getByRole('heading', { name: section })).toBeVisible()
+  }
+  await expect(detail.getByText('Likely lands in')).toBeVisible()
+  await expect(detail.getByText(/^(They |X )/).first()).toBeVisible()
+
+  await detail.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(detail).toHaveCount(0)
+  await expect(name).toBeFocused()
+
+  await row.getByRole('button', { name: /^See why/ }).click()
+  await expect(page.getByRole('dialog', { name: 'Tomas Reyes' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Tomas Reyes' })).toHaveCount(0)
 })
 
 test('Dismiss is out of the way: behind a menu button, with a confirmation, and Cancel or Escape leaves the person alone', async ({ page, request }) => {

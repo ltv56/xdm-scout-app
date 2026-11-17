@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Optional, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, HttpCode, Inject, NotFoundException, Optional, Param, ParseIntPipe, Patch, Post } from '@nestjs/common'
 import { DataSource, IsNull } from 'typeorm'
 import { z } from 'zod'
 import { JobsService } from '../jobs/jobs.service'
@@ -151,10 +151,11 @@ export class CampaignsController {
   }
 
   @Post(':id/prospects/:pid/score')
-  async scoreOne(@Param('id', ParseIntPipe) id: number, @Param('pid', ParseIntPipe) pid: number) {
+  // again: score a scored person anew, for example after their posts were read. It costs a model call, so only on request.
+  async scoreOne(@Param('id', ParseIntPipe) id: number, @Param('pid', ParseIntPipe) pid: number, @Body() body: { again?: boolean } = {}) {
     const prospect = await this.ds.getRepository(Prospect).findOneBy({ id: pid, campaignId: id })
     if (!prospect) throw new NotFoundException('Candidate not found')
-    if (prospect.scoredAt) return { queued: false, reason: 'Already scored' }
+    if (prospect.scoredAt && body?.again !== true) return { queued: false, reason: 'Already scored' }
     if (await this.jobs.hasOpen('score', 'prospectId', pid)) return { queued: false, reason: 'Already being scored' }
     await this.jobs.enqueue('score', { prospectId: pid }, new Date())
     return { queued: true }
@@ -163,6 +164,20 @@ export class CampaignsController {
   @Get(':id/prospects')
   list(@Param('id', ParseIntPipe) id: number) {
     return this.prospects.list(id)
+  }
+
+  // Reads one person's recent posts now. Past the budget it needs raiseBudget, which the screen asks for with the cost shown.
+  @Post(':id/prospects/:pid/read-posts')
+  @HttpCode(200)
+  readPosts(@Param('id', ParseIntPipe) id: number, @Param('pid', ParseIntPipe) pid: number, @Body() body: unknown) {
+    const parsed = z.object({ raiseBudget: z.boolean().default(false) }).strict().safeParse(body ?? {})
+    if (!parsed.success) throw new BadRequestException('Send raiseBudget true or false.')
+    return this.discovery.readPostsFor(id, pid, parsed.data)
+  }
+
+  @Get(':id/prospects/:pid')
+  detail(@Param('id', ParseIntPipe) id: number, @Param('pid', ParseIntPipe) pid: number) {
+    return this.prospects.detail(id, pid)
   }
 
   private async campaign(id: number) {

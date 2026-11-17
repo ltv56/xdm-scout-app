@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common'
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, In, Not } from 'typeorm'
 import { KnownUser } from '../known/known-user.entity'
 import { Contact, DoNotContact, RelationshipContext, SendAttempt, XUser } from '../sending/entities'
@@ -124,13 +124,7 @@ export class DiscoveryService {
         stoppedByBudget = true
         continue
       }
-      const posts = await this.x.getRecentPosts(user.xUserId, MAX_POSTS_PER_USER)
-      if (posts.length) {
-        await this.ds.getRepository(XPost).save(
-          posts.map((p) => ({ postId: p.id, xUserId: p.userId, text: p.text, postedAt: p.createdAt, lang: p.lang ?? null, fetchedAt: now })),
-        )
-        await this.recordUsage(campaignId, 'post', posts.length, PRICES.post)
-      }
+      await this.readPosts(campaignId, user.xUserId, now)
     }
 
     const result = { added: addedHandles.length, addedHandles, seeds: seedReport, skipped, spentMicros: (await this.spent(campaignId)) - startSpent, stoppedByBudget, postsPending }
@@ -199,6 +193,36 @@ export class DiscoveryService {
     return new Map(users.map((u) => [u.handle.toLowerCase(), u]))
   }
 
+  // One person's recent posts, read on request from Candidates. Past the budget it needs the operator's go-ahead,
+  // and then raises the budget only by what one read can cost.
+  async readPostsFor(campaignId: number, prospectId: number, opts: { raiseBudget: boolean }, now = new Date()) {
+    const prospect = await this.ds.getRepository(Prospect).findOneBy({ id: prospectId, campaignId })
+    if (!prospect) throw new NotFoundException('Candidate not found')
+    const campaign = await this.ds.getRepository(Campaign).findOneByOrFail({ id: campaignId })
+    const need = MAX_POSTS_PER_USER * PRICES.post
+    const before = await this.spent(campaignId)
+    let budgetMicros = campaign.budgetMicros
+    if (campaign.budgetMicros - before < need) {
+      if (!opts.raiseBudget) throw new ConflictException(`Reading their posts costs up to ${usd(need, true)}, and the campaign has ${usd(Math.max(0, campaign.budgetMicros - before))} left of ${usd(campaign.budgetMicros)}.`)
+      budgetMicros = before + need
+      await this.ds.getRepository(Campaign).update(campaignId, { budgetMicros })
+    }
+    const posts = await this.readPosts(campaignId, prospect.xUserId, now)
+    const spentMicros = await this.spent(campaignId)
+    return { posts, costMicros: spentMicros - before, spentMicros, budgetMicros }
+  }
+
+  private async readPosts(campaignId: number, xUserId: string, now: Date) {
+    const posts = await this.x.getRecentPosts(xUserId, MAX_POSTS_PER_USER)
+    if (posts.length) {
+      await this.ds.getRepository(XPost).save(
+        posts.map((p) => ({ postId: p.id, xUserId: p.userId, text: p.text, postedAt: p.createdAt, lang: p.lang ?? null, fetchedAt: now })),
+      )
+      await this.recordUsage(campaignId, 'post', posts.length, PRICES.post)
+    }
+    return posts.length
+  }
+
   private hasPosts(xUserId: string) {
     return this.ds.getRepository(XPost).existsBy({ xUserId, text: Not('') })
   }
@@ -261,3 +285,6 @@ function toUser(p: XProfile, now: Date): XUser {
     fetchedAt: now,
   })
 }
+
+// An upper bound is rounded up to the cent, so "up to" never shows less than it can cost.
+const usd = (micros: number, up = false) => `$${((up ? Math.ceil(micros / 10_000) : Math.round(micros / 10_000)) / 100).toFixed(2)}`

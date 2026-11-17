@@ -44,7 +44,7 @@ test('Call lane: Check now reads the DMs, and Confirm invitation fills the permi
 
   await page.getByRole('navigation').getByRole('button', { name: 'Candidates' }).click()
   const mina = page.getByRole('listitem').filter({ hasText: '@call_mina' })
-  await expect(mina.getByText('Their answer to your call post:')).toBeVisible()
+  await expect(mina.getByText('They messaged you after your call post')).toBeVisible()
   await mina.getByRole('button', { name: 'Confirm invitation' }).click()
   await expect(mina.getByText('Invitation confirmed')).toBeVisible()
   await expect(mina.getByRole('button', { name: 'Confirm invitation' })).toHaveCount(0)

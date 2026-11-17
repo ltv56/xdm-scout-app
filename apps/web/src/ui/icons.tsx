@@ -128,6 +128,14 @@ export const QuestionCircle = ({ className }: IconProps) => (
   </svg>
 )
 
+export const Info = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <circle cx="10" cy="10" r="7.5" />
+    <path d="M10 9v4.5" />
+    <circle cx="10" cy="6.4" r=".6" fill="currentColor" />
+  </svg>
+)
+
 export const Menu = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M3.5 6h13M3.5 10h13M3.5 14h13" />

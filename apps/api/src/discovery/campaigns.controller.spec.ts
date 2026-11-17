@@ -62,6 +62,13 @@ describe('campaigns API', () => {
     await expect(controller.scoreOne(c.id + 1, p.id)).rejects.toBeInstanceOf(NotFoundException)
   })
 
+  it('scores a scored candidate again only when asked to, for example after reading their posts', async () => {
+    const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+    const p = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500', scoredAt: new Date() })
+    expect(await controller.scoreOne(c.id, p.id, { again: true })).toEqual({ queued: true })
+    expect(await controller.scoreOne(c.id, p.id, { again: true })).toEqual({ queued: false, reason: 'Already being scored' })
+  })
+
   it('score all leaves out anyone who is already being scored', async () => {
     const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
     const first = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500' })

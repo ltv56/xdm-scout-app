@@ -23,13 +23,14 @@ test('Candidates: people are listed and the tabs filter them', async ({ page }) 
 })
 
 test('Candidates: filtering by relationship and sorting by followers', async ({ page }) => {
-  const names = page.getByRole('listitem').getByRole('link', { name: /@/ }).filter({ hasText: /^[^@]/ })
+  // The first row's link to their X profile names the handle.
+  const names = page.getByRole('listitem').getByRole('link', { name: /^Open @/ })
 
   await pick(page, page.getByRole('combobox', { name: 'Sort by' }), 'Followers')
   await page.getByRole('button', { name: /^Sorted/ }).click()
-  await expect(names.first()).toContainText('@tomas_agents')
+  await expect(names.first()).toHaveAccessibleName('Open @tomas_agents on X')
   await page.getByRole('button', { name: /^Sorted/ }).click()
-  await expect(names.first()).not.toContainText('@tomas_agents')
+  await expect(names.first()).not.toHaveAccessibleName('Open @tomas_agents on X')
 
   await pick(page, page.getByRole('combobox', { name: 'Relationship' }), 'Messaged you first')
   await expect(page.getByText('Nobody in this list.')).toBeVisible()
@@ -46,14 +47,21 @@ test('Candidates: five people a page, Next shows the following five, and a new f
   })
   await page.reload()
   await page.getByRole('navigation').getByRole('button', { name: 'Candidates' }).click()
-  const names = page.getByRole('link', { name: /^Person \d+/ })
+  const names = page.getByRole('button', { name: /^Person \d+$/ })
   await expect(page.getByRole('status')).toHaveText('12 candidates shown')
   await expect(names).toHaveCount(5)
 
-  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('button', { name: 'Next page' }).click()
   await expect(names).toHaveCount(5)
-  await expect(page.getByText('Page 2 of 3')).toBeVisible()
+  await expect(page.getByText('2/3')).toBeVisible()
+
+  // Opening a candidate and coming back keeps the page.
+  const first = await names.first().innerText()
+  await names.first().click()
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(page.getByText('2/3')).toBeVisible()
+  await expect(names.first()).toHaveText(first)
 
   await page.getByRole('button', { name: /^Ready for a draft/ }).click()
-  await expect(page.getByText('Page 1 of 3')).toBeVisible()
+  await expect(page.getByText('1/3')).toBeVisible()
 })

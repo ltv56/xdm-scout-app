@@ -23,7 +23,7 @@ test('People are scored one by one in Candidates or all at once from the Overvie
 
   // One person.
   const unscored = page.getByRole('listitem').filter({ has: page.getByRole('button', { name: 'Score', exact: true }) })
-  const who = (await unscored.first().getByRole('link').first().innerText()).trim()
+  const who = (await unscored.first().getByRole('button').first().innerText()).trim()
   const first = page.getByRole('listitem').filter({ hasText: who })
   await first.getByRole('button', { name: 'Score', exact: true }).click()
   await expect(first.getByRole('button', { name: 'Draft a message' })).toBeVisible({ timeout: 30_000 })

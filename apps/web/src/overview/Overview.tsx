@@ -8,9 +8,10 @@ import Spinner from '../ui/Spinner'
 import NeedsAttention from './NeedsAttention'
 import BestMatches from './BestMatches'
 import type { Filter as CandidateFilter, Prospect } from '../candidates/Prospects'
-import { Search } from '../ui/icons'
+import { AlertTriangle, ChevronRight, Search } from '../ui/icons'
 import { verdict } from '../review/labels'
-import { btnLink, btnPrimary, btnSecondary, money } from '../ui/ui'
+import { btnLink, btnPrimary, btnSecondary, btnSmall, money } from '../ui/ui'
+import { SKIP_TEXT } from '../candidates/why'
 import { ago, day, plural } from '../format'
 
 interface DiscoveryRun {
@@ -125,7 +126,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
             <button type="button" className={btnPrimary} disabled={search.isPending || waiting} onClick={() => search.mutate()}>
               {waiting ? 'Searching…' : 'Search again'}
             </button>
-            <p className="mt-1 text-xs text-muted">
+            <p className={`mt-1 text-xs tabular-nums ${run.spentMicros >= c.budgetMicros * 0.9 ? 'font-semibold text-warn' : 'text-muted'}`}>
               Spent {money(run.spentMicros)} of {money(c.budgetMicros)}
             </p>
           </div>
@@ -200,8 +201,21 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
               <h2 className="text-lg font-semibold leading-snug">
                 <span className="text-accent">{drafts.length}</span> {drafts.length === 1 ? 'draft is' : 'drafts are'} waiting for your review
               </h2>
-              <p className="mt-1.5 text-sm text-muted">
-                {[byVerdict('ok') && `${byVerdict('ok')} ready`, byVerdict('warn') && `${byVerdict('warn')} to check`, byVerdict('stop') && `${byVerdict('stop')} to fix`].filter(Boolean).join(' · ')}
+              <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+                {(
+                  [
+                    ['ok', 'ready', 'bg-ok'],
+                    ['warn', 'to check', 'bg-caution'],
+                    ['stop', 'to fix', 'bg-block'],
+                  ] as const
+                )
+                  .filter(([v]) => byVerdict(v))
+                  .map(([v, label, dot]) => (
+                    <span key={v} className="inline-flex items-center gap-1.5">
+                      <span aria-hidden="true" className={`size-2 rounded-full ${dot}`} />
+                      <span className="tabular-nums">{byVerdict(v)}</span> {label}
+                    </span>
+                  ))}
               </p>
             </div>
             <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -284,6 +298,31 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
 
       {run && (
         <section aria-label="Last search" className="mt-10 border-t border-rule pt-8">
+          {/* Above the list of who was left out, so a stop at the budget is not missed at the end of it. */}
+          {run.stoppedByBudget && (
+            <div role="note" className="mb-5 flex gap-3 rounded-2xl border border-caution/60 bg-warn-bg p-4">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warn" />
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="font-semibold">
+                  The search stopped at the budget: spent <span className="tabular-nums">{money(run.spentMicros)}</span> of{' '}
+                  <span className="tabular-nums">{money(c.budgetMicros)}</span>.
+                </p>
+                {run.postsPending > 0 ? (
+                  <>
+                    <p className="mt-1">
+                      {plural(run.postsPending, 'person', 'people')} found but not read yet, so they have no opening and get no draft. Open one in Candidates to read
+                      their posts, up to $0.08 each.
+                    </p>
+                    <button type="button" className={`${btnSmall} mt-3`} onClick={() => onProspects('all')}>
+                      Go to Candidates
+                    </button>
+                  </>
+                ) : (
+                  <p className="mt-1">Raise the budget in Settings to search further.</p>
+                )}
+              </div>
+            </div>
+          )}
           <details>
             <summary className="cursor-pointer text-sm">
               <span className="font-semibold">Last search</span>{' '}
@@ -293,7 +332,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
             </summary>
             {!!run.addedHandles?.length && (
               <p className="mt-3 text-sm text-muted">
-                Added: <span className="font-medium text-ink">{run.addedHandles.map((h) => `@${h}`).join(', ')}</span>
+                Added: <span className="font-medium text-ink">{handles(run.addedHandles)}</span>
               </p>
             )}
             {!!run.seeds?.length && (
@@ -302,17 +341,22 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
               </p>
             )}
             {run.skipped.length > 0 && (
-              <ul className="mt-3 space-y-1 text-sm text-muted">
-                {run.skipped.map((x) => (
-                  <li key={x.handle}>
-                    <span className="font-medium text-ink">@{x.handle}</span> · {x.reason}
+              <ul aria-label="Skipped" className="mt-3 max-w-2xl divide-y divide-rule overflow-hidden rounded-xl border border-rule text-sm">
+                {bySkipReason(run.skipped).map(([reason, list]) => (
+                  <li key={reason}>
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 hover:bg-rail/60">
+                        <ChevronRight className="size-4 shrink-0 text-muted transition-transform group-open:rotate-90" />
+                        <span className="flex-1">{SKIP_TEXT[reason] ?? reason}</span>
+                        <span className="font-semibold tabular-nums">{list.length}</span>
+                      </summary>
+                      <p className="pb-3 pl-10 pr-4 text-muted wrap-anywhere">{handles(list)}</p>
+                    </details>
                   </li>
                 ))}
               </ul>
             )}
           </details>
-          {run.stoppedByBudget && <p className="mt-3 text-sm font-medium text-warn">Stopped early because the budget was reached.</p>}
-          {run.postsPending > 0 && <p className="mt-2 text-sm text-muted">{plural(run.postsPending, 'person', 'people')} still waiting for their posts to be read.</p>}
         </section>
       )}
 
@@ -320,6 +364,16 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
       </div>
     </div>
   )
+}
+
+// A search can skip hundreds of people: group them by reason, biggest group first, and cap each list.
+const HANDLES_SHOWN = 30
+const handles = (list: string[]) =>
+  list.slice(0, HANDLES_SHOWN).map((h) => `@${h}`).join(', ') + (list.length > HANDLES_SHOWN ? ` and ${list.length - HANDLES_SHOWN} more` : '')
+const bySkipReason = (skipped: { handle: string; reason: string }[]) => {
+  const groups = new Map<string, string[]>()
+  for (const x of skipped) groups.set(x.reason, [...(groups.get(x.reason) ?? []), x.handle])
+  return [...groups].sort((a, b) => b[1].length - a[1].length)
 }
 
 // "+3 more": the rest of the list is in its hover hint.
@@ -406,7 +460,13 @@ function LaneLine({ lane: l, campaignId }: { lane: CampaignLane; campaignId: num
   const program = profile.data?.programs.find((p) => p.id === l.programId)
   return (
     <p className="mt-1 text-sm text-muted">
-      {program ? `Offers ${program.name}${program.deadline ? `, closes ${day(program.deadline)}` : ''}` : 'No program chosen'}
+      {program ? (
+        `Offers ${program.name}${program.deadline ? `, closes ${day(program.deadline)}` : ''}`
+      ) : (
+        <span className="font-medium text-warn" title="Drafts offer no program until you pick one in Settings, Campaign.">
+          No program chosen
+        </span>
+      )}
       {l.callPostUrl && l.callPostedAt && (
         <>
           {' · '}

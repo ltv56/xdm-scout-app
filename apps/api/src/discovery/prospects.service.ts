@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, In } from 'typeorm'
 import { Claim, Evidence } from '../fit/entities'
 import { openingFreshness } from '../fit/fit.service'
@@ -6,6 +6,7 @@ import { KnownUser } from '../known/known-user.entity'
 import { Job } from '../jobs/job.entity'
 import { LABEL } from '../outbox/outbox.service'
 import { Contact, Draft, SendAttempt, XUser } from '../sending/entities'
+import { leadReason, noOpening } from './candidate-why'
 import { Prospect, XPost } from './entities'
 import { LANDS_IN_RANK, landsIn } from './lands-in'
 
@@ -32,7 +33,7 @@ export class ProspectsService {
     const evidence = new Map((await this.ds.getRepository(Evidence).find()).map((e) => [e.id, e]))
     const fundLists = new Map((await this.ds.getRepository(KnownUser).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((k) => [k.xUserId, k]))
     const contacts = new Map((await this.ds.getRepository(Contact).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((c) => [c.xUserId, c]))
-    const lastPosts = await this.lastPostDates(prospects.map((p) => p.xUserId))
+    const postStats = await this.postStats(prospects.map((p) => p.xUserId))
     const outbox = await this.outboxLabels(prospects.map((p) => p.id))
     const scoring = await this.openJobs('score', prospects.map((p) => p.id))
     const drafting = await this.openJobs('draft', prospects.map((p) => p.id))
@@ -54,7 +55,7 @@ export class ProspectsService {
         name: user?.name ?? '',
         bio: user?.bio ?? '',
         followers: user?.followers ?? 0,
-        lastPostAt: lastPosts.get(p.xUserId) ?? null,
+        lastPostAt: postStats.get(p.xUserId)?.last ?? null,
         criteria: p.criteria ?? [],
         relationship: p.relationship,
         landsIn: lands(p),
@@ -73,6 +74,8 @@ export class ProspectsService {
             ? { text: p.callText ?? '', at: p.callAt, invitationConfirmed: contacts.get(p.xUserId)?.invitationEventId === p.callEventId }
             : null,
         identityWarning: /parody|\bfan\b/i.test(user?.bio ?? ''),
+        why: pickWhy(p.fit, claims.filter((c) => c.prospectId === p.id)),
+        noOpening: noOpening(p, postStats.get(p.xUserId)?.count ?? 0, now),
         claims: claims
           .filter((c) => c.prospectId === p.id)
           .map((c) => ({
@@ -120,16 +123,46 @@ export class ProspectsService {
     return new Set(rows.map((r) => Number(r.pid)).filter((id) => wanted.has(id)))
   }
 
-  private async lastPostDates(xUserIds: string[]) {
-    if (!xUserIds.length) return new Map<string, Date>()
+  // The newest stored post and how many were read, per person.
+  private async postStats(xUserIds: string[]) {
+    if (!xUserIds.length) return new Map<string, { last: Date; count: number }>()
     const rows = await this.ds
       .getRepository(XPost)
       .createQueryBuilder('p')
       .select('p.xUserId', 'xUserId')
       .addSelect('MAX(p.postedAt)', 'last')
+      .addSelect('COUNT(*)', 'count')
       .where('p.xUserId IN (:...ids)', { ids: xUserIds })
       .groupBy('p.xUserId')
-      .getRawMany<{ xUserId: string; last: Date }>()
-    return new Map(rows.map((r) => [r.xUserId, new Date(r.last)]))
+      .getRawMany<{ xUserId: string; last: Date; count: string }>()
+    return new Map(rows.map((r) => [r.xUserId, { last: new Date(r.last), count: Number(r.count) }]))
   }
+
+  // One candidate with everything the detail screen shows: the list row plus the posts that were read and the text each reason cites.
+  async detail(campaignId: number, prospectId: number, now = new Date()) {
+    const row = (await this.list(campaignId, now)).find((r) => r.id === prospectId)
+    if (!row) throw new NotFoundException('Candidate not found')
+    const prospect = await this.ds.getRepository(Prospect).findOneByOrFail({ id: prospectId })
+    const posts = await this.ds.getRepository(XPost).find({ where: { xUserId: prospect.xUserId }, order: { postedAt: 'DESC' } })
+    const cited = new Set((await this.ds.getRepository(Claim).findBy({ prospectId })).flatMap((c) => c.evidenceIds))
+    const excerpts = new Map((await this.ds.getRepository(Evidence).findBy({ id: In([...cited, '']) })).map((e) => [e.id, e.excerpt]))
+    return {
+      ...row,
+      posts: posts.map((x) => ({
+        id: x.postId,
+        text: x.text,
+        date: x.postedAt,
+        url: `https://x.com/${row.handle}/status/${x.postId}`,
+        opening: prospect.openingEvidenceId === `post:${x.postId}`,
+        cited: cited.has(`post:${x.postId}`),
+      })),
+      claims: row.claims.map((c) => ({ ...c, evidence: c.evidence.map((e) => ({ ...e, excerpt: excerpts.get(e.id) ?? null })) })),
+    }
+  }
+
+}
+
+function pickWhy(fit: Prospect['fit'], claims: Claim[]) {
+  const c = leadReason(fit, claims)
+  return c ? { text: c.text, side: c.side, status: c.status } : null
 }

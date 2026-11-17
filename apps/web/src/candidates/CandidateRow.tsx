@@ -1,22 +1,18 @@
+import { count } from '../format'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SkipReason } from '../../../api/src/review/contract'
 import { postJson } from '../api'
 import { deliveryNote, LANDS_IN_HINT, SKIP_LABEL, SKIP_REASONS } from '../review/labels'
-import { More } from '../ui/icons'
+import { CheckCircle, More } from '../ui/icons'
 import Select from '../ui/Select'
 import Spinner from '../ui/Spinner'
+import InfoTip from '../ui/InfoTip'
 import XLink from '../ui/XLink'
-import { btnLink, btnOutline, btnSecondary, chip, tone } from '../ui/ui'
+import { btnLink, btnOutline, btnSecondary, btnSmall, chip, tone } from '../ui/ui'
 import FitBadge from './FitBadge'
 import type { Prospect } from './Prospects'
-
-const CRITERION_LABEL = { met: 'met', not_met: 'not met', unknown: 'unknown' }
-const CRITERION_STYLE = {
-  met: 'bg-ok-bg text-ok font-semibold',
-  not_met: 'bg-block-bg text-block',
-  unknown: 'bg-rail text-muted',
-}
+import { CLAIM_CHIP, INFO } from './why'
 
 function daysAgo(iso: string) {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
@@ -24,14 +20,14 @@ function daysAgo(iso: string) {
 }
 
 // "Draft a message": one person, on request. It writes the draft and puts it in Review. Anyone but Not a fit, and only with an opening.
-function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; campaignId: number; inReview: boolean; onReview: () => void }) {
+export function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; campaignId: number; inReview: boolean; onReview: () => void }) {
   const qc = useQueryClient()
   const make = useMutation({
     mutationFn: () =>
       postJson(`/campaigns/${campaignId}/prospects/${p.id}/draft`),
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['review-queue'] }), qc.invalidateQueries({ queryKey: ['ready'] })]),
   })
-  const why = p.fit === null ? 'Not scored yet' : p.fit === 'not_a_fit' ? 'Not a fit' : !p.opening || p.opening.freshness === 'expired' ? 'No reason to reach out yet' : null
+  const why = p.fit === null ? 'Not scored yet' : p.fit === 'not_a_fit' ? 'Not a fit' : p.noOpening ? 'No reason to reach out yet' : null
 
   if (p.outbox) return null
   if (inReview || make.isSuccess) {
@@ -57,7 +53,7 @@ function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; camp
 }
 
 // "Score": read this person's posts and decide how well they fit. The result comes from the worker, so the row shows Scoring… until it is in.
-function ScoreControl({ p, campaignId }: { p: Prospect; campaignId: number }) {
+export function ScoreControl({ p, campaignId }: { p: Prospect; campaignId: number }) {
   const qc = useQueryClient()
   const score = useMutation({
     mutationFn: () => postJson(`/campaigns/${campaignId}/prospects/${p.id}/score`),
@@ -93,16 +89,30 @@ function InvitationControl({ p, campaignId }: { p: Prospect & { call: NonNullabl
     onSuccess: () => qc.invalidateQueries({ queryKey: ['prospects', campaignId] }),
   })
   return (
-    <div className="mt-3 text-sm">
-      <p>
-        <span className="font-semibold">Their answer to your call post:</span> <span className="wrap-anywhere">“{p.call.text}”</span>
+    <div className={`mt-3 max-w-[80ch] rounded-xl px-4 py-3 text-sm bg-rail/60`}>
+      <p className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted`}>
+        They messaged you after your call post
+        <InfoTip
+          label="Call post"
+          text="They answered the call post you published, so they messaged first. Once you confirm it as an invitation, the app may send your reply through the API for 30 days."
+        />
       </p>
+      <p className="mt-1 italic wrap-anywhere">“{p.call.text}”</p>
       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         {p.call.invitationConfirmed ? (
-          <span className="font-semibold text-ok">Invitation confirmed</span>
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            <CheckCircle className="size-4 text-ok" />
+            Invitation confirmed
+          </span>
         ) : (
-          <button type="button" className={btnSecondary} disabled={confirm.isPending} onClick={() => confirm.mutate()}>
-            Confirm invitation
+          <button
+            type="button"
+            className={btnSmall}
+            aria-label="Confirm invitation"
+            disabled={confirm.isPending}
+            onClick={() => confirm.mutate()}
+          >
+            {confirm.isPending ? 'Confirming…' : 'Confirm'}
           </button>
         )}
         {confirm.error && (
@@ -187,7 +197,7 @@ const metaLine = (p: Prospect) =>
   [
     [p.role !== 'other' ? p.role : null, ...p.areas.map((a) => a.replace('_', ' '))].filter(Boolean).join(' · '),
     p.seedCount > 0 ? `followed by ${p.seedCount} seed${p.seedCount > 1 ? 's' : ''}` : '',
-    `${p.followers.toLocaleString()} followers`,
+    `${count(p.followers)} followers`,
     p.lastPostAt ? `last post ${daysAgo(p.lastPostAt)}` : '',
   ]
     .filter(Boolean)
@@ -199,28 +209,48 @@ interface Props {
   campaignId: number
   inReview: boolean
   onReview: () => void
+  onOpen: (opener: HTMLElement) => void
 }
 
-export default function CandidateRow({ p, index, campaignId, inReview, onReview }: Props) {
+// Short form of why there is nothing to write about; the detail says it in full.
+const NO_OPENING_SHORT = { posts_not_read: 'posts not read: the search hit its budget', no_recent_post: 'no recent, specific post', expired: 'the opening is over 90 days old' }
+
+export default function CandidateRow({ p, index, campaignId, inReview, onReview, onOpen }: Props) {
   return (
     <li className="anim-fade-up rounded-2xl px-5 py-5 even:bg-paper" style={{ animationDelay: `${Math.min(index, 8) * 30}ms` }}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
-          <a className="min-w-0 text-[17px] font-semibold wrap-anywhere hover:underline" href={`https://x.com/${p.handle}`} target="_blank" rel="noreferrer">
-            {p.name} <span className="text-sm font-normal text-muted">@{p.handle}</span>
-          </a>
+          <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+            <button type="button" className="min-w-0 text-left text-[17px] font-semibold wrap-anywhere hover:underline" onClick={(e) => onOpen(e.currentTarget)}>
+              {p.name || `@${p.handle}`}
+            </button>
+            <span className="text-sm text-muted">@{p.handle}</span>
+            <XLink href={`https://x.com/${p.handle}`} label={`Open @${p.handle} on X`} />
+          </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted">
-            <FitBadge fit={p.fit} />
+            <span className="inline-flex items-center gap-1">
+              <FitBadge fit={p.fit} />
+              <InfoTip label="Fit" text={p.fit === null ? INFO.unscored : INFO.fit} />
+            </span>
             <span aria-hidden="true">·</span>
             <span>{metaLine(p)}</span>
           </p>
+          {p.why && (
+            <p className="mt-1 line-clamp-2 max-w-[80ch] text-sm">
+              <span className={`${chip} ${p.why.status === 'unsure' ? CLAIM_CHIP.unsure.className : 'bg-rail text-muted'}`}>{CLAIM_CHIP[p.why.status].label}</span>
+              <InfoTip label={CLAIM_CHIP[p.why.status].label} text={CLAIM_CHIP[p.why.status].meaning} />{' '}
+              <span className="text-muted">Mainly because: </span>
+              {p.why.text}
+            </p>
+          )}
+          {p.fit === null && !p.scoring && <p className="mt-1 text-sm text-muted">Not scored yet: Score reads their posts and decides how well they fit.</p>}
         </div>
         {p.status === 'dismissed' ? (
           <span className="text-sm font-semibold text-muted">Dismissed</span>
         ) : (
           <div className="flex shrink-0 items-center gap-3">
             {(p.outbox || inReview) && (
-              <span key={p.outbox ?? 'draft'} className={`${chip} anim-pop ${p.outbox ? tone[p.outbox === 'Sent' ? 'ok' : 'warn'].chip : tone.ok.chip}`}>{p.outbox ? `In Outbox · ${p.outbox}` : 'Draft written'}</span>
+              <span key={p.outbox ?? 'draft'} className={`${chip} anim-pop ${p.outbox ? tone[p.outbox === 'Sent' ? 'ok' : 'warn'].chip : tone.done.chip}`}>{p.outbox ? `In Outbox · ${p.outbox}` : 'Draft written'}</span>
             )}
             {p.fit === null ? <ScoreControl p={p} campaignId={campaignId} /> : <DraftControl p={p} campaignId={campaignId} inReview={inReview} onReview={onReview} />}
             {!inReview && <DismissControl p={p} campaignId={campaignId} />}
@@ -245,10 +275,10 @@ export default function CandidateRow({ p, index, campaignId, inReview, onReview 
       </div>
       )}
 
-      <p className="mt-2.5 line-clamp-2 max-w-[80ch] text-sm text-muted">{p.bio}</p>
+      {p.bio && <p className="mt-2.5 line-clamp-2 max-w-[80ch] text-sm italic text-muted wrap-anywhere">“{p.bio}”</p>}
 
       {p.fit && (
-        <div className="mt-3 max-w-[80ch] border-l-2 border-rule pl-3">
+        <div className={`mt-3 max-w-[80ch] border-l-2 pl-3 ${!p.opening || p.opening.freshness === 'expired' ? 'border-caution' : p.opening.freshness === 'stale' ? 'border-fit-possible' : 'border-rule'}`}>
           {p.opening && p.opening.freshness !== 'expired' ? (
             <>
               <p className="text-xs font-medium uppercase tracking-wide text-muted">Opening · {p.opening.type}</p>
@@ -259,47 +289,19 @@ export default function CandidateRow({ p, index, campaignId, inReview, onReview 
               </p>
             </>
           ) : (
-            <span className="text-sm text-muted">No reason to reach out yet</span>
+            <p className="text-sm text-muted">
+              <span className="font-medium text-warn">No reason to reach out yet</span>
+              {p.noOpening && <> · {NO_OPENING_SHORT[p.noOpening.cause]}</>}
+            </p>
           )}
         </div>
       )}
 
       {p.status !== 'dismissed' && p.call && <InvitationControl p={{ ...p, call: p.call }} campaignId={campaignId} />}
 
-      {(p.claims.length > 0 || p.criteria.length > 0) && (
-        <details className="mt-3 text-sm">
-          <summary className="cursor-pointer text-muted hover:text-ink">Why this fit ({p.claims.length + p.criteria.length})</summary>
-        {p.criteria.length > 0 && p.criteria.every((c) => c.status === 'unknown') && (
-          <p className="mt-3 text-xs text-muted">{p.criteria.length} fund criteria unknown: not enough posts read yet.</p>
-        )}
-        {p.criteria.some((c) => c.status !== 'unknown') && (
-          <ul className="mt-3 flex flex-wrap gap-2 text-xs">
-            {p.criteria.map((c) => (
-              <li key={c.text} className={`rounded-full px-2.5 py-1 ${CRITERION_STYLE[c.status]}`}>
-                {c.text}: {CRITERION_LABEL[c.status]}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {p.claims.length > 0 && (
-          <ul className="mt-3 space-y-1 text-sm">
-            {p.claims.map((c, i) => (
-              <li key={i} className="flex flex-wrap items-baseline gap-2">
-                <span className="w-20 shrink-0 text-xs uppercase text-muted">{c.side}</span>
-                <span>{c.text}</span>
-                <span className={`rounded-full px-2 text-xs ${c.status === 'verified' ? 'bg-ok-bg font-semibold text-ok' : c.status === 'unsure' ? 'bg-warn-bg font-semibold text-warn' : 'bg-rail text-muted'}`}>
-                  {c.status === 'verified' ? 'Backed by a post' : c.status === 'unsure' ? 'Check the post' : 'Our guess'}
-                </span>
-                {c.evidence.map((e) => (
-                  <XLink key={e.id} href={e.url} label={e.id.startsWith('bio:') ? 'Open their bio on X' : 'Open the post on X'} />
-                ))}
-              </li>
-            ))}
-          </ul>
-        )}
-        </details>
-      )}
+      <button type="button" className={`${btnLink} mt-3 text-muted`} onClick={(e) => onOpen(e.currentTarget)}>
+        {p.fit === null ? 'Details' : `See why · ${p.claims.length} ${p.claims.length === 1 ? 'reason' : 'reasons'}${p.criteria.length ? `, ${p.criteria.length} criteria` : ''}`}
+      </button>
     </li>
   )
 }

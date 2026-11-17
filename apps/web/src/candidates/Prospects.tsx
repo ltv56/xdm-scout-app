@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReviewQueue } from '../../../api/src/review/contract'
 import { getJson } from '../api'
 import EmptyState from '../ui/EmptyState'
 import CandidateActions from './CandidateActions'
+import CandidateDetail from './CandidateDetail'
 import CandidateRow from './CandidateRow'
 import Select from '../ui/Select'
 import { LANDS_IN_HINT, LANDS_IN_LABEL, RELATIONSHIP_LABEL } from '../review/labels'
+import { ChevronLeft, ChevronRight } from '../ui/icons'
 import { btnSecondary } from '../ui/ui'
 
 interface Claim {
@@ -40,6 +42,9 @@ export interface Prospect {
   fundList: { name: string; kind: 'known' | 'warm'; event: string | null } | null
   opening: { type: string; summary: string | null; freshness: 'fresh' | 'stale' | 'expired'; url: string | null; date: string } | null
   claims: Claim[]
+  // The reason shown beside the Fit label, and why a scored person has nothing to write about.
+  why: { text: string; side: Claim['side']; status: Claim['status'] } | null
+  noOpening: { cause: 'posts_not_read' | 'no_recent_post' | 'expired'; date: string | null } | null
 }
 
 type SortKey = 'default' | 'fit' | 'relationship' | 'followers' | 'seeds' | 'lastPost'
@@ -121,6 +126,17 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
   const [paged, setPaged] = useState({ view, page: 0 })
   const page = paged.view === view ? paged.page : 0
   const listTop = useRef<HTMLParagraphElement>(null)
+  // The detail opens over the list, so the page and the scroll stay where they were; closing returns focus to what opened it.
+  const [openId, setOpenId] = useState<number | null>(null)
+  const opener = useRef<HTMLElement | null>(null)
+  const openDetail = (id: number, from: HTMLElement) => {
+    opener.current = from
+    setOpenId(id)
+  }
+  const closeDetail = useCallback(() => {
+    setOpenId(null)
+    requestAnimationFrame(() => opener.current?.focus())
+  }, [])
   const { data, error, isLoading } = useQuery<Prospect[]>({
     queryKey: ['prospects', campaignId],
     queryFn: () => getJson(`/campaigns/${campaignId}/prospects`),
@@ -221,27 +237,32 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
       </div>
       <CandidateActions campaignId={campaignId} unscored={data.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length} scoring={data.filter((p) => p.scoring).length} drafting={data.filter((p) => p.drafting).length} ready={data.filter(isReady).length} />
       </div>
-      <p ref={listTop} className="mt-6 scroll-mt-4 border-b border-rule pb-2 text-sm font-medium text-muted" role="status">
-        {shown.length === 1 ? '1 candidate shown' : `${shown.length} candidates shown`}
-      </p>
+      <div className="mt-6 flex items-center justify-between gap-3 border-b border-rule pb-2">
+        <p ref={listTop} className="scroll-mt-4 text-sm font-medium text-muted" role="status">
+          {shown.length === 1 ? '1 candidate shown' : `${shown.length} candidates shown`}
+        </p>
+        {pages > 1 && (
+          <nav aria-label="Pages" className="flex items-center gap-1 text-sm">
+            <button type="button" aria-label="Previous page" className="grid size-8 place-items-center rounded-lg transition-colors hover:bg-rail disabled:text-rule disabled:hover:bg-transparent" disabled={at === 0} onClick={() => goTo(at - 1)}>
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="min-w-10 text-center tabular-nums text-muted" aria-label={`Page ${at + 1} of ${pages}`}>
+              {at + 1}/{pages}
+            </span>
+            <button type="button" aria-label="Next page" className="grid size-8 place-items-center rounded-lg transition-colors hover:bg-rail disabled:text-rule disabled:hover:bg-transparent" disabled={at === pages - 1} onClick={() => goTo(at + 1)}>
+              <ChevronRight className="size-4" />
+            </button>
+          </nav>
+        )}
+      </div>
       {shown.length === 0 && <p className="mt-6 text-sm text-muted">Nobody in this list.</p>}
       <ul className="mt-3 space-y-1">
         {onPage.map((p, i) => (
-          <CandidateRow key={p.id} p={p} index={i} campaignId={campaignId} inReview={inReview.has(p.handle)} onReview={onReview} />
+          <CandidateRow key={p.id} p={p} index={i} campaignId={campaignId} inReview={inReview.has(p.handle)} onReview={onReview} onOpen={(from) => openDetail(p.id, from)} />
         ))}
       </ul>
-      {pages > 1 && (
-        <nav aria-label="Pages" className="mt-5 flex items-center justify-between gap-4 border-t border-rule pt-4 text-sm">
-          <button type="button" className={btnSecondary} disabled={at === 0} onClick={() => goTo(at - 1)}>
-            Previous
-          </button>
-          <span className="text-muted">
-            Page {at + 1} of {pages}
-          </span>
-          <button type="button" className={btnSecondary} disabled={at === pages - 1} onClick={() => goTo(at + 1)}>
-            Next
-          </button>
-        </nav>
+      {openId !== null && (
+        <CandidateDetail campaignId={campaignId} id={openId} inReview={!!data.find((p) => p.id === openId && inReview.has(p.handle))} onReview={onReview} onClose={closeDetail} />
       )}
     </div>
   )
