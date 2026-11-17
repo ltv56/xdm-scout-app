@@ -1,0 +1,58 @@
+{
+  "people": {
+    "9001": {
+      "fit": {
+        "role": "founder",
+        "areas": ["robotics", "models"],
+        "fit": "strong",
+        "reasons_for": [
+          { "claim": "Builds open-source robotics foundation models.", "evidence_ids": ["bio:9001"] },
+          { "claim": "Just open-sourced robot policy checkpoints and an eval harness.", "evidence_ids": ["post:910001"] }
+        ],
+        "reasons_against": [],
+        "unknowns": ["Where the team is based"],
+        "opening": { "type": "launch", "summary": "Open-sourced robot policy checkpoints and an eval harness", "evidence_id": "post:910001", "date": "2026-11-05" }
+      },
+      "hook": "Your team open-sourcing the robot policy checkpoints together with the eval harness stood out to me.",
+      "ask": "Would {program} help as you grow the team?",
+      "reply": { "text": "Thanks for reaching out! Yes, happy to chat. Could you send me the details on how to apply?", "class": "Interested" },
+      "checks": { "no_sensitive": 0.96, "no_familiarity": 0.9, "one_person": 0.88, "no_loaded_question": 0.94 }
+    },
+    "9002": {
+      "fit": {
+        "role": "founder",
+        "areas": ["developer_tools", "applications"],
+        "fit": "possible",
+        "reasons_for": [
+          { "claim": "Founder building LLM agents and developer tools for infra teams.", "evidence_ids": ["bio:9002"] },
+          { "claim": "Shipped v0.4 of an agent tracing tool.", "evidence_ids": ["post:920001"] }
+        ],
+        "reasons_against": [],
+        "unknowns": ["Team size", "Whether the company is in Southeast Asia"],
+        "opening": { "type": "launch", "summary": "Shipped v0.4 of an agent tracing tool", "evidence_id": "post:920001", "date": "2026-11-10" }
+      },
+      "hook": "Congrats on shipping v0.4 of your agent tracing tool.",
+      "ask": "Would {program} be useful for the next release?",
+      "reply": { "text": "Appreciate it, but not for us right now. Good luck with the program.", "class": "Not interested" },
+      "checks": { "no_sensitive": 0.97, "no_familiarity": 0.86, "one_person": 0.62, "no_loaded_question": 0.91 }
+    },
+    "9003": {
+      "fit": {
+        "role": "researcher",
+        "areas": ["embodied_ai", "robotics"],
+        "fit": "possible",
+        "reasons_for": [
+          { "claim": "Researcher in embodied AI and manipulation.", "evidence_ids": ["bio:9003"] },
+          { "claim": "New preprint on dexterous manipulation from 50 demonstrations.", "evidence_ids": ["post:930001"] }
+        ],
+        "reasons_against": [{ "claim": "No sign of a company or product yet.", "evidence_ids": ["bio:9003"] }],
+        "unknowns": ["Whether she plans to start a company"],
+        "opening": { "type": "paper", "summary": "Preprint on dexterous manipulation from 50 demonstrations", "evidence_id": "post:930001", "date": "2026-10-28" }
+      },
+      "hook": "Your preprint on dexterous manipulation from only 50 demonstrations caught my eye.",
+      "ask": "Since you are clearly ready to spin it out, would {program} be useful?",
+      "checks": { "no_sensitive": 0.95, "no_familiarity": 0.82, "one_person": 0.79, "no_loaded_question": 0.55 },
+      "reply": { "text": "Please stop messaging me.", "class": "Opt-out" }
+    }
+  }
+}

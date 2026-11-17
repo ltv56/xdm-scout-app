@@ -40,6 +40,7 @@ All variables: `.env.example`.
 | `TOKEN_KEY` | seals X tokens and Chat keys; required in live mode |
 | `ALLOWED_HOSTS` | host names besides localhost |
 | `CALL_POST` | `off` hides the call post lane |
+| `SANDBOX_SCRIPT` | `1` (fake X only): fixed model answers and replies per person from `fixtures/sandbox-script.json`; set in the Docker sandbox |
 
 Tests run with `LLM_MODEL=` and `DECISION_MODEL=` empty.
 

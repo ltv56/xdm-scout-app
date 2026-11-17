@@ -27,7 +27,7 @@ Without Docker: [Development](docs/development.md#run-locally). With a real X ac
 3. Candidates > **Write drafts**. Open a name to see why each label is there.
 4. Review: Edit, Approve or Skip. Point at a sentence to see its source.
 5. Send through the API, or **Open chat** in X with the text filled in.
-6. Messages shows every send and reply; Needs attention lists what waits for you.
+6. Messages shows every send and reply; Needs attention lists what waits for you. In the sandbox the three people answer about 20 seconds after a send: one interested, one declining, one asking to stop.
 
 ## Guarantees
 

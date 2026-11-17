@@ -5,7 +5,10 @@ import { DataSource } from 'typeorm'
 import { EvidenceRecheckService } from './fit/evidence-recheck.service'
 import { InboundLaneService } from './inbound/inbound-lane.service'
 import { RepliesService } from './inbox/replies.service'
+import { JobsService } from './jobs/jobs.service'
+import { SandboxReplier } from './sandbox/sandbox-replier'
 import { SandboxReload } from './sandbox/sandbox-reset'
+import { loadSandboxScript } from './sandbox/sandbox-script'
 import { FakeXClient } from './x/fake-x-client'
 import { X_CLIENT } from './x/x-client'
 import { recordHeartbeat } from './preflight/preflight.service'
@@ -40,6 +43,10 @@ async function bootstrap() {
   if (x instanceof FakeXClient) {
     const reload = new SandboxReload(ds, x)
     setInterval(() => void reload.check().then((done) => done && console.log('sandbox reset seen: fake X fixtures reloaded')).catch((err: unknown) => console.error('sandbox reload failed', err)), RELOAD_EVERY_MS)
+    if (process.env.SANDBOX_SCRIPT === '1') {
+      const replier = new SandboxReplier(ds, x, loadSandboxScript(), app.get(JobsService))
+      setInterval(() => void replier.tick(new Date()).catch((err: unknown) => console.error('sandbox replies failed', err)), RELOAD_EVERY_MS)
+    }
   }
   const beat = () => recordHeartbeat(ds, new Date()).catch((err: unknown) => console.error('heartbeat failed', err))
   void beat()

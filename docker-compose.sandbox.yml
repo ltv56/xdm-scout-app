@@ -4,6 +4,7 @@ name: xdm-sandbox
 x-sandbox-env: &sandbox-env
   DATABASE_URL: mysql://xdm:xdm@db:3306/xdm_sandbox?allowPublicKeyRetrieval=true
   X_MODE: fake
+  SANDBOX_SCRIPT: "1"
   PORT: "3001"
 
 services:
