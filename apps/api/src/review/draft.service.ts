@@ -28,7 +28,7 @@ If the user message has a "reviewer_note", follow it; it comes from the person r
 Write at most 4 sentences and about 450 characters:
 1. one concrete sentence about what they just did, taken from the opening;
 2. one sentence saying who we are, from profile.intro;
-3. one question they can answer in a line, or the one program in profile.programs (say when applications close if it has a deadline; never write a link);
+3. one question, answerable in a line, that offers the one program in profile.programs for the concrete thing they are building, named from the opening or a claim: their own product, project or research, never someone else's work they shared (e.g. "Would an intro to investors help as you take the agent tracing tool to more teams?"); if the sources show nothing they build, ask plainly whether the program would help with what they are working on; not a generic "would X be useful?", not a question about their opinions or research, and never assume a plan the sources do not show (raising, hiring, starting a company); say when applications close if it has a deadline; never write a link;
 4. one line that lets them say no.
 Answer with one JSON object: {"sentences": [{"text": string, "source": {"type": "evidence", "evidence_id": string} | {"type": "sender_profile", "field": "intro" | "program" | "signer"} | {"type": "opt_out"} | null}]}.
 Use a source of null for any sentence you cannot trace to a source.`

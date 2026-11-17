@@ -39,6 +39,17 @@ describe('prospects list', () => {
     expect(list.map((p) => p.handle)).toEqual(['u4', 'u2', 'u5', 'u1', 'u3'])
   })
 
+  it('within one Fit, lists people who meet the fund criteria before those who do not', async () => {
+    const sea = (status: 'met' | 'not_met' | 'unknown') => [{ text: 'Based in or building for Southeast Asia', status, evidenceIds: [] }]
+    await addProspect('1', { fit: 'possible', openingDate: daysAgo(1), criteria: sea('not_met') })
+    await addProspect('2', { fit: 'possible', openingDate: daysAgo(2), criteria: sea('unknown') })
+    await addProspect('3', { fit: 'possible', openingDate: daysAgo(9), criteria: sea('met') })
+    await addProspect('4', { fit: 'strong', openingDate: daysAgo(5), criteria: sea('unknown') })
+
+    const list = await new ProspectsService(ds).list(1, now)
+    expect(list.map((p) => p.handle)).toEqual(['u4', 'u3', 'u2', 'u1'])
+  })
+
   it('says where a person stands in the Outbox, and nothing for a send that failed or never started', async () => {
     for (const [id, status] of [['1', 'manual_pending'], ['2', 'sent'], ['3', 'failed']] as const) {
       const prospect = await addProspect(id)

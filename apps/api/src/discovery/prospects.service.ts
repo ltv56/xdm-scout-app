@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
+import { criteriaRank } from '../review/drafting'
 import { DataSource, In } from 'typeorm'
 import { Claim, Evidence } from '../fit/entities'
 import { openingFreshness } from '../fit/fit.service'
@@ -20,11 +21,12 @@ export class ProspectsService {
     const found = await this.ds.getRepository(Prospect).find({ where: { campaignId } })
     const users = new Map((await this.ds.getRepository(XUser).findBy({ xUserId: In(found.map((p) => p.xUserId)) })).map((u) => [u.xUserId, u]))
     const lands = (p: Prospect) => landsIn(p.relationship, users.get(p.xUserId))
-    // Spec s5: where the message lands first, then Fit, then how many seeds follow them, then the newest opening.
+    // Spec s5: where the message lands first, then Fit, then the fund criteria met, then how many seeds follow them, then the newest opening.
     const prospects = found.sort(
       (a, b) =>
         LANDS_IN_RANK[lands(a) ?? 'unknown'] - LANDS_IN_RANK[lands(b) ?? 'unknown'] ||
         (a.fit ? FIT_RANK[a.fit] : 9) - (b.fit ? FIT_RANK[b.fit] : 9) ||
+        criteriaRank(a.criteria) - criteriaRank(b.criteria) ||
         b.seedCount - a.seedCount ||
         (b.openingDate?.getTime() ?? 0) - (a.openingDate?.getTime() ?? 0) ||
         a.id - b.id,

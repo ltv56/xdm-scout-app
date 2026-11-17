@@ -1,4 +1,5 @@
 import { openingFreshness } from '../fit/fit.service'
+import { CriterionResult } from '../discovery/entities'
 import { RelationshipContext } from '../sending/entities'
 
 export interface DraftCandidate {
@@ -8,6 +9,12 @@ export interface DraftCandidate {
   status: 'new' | 'shortlisted' | 'dismissed'
   openingEvidenceId: string | null
   openingDate: Date | null
+  criteria?: CriterionResult[] | null
+}
+
+// Fund criteria met push a person up, not met pushes them down; unknown is neutral.
+export function criteriaRank(criteria: CriterionResult[] | null | undefined): number {
+  return (criteria ?? []).reduce((n, c) => n + (c.status === 'met' ? -1 : c.status === 'not_met' ? 1 : 0), 0)
 }
 
 const WARMTH: RelationshipContext[] = ['messaged_us', 'engaged', 'follower', 'adjacent', 'cold']
@@ -28,6 +35,6 @@ export function readyToDraft<T extends DraftCandidate>(prospects: T[], draftedId
 export function pickForDrafting<T extends DraftCandidate>(ready: T[], limit: number): T[] {
   const time = (p: T) => p.openingDate?.getTime() ?? 0
   return [...ready]
-    .sort((a, b) => Number(b.fit === 'strong') - Number(a.fit === 'strong') || WARMTH.indexOf(a.relationship) - WARMTH.indexOf(b.relationship) || time(b) - time(a))
+    .sort((a, b) => Number(b.fit === 'strong') - Number(a.fit === 'strong') || WARMTH.indexOf(a.relationship) - WARMTH.indexOf(b.relationship) || criteriaRank(a.criteria) - criteriaRank(b.criteria) || time(b) - time(a))
     .slice(0, limit)
 }

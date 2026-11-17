@@ -5,7 +5,7 @@ The user message is a JSON object with the account's "evidence" items: bio, the 
 Answer with one JSON object only, with these keys:
 - role: one of ${ROLES.join(', ')}
 - areas: array from ${AREAS.join(', ')}
-- fit: one of ${FIT_LABELS.join(', ')}
+- fit: one of ${FIT_LABELS.join(', ')}. Strong or possible for anyone building their own AI or robotics product, company or research (a founder, a builder shipping their own product, a researcher with their own lab or project); a short bio that says so is enough. Weak at most for an agency or consultancy that builds AI for clients, someone whose AI work is a job at a large company or public body, an engineer looking for work, an investor, a commentator or a learner.
 - reasons_for, reasons_against: arrays of {"claim": string, "evidence_ids": string[]}. Cite only ids that appear in the evidence. A claim without evidence must have an empty evidence_ids array.
 - unknowns: array of strings for what you cannot tell
 - opening: {"type": one of ${OPENING_TYPES.join(', ')}, "summary": one sentence, "evidence_id": id or null, "date": YYYY-MM-DD or null}. Use "none" when nothing recent and specific gives a reason to write now.

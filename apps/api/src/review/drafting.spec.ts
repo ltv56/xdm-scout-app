@@ -54,6 +54,18 @@ describe('pickForDrafting', () => {
     expect(pickForDrafting(ready, 10).map((x) => x.id)).toEqual([5, 4, 3, 2, 1])
   })
 
+  it('within the same Fit, puts people who meet the fund criteria ahead of unknown, and unknown ahead of not met', () => {
+    const c = (...s: ('met' | 'not_met' | 'unknown')[]) => s.map((status) => ({ text: 'x', status, evidenceIds: [] }))
+    const ready = [
+      p(1, { criteria: c('not_met', 'unknown') }),
+      p(2, { criteria: c('unknown', 'unknown') }),
+      p(3, { criteria: c('met', 'unknown') }),
+      p(4, { fit: 'possible', criteria: c('met', 'met') }),
+      p(5, { criteria: null }),
+    ]
+    expect(pickForDrafting(ready, 10).map((x) => x.id)).toEqual([3, 2, 5, 1, 4])
+  })
+
   it('stops at the limit and leaves the input alone', () => {
     const ready = [p(1), p(2), p(3)]
     expect(pickForDrafting(ready, 2)).toHaveLength(2)
