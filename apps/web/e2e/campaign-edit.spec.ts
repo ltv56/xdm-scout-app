@@ -102,3 +102,29 @@ test('A server with call posts turned off shows no call post fields, in Settings
   await page.getByRole('button', { name: 'New campaign' }).click()
   await expect(page.getByText('Call post (optional)')).toHaveCount(0)
 })
+
+test('Settings: posts per search and people per seed are checked, saved, and change the estimate on the Overview', async ({ page, request }) => {
+  const form = await openSettings(page)
+  await expect(form.getByLabel('Posts per search query')).toHaveValue('20')
+  await expect(form.getByLabel('People per seed account')).toHaveValue('100')
+  await expect(form.getByLabel('Most followers')).toHaveValue('50000')
+
+  await form.getByLabel('Posts per search query').fill('5')
+  await form.getByRole('button', { name: 'Save campaign' }).click()
+  await expect(form.getByRole('alert')).toContainText('Posts per search query must be a whole number from 10 to 50.')
+
+  await form.getByLabel('Posts per search query').fill('10')
+  await form.getByLabel('People per seed account').fill('50')
+  await form.getByLabel('Most followers').fill('500')
+  await form.getByRole('button', { name: 'Save campaign' }).click()
+  await expect(form.getByRole('alert')).toContainText('Followers ceiling must be a whole number from 1,000 to 10,000,000.')
+
+  await form.getByLabel('Most followers').fill('20000')
+  await form.getByRole('button', { name: 'Save campaign' }).click()
+  await expect(form.getByRole('status')).toContainText('Saved')
+  expect(await (await request.get(`/api/campaigns/${id}`)).json()).toMatchObject({ searchMax: 10, followingMax: 50, followersMax: 20000 })
+})
+
+test('The first-search card gives the estimate as an upper bound and the budget as the stop', async ({ page }) => {
+  await expect(page.getByRole('region', { name: 'Next step' })).toContainText(/Up to \$[\d.]+, usually much less · the search stops at the budget, \$[\d.]+/)
+})

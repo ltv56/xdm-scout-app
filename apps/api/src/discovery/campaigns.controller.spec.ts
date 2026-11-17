@@ -238,3 +238,29 @@ describe('editing a campaign', () => {
     await expect(controller.update(999, { name: 'x' })).rejects.toBeInstanceOf(NotFoundException)
   })
 })
+
+describe('read limits', () => {
+  const base = { name: 'c', keywords: ['ai'], handles: ['alice'] }
+
+  it('keeps posts per search between 10 and 50 and people per seed between 10 and 200', async () => {
+    for (const bad of [{ searchMax: 5 }, { searchMax: 60 }, { followingMax: 9 }, { followingMax: 201 }, { searchMax: 12.5 }]) {
+      await expect(controller.create({ ...base, ...bad })).rejects.toBeInstanceOf(BadRequestException)
+    }
+    const c = await controller.create({ ...base, searchMax: 30, followingMax: 50 })
+    expect(await controller.get(c.id)).toMatchObject({ searchMax: 30, followingMax: 50 })
+    await controller.update(c.id, { followingMax: 150 })
+    expect(await controller.get(c.id)).toMatchObject({ searchMax: 30, followingMax: 150 })
+    await expect(controller.update(c.id, { searchMax: 51 })).rejects.toBeInstanceOf(BadRequestException)
+  })
+
+  it('keeps the follower ceiling between 1,000 and 10,000,000 and shows it back', async () => {
+    for (const bad of [{ followersMax: 999 }, { followersMax: 10_000_001 }, { followersMax: 1500.5 }]) {
+      await expect(controller.create({ ...base, ...bad })).rejects.toBeInstanceOf(BadRequestException)
+    }
+    const c = await controller.create({ ...base, followersMax: 20_000 })
+    expect(await controller.get(c.id)).toMatchObject({ followersMax: 20_000 })
+    await controller.update(c.id, { followersMax: 80_000 })
+    expect(await controller.get(c.id)).toMatchObject({ followersMax: 80_000 })
+    await expect(controller.update(c.id, { followersMax: 5 })).rejects.toBeInstanceOf(BadRequestException)
+  })
+})

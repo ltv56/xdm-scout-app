@@ -5,6 +5,8 @@ import { getJson, patchJson } from '../api'
 import Select from '../ui/Select'
 import TagInput from '../ui/TagInput'
 import SourceFields from './SourceFields'
+import ReadLimits from './ReadLimits'
+import { readLimitsProblem } from './read-limits'
 import { useFeatures } from '../useFeatures'
 import { btnPrimary, field as baseField } from '../ui/ui'
 
@@ -22,6 +24,9 @@ interface CampaignRow {
   queries: string[] | null
   criteria: string[] | null
   budgetMicros: number
+  searchMax: number
+  followingMax: number
+  followersMax: number
   programId: number | null
   callPostUrl: string | null
   callKeyword: string | null
@@ -30,7 +35,7 @@ interface CampaignRow {
 const text = (items: string[] | null) => (items ?? []).join('\n')
 const list = (items: string[] | null) => items ?? []
 const snapshot = (r: CampaignRow) =>
-  JSON.stringify([r.name, r.keywords, list(r.handles), list(r.seeds), list(r.queries), text(r.criteria), String(r.budgetMicros / 1_000_000), r.programId, r.callPostUrl ?? '', r.callKeyword ?? ''])
+  JSON.stringify([r.name, r.keywords, list(r.handles), list(r.seeds), list(r.queries), text(r.criteria), String(r.budgetMicros / 1_000_000), r.programId, r.callPostUrl ?? '', r.callKeyword ?? '', String(r.searchMax), String(r.followingMax), String(r.followersMax)])
 
 export default function CampaignSettings({ campaignId }: { campaignId: number }) {
   const campaign = useQuery<CampaignRow>({ queryKey: ['campaign', campaignId], queryFn: () => getJson(`/campaigns/${campaignId}`), retry: false })
@@ -58,6 +63,9 @@ function CampaignForm({ row }: { row: CampaignRow }) {
   const [queries, setQueries] = useState(list(row.queries))
   const [criteria, setCriteria] = useState(text(row.criteria))
   const [budget, setBudget] = useState(String(row.budgetMicros / 1_000_000))
+  const [searchMax, setSearchMax] = useState(String(row.searchMax))
+  const [followingMax, setFollowingMax] = useState(String(row.followingMax))
+  const [followersMax, setFollowersMax] = useState(String(row.followersMax))
   const [programId, setProgramId] = useState<number | null>(row.programId)
   const [callUrl, setCallUrl] = useState(row.callPostUrl ?? '')
   const [callKeyword, setCallKeyword] = useState(row.callKeyword ?? '')
@@ -65,7 +73,7 @@ function CampaignForm({ row }: { row: CampaignRow }) {
   const [saved, setSaved] = useState(() => snapshot(row))
   // Text typed in a tag box is added on Save, so typing alone counts as a change.
   const [typed, setTyped] = useState(false)
-  const current = JSON.stringify([name, keywords, handles, seeds, queries, criteria, budget, programId, callUrl, callKeyword])
+  const current = JSON.stringify([name, keywords, handles, seeds, queries, criteria, budget, programId, callUrl, callKeyword, searchMax, followingMax, followersMax])
   const dirty = typed || current !== saved
 
   const profile = useQuery<SenderProfile>({ queryKey: ['sender-profile'], queryFn: () => getJson('/sender-profile'), retry: false })
@@ -81,6 +89,9 @@ function CampaignForm({ row }: { row: CampaignRow }) {
       setQueries(list(saved.queries))
       setCriteria(text(saved.criteria))
       setBudget(String(saved.budgetMicros / 1_000_000))
+      setSearchMax(String(saved.searchMax))
+      setFollowingMax(String(saved.followingMax))
+      setFollowersMax(String(saved.followersMax))
       setProgramId(saved.programId)
       setCallUrl(saved.callPostUrl ?? '')
       setCallKeyword(saved.callKeyword ?? '')
@@ -100,7 +111,9 @@ function CampaignForm({ row }: { row: CampaignRow }) {
           ? 'Add at least one handle, seed account or search query.'
           : !budget.trim() || !(budgetUsd > 0 && budgetUsd <= 100)
             ? 'Budget must be above 0 and at most 100 USD.'
-            : !!callUrl.trim() !== !!callKeyword.trim()
+            : readLimitsProblem(searchMax, followingMax, followersMax)
+              ? readLimitsProblem(searchMax, followingMax, followersMax)
+              : !!callUrl.trim() !== !!callKeyword.trim()
               ? 'Give both the call post and the keyword, or neither.'
               : callUrl.trim() && !isPostLink(callUrl)
                 ? 'The call post must be the link of a post on X, like https://x.com/yourfund/status/123…'
@@ -116,6 +129,9 @@ function CampaignForm({ row }: { row: CampaignRow }) {
       queries,
       criteria: lines(criteria),
       budgetUsd,
+      searchMax: Number(searchMax),
+      followingMax: Number(followingMax),
+      followersMax: Number(followersMax),
       programId,
       callPostUrl: callUrl.trim() || null,
       callKeyword: callKeyword.trim() || null,
@@ -195,6 +211,8 @@ function CampaignForm({ row }: { row: CampaignRow }) {
         <input id="campaign-budget" type="number" inputMode="decimal" min="0" max="100" step="any" value={budget} onChange={(e) => setBudget(e.target.value)} className={`${field} max-w-40`} />
         <p className="mt-1 text-xs text-muted">Discovery stops when X usage reaches this amount.</p>
       </div>
+
+      <ReadLimits id="campaign" searchMax={searchMax} followingMax={followingMax} onSearchMax={setSearchMax} onFollowingMax={setFollowingMax} followersMax={followersMax} onFollowersMax={setFollowersMax} />
 
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" disabled={save.isPending || !dirty} className={btnPrimary}>

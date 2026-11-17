@@ -46,6 +46,12 @@ describe('receives_your_dm is stored as X reported it', () => {
 })
 
 describe('discovery from a handle list', () => {
+  it('keeps a government-verified account: X gives that check to officials, who are people', async () => {
+    x.addProfile({ id: '11', handle: 'minister', name: 'Minister', bio: 'Prime Minister. Robotics and AI for everyone', followers: 5000, orgType: 'government' })
+    await discovery.run((await newCampaign(['minister', 'acme'])).id, now)
+    expect((await ds.getRepository(Prospect).find()).map((p) => p.xUserId)).toEqual(['11'])
+  })
+
   it('dedupes handles and keeps only people who pass the rules; a handle you named needs no keyword in the bio', async () => {
     await ds.getRepository(DoNotContact).save({ xUserId: '6', reason: 'stop', source: 'reply' })
     await ds.getRepository(SenderAccount).save({ id: 1, xUserId: '100', handle: 'a' })

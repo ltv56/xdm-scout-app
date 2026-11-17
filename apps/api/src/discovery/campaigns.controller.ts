@@ -3,6 +3,7 @@ import { DataSource, IsNull } from 'typeorm'
 import { z } from 'zod'
 import { JobsService } from '../jobs/jobs.service'
 import { resolveLane } from './campaign-lane'
+import { MAX_FOLLOWERS_MAX, MAX_FOLLOWING_PER_SEED, MAX_SEARCH_RESULTS, MIN_FOLLOWERS_MAX, MIN_FOLLOWING_PER_SEED, MIN_SEARCH_RESULTS } from './pricing'
 import { DiscoveryService, uniqueHandles } from './discovery.service'
 import { Campaign, Prospect } from './entities'
 import { FEATURES } from '../features'
@@ -21,6 +22,9 @@ const fields = {
   budgetUsd: z.number().positive().max(100),
   programId: z.number().int().positive().nullable(),
   callPostUrl: z.string().nullable(),
+  searchMax: z.number().int().min(MIN_SEARCH_RESULTS).max(MAX_SEARCH_RESULTS),
+  followingMax: z.number().int().min(MIN_FOLLOWING_PER_SEED).max(MAX_FOLLOWING_PER_SEED),
+  followersMax: z.number().int().min(MIN_FOLLOWERS_MAX).max(MAX_FOLLOWERS_MAX),
   callKeyword: z.string().nullable(),
 }
 
@@ -35,6 +39,9 @@ const createBody = z
     programId: fields.programId.optional(),
     callPostUrl: fields.callPostUrl.optional(),
     callKeyword: fields.callKeyword.optional(),
+    searchMax: fields.searchMax.optional(),
+    followingMax: fields.followingMax.optional(),
+    followersMax: fields.followersMax.optional(),
   })
   .strict()
   .refine((b) => b.handles.length + b.seeds.length + b.queries.length > 0, { message: NO_SOURCE })

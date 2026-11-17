@@ -31,6 +31,17 @@ export class Campaign {
   @Column({ type: 'int', default: 1_000_000 })
   budgetMicros!: number
 
+  // Reads per search query and per seed: a search query bills a post and its author, a seed bills each person it follows.
+  @Column({ type: 'int', default: 20 })
+  searchMax!: number
+
+  @Column({ type: 'int', default: 100 })
+  followingMax!: number
+
+  // People found through seeds or search with more followers than this are left out; handles you name are kept.
+  @Column({ type: 'int', default: 50000 })
+  followersMax!: number
+
   // The program the draft offers; null until the operator picks one.
   @Column({ type: 'int', nullable: true })
   programId!: number | null

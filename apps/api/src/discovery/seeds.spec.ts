@@ -6,7 +6,10 @@ import { createTestDataSource } from '../test/db'
 import { FakeXClient } from '../x/fake-x-client'
 import { DiscoveryService } from './discovery.service'
 import { ApiUsage, Campaign, Prospect } from './entities'
-import { MAX_FOLLOWING_PER_SEED, PRICES } from './pricing'
+import { PRICES } from './pricing'
+
+// A new campaign reads up to 100 people per seed (campaigns.followingMax).
+const FOLLOWING = 100
 
 let ds: DataSource
 let x: FakeXClient
@@ -82,7 +85,7 @@ describe('discovery from seed accounts', () => {
     const estimate = await discovery.estimate(campaign.id, now)
 
     expect(estimate.profiles).toBe(2)
-    expect(estimate.maxFollowing).toBe(2 * MAX_FOLLOWING_PER_SEED)
-    expect(estimate.estimatedMicros).toBe(2 * PRICES.profile + 2 * MAX_FOLLOWING_PER_SEED * PRICES.following)
+    expect(estimate.maxFollowing).toBe(2 * FOLLOWING)
+    expect(estimate.estimatedMicros).toBe(2 * PRICES.profile + 2 * FOLLOWING * PRICES.following)
   })
 })

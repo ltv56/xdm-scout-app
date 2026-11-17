@@ -4,7 +4,7 @@ import { KnownUser } from '../known/known-user.entity'
 import { Contact, DoNotContact, RelationshipContext, SendAttempt, XUser } from '../sending/entities'
 import { X_CLIENT, XClient, XProfile } from '../x/x-client'
 import { ApiUsage, Campaign, Prospect, XPost } from './entities'
-import { MAX_FOLLOWING_PER_SEED, MAX_POSTS_PER_USER, MAX_SEARCH_RESULTS, MIN_SEARCH_RESULTS, PRICES } from './pricing'
+import { MAX_POSTS_PER_USER, MIN_SEARCH_RESULTS, PRICES } from './pricing'
 import { bioHasKeyword } from './keywords'
 
 const FRESH_MS = 7 * 86_400_000
@@ -17,6 +17,7 @@ export type SkipReason =
   | 'known-to-fund'
   | 'already-contacted'
   | 'off-topic'
+  | 'too-many-followers'
   | 'budget'
 
 @Injectable()
@@ -38,8 +39,8 @@ export class DiscoveryService {
       if (!user || !(await this.hasPosts(user.xUserId))) needPosts += 1
     }
     const maxPosts = needPosts * MAX_POSTS_PER_USER
-    const maxFollowing = seeds.length * MAX_FOLLOWING_PER_SEED
-    const maxSearch = (campaign.queries ?? []).length * MAX_SEARCH_RESULTS
+    const maxFollowing = seeds.length * campaign.followingMax
+    const maxSearch = (campaign.queries ?? []).length * campaign.searchMax
     return {
       profiles,
       maxPosts,
@@ -94,7 +95,7 @@ export class DiscoveryService {
     const named = new Set(handles.flatMap((h) => known.get(h)?.xUserId ?? []))
     const kept: Candidate[] = []
     for (const c of candidates.values()) {
-      const reason = await this.skipReason(c.user, named.has(c.user.xUserId) ? null : campaign.keywords)
+      const reason = await this.skipReason(c.user, named.has(c.user.xUserId) ? null : campaign)
       if (reason) skipped.push({ handle: c.handle, reason })
       else kept.push(c)
     }
@@ -149,7 +150,7 @@ export class DiscoveryService {
   private async addFromSeeds(campaign: Campaign, seedUsers: { handle: string; id: string }[], seedIds: Set<string>, candidates: Map<string, Candidate>, now: Date, report: { handle: string; following: number }[]) {
     let complete = true
     for (const { handle, id: seedId } of seedUsers) {
-      const max = Math.min(MAX_FOLLOWING_PER_SEED, Math.floor((await this.remaining(campaign)) / PRICES.following))
+      const max = Math.min(campaign.followingMax, Math.floor((await this.remaining(campaign)) / PRICES.following))
       if (max <= 0) {
         complete = false
         continue
@@ -172,7 +173,7 @@ export class DiscoveryService {
   private async addFromSearch(campaign: Campaign, seedIds: Set<string>, candidates: Map<string, Candidate>, now: Date) {
     let complete = true
     for (const query of campaign.queries ?? []) {
-      const max = Math.min(MAX_SEARCH_RESULTS, Math.floor((await this.remaining(campaign)) / (PRICES.post + PRICES.profile)))
+      const max = Math.min(campaign.searchMax, Math.floor((await this.remaining(campaign)) / (PRICES.post + PRICES.profile)))
       if (max < MIN_SEARCH_RESULTS) {
         complete = false
         continue
@@ -216,14 +217,16 @@ export class DiscoveryService {
     return this.ds.getRepository(ApiUsage).save({ campaignId, kind, count, costMicros: count * unit })
   }
 
-  // keywords null: skip the bio check (a handle the operator named).
-  private async skipReason(user: XUser, keywords: string[] | null): Promise<SkipReason | null> {
+  // limits null: skip the bio and follower checks (a handle the operator named).
+  private async skipReason(user: XUser, limits: Pick<Campaign, 'keywords' | 'followersMax'> | null): Promise<SkipReason | null> {
     if (user.isProtected) return 'protected'
-    if (user.orgType) return 'organization'
+    // X gives the government check to officials as well as offices, so only business marks an organisation.
+    if (user.orgType === 'business') return 'organization'
     if (await this.ds.getRepository(DoNotContact).existsBy({ xUserId: user.xUserId })) return 'do-not-contact'
     if (await this.ds.getRepository(KnownUser).existsBy({ xUserId: user.xUserId, kind: 'known' })) return 'known-to-fund'
     if (await this.wasContacted(user.xUserId)) return 'already-contacted'
-    if (keywords && !bioHasKeyword(user.bio ?? '', keywords)) return 'off-topic'
+    if (limits && !bioHasKeyword(user.bio ?? '', limits.keywords)) return 'off-topic'
+    if (limits && (user.followers ?? 0) > limits.followersMax) return 'too-many-followers'
     return null
   }
 

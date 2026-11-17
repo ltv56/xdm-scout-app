@@ -6,6 +6,8 @@ import { getJson, postJson } from '../api'
 import Select from '../ui/Select'
 import TagInput from '../ui/TagInput'
 import SourceFields from './SourceFields'
+import ReadLimits from './ReadLimits'
+import { readLimitsProblem } from './read-limits'
 import { useFeatures } from '../useFeatures'
 import { btnPrimary, btnSecondary, field as baseField } from '../ui/ui'
 
@@ -48,6 +50,9 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
   const sources = { handles: handleText, seeds, queries, onHandles: setHandleText, onSeeds: setSeeds, onQueries: setQueries }
   const [criteria, setCriteria] = useState('')
   const [budget, setBudget] = useState('')
+  const [searchMax, setSearchMax] = useState('20')
+  const [followingMax, setFollowingMax] = useState('100')
+  const [followersMax, setFollowersMax] = useState('50000')
   const [programId, setProgramId] = useState<number | null>(null)
   const [callUrl, setCallUrl] = useState('')
   const [callKeyword, setCallKeyword] = useState('')
@@ -89,7 +94,9 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
           ? 'Add at least one handle, seed account or search query.'
           : budgetUsd !== undefined && !(budgetUsd > 0 && budgetUsd <= 100)
             ? 'Budget must be above 0 and at most 100 USD.'
-            : programs.length > 0 && chosen === null
+            : readLimitsProblem(searchMax, followingMax, followersMax)
+              ? readLimitsProblem(searchMax, followingMax, followersMax)
+              : programs.length > 0 && chosen === null
               ? 'Pick the program this campaign offers.'
               : !!callUrl.trim() !== !!callKeyword.trim()
                 ? 'Give both the call post and the keyword, or neither.'
@@ -107,6 +114,9 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
       queries: queryList,
       criteria: lines(criteria),
       ...(budgetUsd !== undefined && { budgetUsd }),
+      searchMax: Number(searchMax),
+      followingMax: Number(followingMax),
+      followersMax: Number(followersMax),
       programId: chosen,
       callPostUrl: callUrl.trim() || null,
       callKeyword: callKeyword.trim() || null,
@@ -204,6 +214,7 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
                 <input id="budget" type="number" inputMode="decimal" min="0" max="100" step="any" value={budget} onChange={(e) => setBudget(e.target.value)} className={`${field} max-w-40`} />
                 <p className="mt-1 text-xs text-muted">Discovery stops when X usage reaches this amount.</p>
               </div>
+              <ReadLimits id="new" searchMax={searchMax} followingMax={followingMax} onSearchMax={setSearchMax} onFollowingMax={setFollowingMax} followersMax={followersMax} onFollowersMax={setFollowersMax} />
             </div>
             <p className="mt-5 text-xs text-muted">All of these are also in New campaign.</p>
           </details>
@@ -265,6 +276,7 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
             <input id="budget" type="number" inputMode="decimal" min="0" max="100" step="any" value={budget} onChange={(e) => setBudget(e.target.value)} className={`${field} max-w-40`} />
             <p className="mt-1 text-xs text-muted">Discovery stops when X usage reaches this amount.</p>
           </div>
+          <ReadLimits id="new" searchMax={searchMax} followingMax={followingMax} onSearchMax={setSearchMax} onFollowingMax={setFollowingMax} followersMax={followersMax} onFollowersMax={setFollowersMax} />
         </>
       )}
 

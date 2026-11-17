@@ -5,7 +5,10 @@ import { createTestDataSource } from '../test/db'
 import { FakeXClient } from '../x/fake-x-client'
 import { DiscoveryService } from './discovery.service'
 import { ApiUsage, Campaign, Prospect } from './entities'
-import { MAX_SEARCH_RESULTS, PRICES } from './pricing'
+import { PRICES } from './pricing'
+
+// A new campaign reads up to 20 posts per search query (campaigns.searchMax).
+const RESULTS = 20
 
 let ds: DataSource
 let x: FakeXClient
@@ -48,7 +51,7 @@ describe('discovery from keyword search', () => {
       ['search', 4],
       ['profile', 3],
     ])
-    expect(x.searchCalls).toEqual([{ query: '"robot arm" -is:retweet', max: MAX_SEARCH_RESULTS }])
+    expect(x.searchCalls).toEqual([{ query: '"robot arm" -is:retweet', max: RESULTS }])
   })
 
   it('skips a query when the budget cannot pay for the smallest search X allows', async () => {
@@ -65,7 +68,7 @@ describe('discovery from keyword search', () => {
 
     const estimate = await discovery.estimate(campaign.id, now)
 
-    expect(estimate.maxSearch).toBe(2 * MAX_SEARCH_RESULTS)
-    expect(estimate.estimatedMicros).toBe(2 * MAX_SEARCH_RESULTS * (PRICES.post + PRICES.profile))
+    expect(estimate.maxSearch).toBe(2 * RESULTS)
+    expect(estimate.estimatedMicros).toBe(2 * RESULTS * (PRICES.post + PRICES.profile))
   })
 })

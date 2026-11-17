@@ -164,7 +164,8 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
                 </button>
               </div>
               <p className="mt-3 text-xs text-muted">
-                {estimate.data ? `About ${money(estimate.data.estimatedMicros)} · ` : ''}budget {money(c.budgetMicros)}
+                {/* The estimate assumes every read returns its maximum; the budget is the hard stop. */}
+                {estimate.data ? `Up to ${money(estimate.data.estimatedMicros)}, usually much less · ` : ''}the search stops at the budget, {money(c.budgetMicros)}
               </p>
             </>
           )}
