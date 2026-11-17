@@ -15,7 +15,7 @@
 
 ## Fit
 
-One question: is this a person working on AI or robotics whom a venture studio could reach out to? The model picks Strong, Possible, Weak or Not a fit. Strong and Possible need their own product, company or research; agencies, employees of large companies or public bodies, investors and commentators are Weak at most. There is no numeric score. Checked on 24 real accounts from two searches (20 Nov, bio only, labelled by the developer): Strong or Possible was right for 12 of 13, against 13 of 19 before the rule. [Labels](labels.md#fit)
+One question: is this a person working on AI or robotics whom a venture studio could reach out to? The model picks Strong, Possible, Weak or Not a fit. Strong and Possible need their own product, company or research; agencies, employees of large companies or public bodies, investors and commentators are Weak at most. There is no numeric score. Checked on 24 real accounts from two searches (20 Nov, bio only, labelled by an AI assistant): Strong or Possible was right for 12 of 13, against 13 of 19 before the rule. On the 39 Strong or Possible of a later 450-account run, the developer judged 27 of 38 worth messaging (71%; one unsure), 15 of 22 among those in Southeast Asia. [Labels](labels.md#fit)
 
 Fund criteria are met, not met or unknown. Met and not met need evidence that passes Verify. Location and funding are never guessed; a profile or company location counts as evidence. Within one Fit label, people who meet more criteria are listed and drafted first; not met puts them last.
 

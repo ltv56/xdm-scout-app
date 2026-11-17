@@ -24,12 +24,30 @@ Sources: handles you name, accounts a seed follows, followers of a community or 
 | already-contacted | Has a send that did not fail, in any campaign |
 | off-topic | No campaign keyword in the bio (whole words) |
 | too-many-followers | Above the campaign ceiling (default 50,000) |
+| outside-regions | X location names a known place outside the campaign regions |
 | budget | The budget ended before the profile was read |
 
-- Named handles skip `off-topic` and `too-many-followers`.
+- Named handles skip `off-topic`, `too-many-followers` and `outside-regions`.
 - Profiles are cached for 7 days.
 - Up to 15 recent posts are read per kept person while the budget lasts. People left unread have no opening; the budget note on Overview reads them all after a cost confirm, Candidates reads one person.
 - The profile location comes free with the profile. An account named in the bio (`CTO at @acmebots`) is read once for $0.01 if the budget allows. Both are evidence for fund criteria such as location.
+
+### Default seeds
+
+The first live campaign reads followers of the three accounts below. Candidates were Southeast Asian AI organisations whose X handle is linked from their own site. Each was measured on real X (20 Nov 2026) by reading its newest followers and counting those whose bio matches the AI keywords and whose location or bio names a Southeast Asian place.
+
+| Seed | What it is | Followers read | AI builders in SEA |
+| --- | --- | --- | --- |
+| @aisingapore | Singapore national AI programme | 50 | 12% |
+| @lorong_ai | Singapore AI community hub | 50 | 12% |
+| @sginnovate | Singapore government deep-tech arm | 40 | 10% |
+| @eastventures | VC, Singapore and Jakarta | 40 | 7.5% |
+| @iterativevc | Accelerator, Singapore | 50 | 6% |
+| @pythainlp, @huseinzol05 | Thai NLP library; Malaysian LLM builder | 40 each | 5% |
+| @opentyphoon | Thai LLM | 40 | 2.5% |
+| @haroldsoh, @_surgeahead, @kickstartph | NUS robotics lab; seed programme; PH VC | 40 each | 0% |
+
+A run on the three defaults at 150 followers each read 450 accounts and kept 69; 39 were Strong or Possible and 23 met "Based in or building for Southeast Asia", for $9.33. The developer judged 27 of them worth messaging (one unsure); 15 of those are in Southeast Asia. 8 of the 39 take DMs; 26 link a website.
 
 ## Two ways to send
 
