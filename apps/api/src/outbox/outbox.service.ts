@@ -11,7 +11,7 @@ export const LABEL: Partial<Record<AttemptStatus, OutboxItem['label']>> = {
   unknown: 'Checking',
   sent: 'Sent',
   manual_pending: 'Send in X',
-  manual_unverified: 'Check in X',
+  manual_unverified: 'Sent by hand',
   needs_decision: 'Check in X',
   failed: 'Failed',
   cancelled: 'Cancelled',
@@ -49,7 +49,8 @@ export class OutboxService {
       route: r.route,
       error: r.error,
       at: new Date(r.at).toISOString(),
-      openInX: r.status === 'manual_pending' ? composeUrl(r.xUserId, r.content) : null,
+      // A hand-send already opened gets the chat without the text, so it is not filled in twice.
+      openInX: r.status === 'manual_pending' ? composeUrl(r.xUserId, r.content) : r.status === 'manual_unverified' ? `https://x.com/messages/compose?recipient_id=${r.xUserId}` : null,
       text: r.status === 'manual_pending' ? r.content : null,
     }))
     // Counted apart from the rows, so an old attempt still on its way is not hidden by the newest 100.

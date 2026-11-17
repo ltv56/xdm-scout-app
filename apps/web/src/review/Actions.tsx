@@ -1,11 +1,11 @@
+import ConfirmInline from '../ui/ConfirmInline'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import type { ReviewItem, SkipReason } from '../../../api/src/review/contract'
 import { patchJson, postJson } from '../api'
 import { Check, Copy, Globe, Pencil, Refresh, XLogo } from '../ui/icons'
 import { btnLink, btnSecondary, btnToolbar, btnApprove, COPIED_NOTE, field, tone } from '../ui/ui'
-import { markOpened, reportOpened, wasOpened, withoutText } from '../messages/opened'
-import SentCheck from '../messages/SentCheck'
+import { withoutText } from '../messages/opened'
 import MoreMenu from './MoreMenu'
 import { blockers, deliveryNote, LANDS_IN_HINT, LANGUAGE_NAME, SKIP_LABEL, SKIP_REASONS, verdict, type Verdict } from './labels'
 import { useSwipe } from './useSwipe'
@@ -32,6 +32,11 @@ function useDraftMutations(item: ReviewItem, onFinished: () => void) {
     manual: useMutation({
       mutationFn: (outcome: 'sent' | 'not_sent') => postJson(`${base}/manual`, { outcome }),
       onSuccess: () => refresh().then(onFinished),
+    }),
+    // Opening the chat counts as sent by hand; Not sent undoes it.
+    opened: useMutation({
+      mutationFn: () => postJson(`${base}/opened`, {}),
+      onSuccess: () => Promise.all([refresh(), qc.invalidateQueries({ queryKey: ['outbox'] }), qc.invalidateQueries({ queryKey: ['inbox-checks'] })]),
     }),
   }
 }
@@ -100,8 +105,6 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   const [note, setNote] = useState('')
   const [reason, setReason] = useState<SkipReason>('not_fit')
   const [copied, setCopied] = useState(false)
-  // True once they opened X: the next question is whether they sent it.
-  const [asked, setAsked] = useState(() => item.status === 'approved' && wasOpened(item.draftId))
   const [confirmDnc, setConfirmDnc] = useState(false)
   const firstField = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null)
 
@@ -109,7 +112,9 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   const pending = item.status === 'pending'
   const needsConfirm = item.checks.some((c) => c.needsConfirm)
   const blocking = blockers(item.checks)
-  const canApprove = blocking.length === 0 && (!needsConfirm || confirmed) && panel === 'none'
+  // X refuses a DM to someone who closed theirs, so neither way of sending can work.
+  const dmsClosed = item.prospect.landsIn === 'cant_receive'
+  const canApprove = !dmsClosed && blocking.length === 0 && (!needsConfirm || confirmed) && panel === 'none'
 
   useEffect(() => {
     if (panel === 'edit' || panel === 'regenerate') firstField.current?.focus()
@@ -131,13 +136,11 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   const main = item.prospect.mainLanguage
   const other = main && main !== 'en' ? main : item.language !== 'en' ? item.language : null
 
-  // Copying is not opening X: the Sent? step starts only when the chat is opened.
+  // Copying is not opening X: only opening the chat counts as sent by hand.
   const copyText = () => navigator.clipboard.writeText(item.text).then(() => setCopied(true))
   // Also put the draft on the clipboard: X fills the text in only when the sender has set a Chat passcode.
   const openInX = () => {
-    markOpened(item.draftId)
-    reportOpened(item.draftId)
-    setAsked(true)
+    m.opened.mutate()
     try {
       void navigator.clipboard.writeText(item.text).then(() => setCopied(true), () => undefined)
     } catch {
@@ -253,8 +256,45 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
   // A reply the app may send gets both ways. Sending from here needs a connected X account, which the app cannot do yet.
   const byApp = item.sendPath === 'API_SEND'
   const xBtn = 'inline-flex items-center gap-2'
+  const sentByHand =
+    item.status === 'sent_manually' ? (
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
+          <p className="text-sm">
+            <span className="font-semibold">Sent by hand.</span> <span className="text-muted">Opening the chat counts as sent. Didn't send it? Take it back.</span>
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <ConfirmInline
+              label="Not sent"
+              title="Did not send it in X? This takes the send back and the draft stays in Review."
+              question="Didn't send it?"
+              confirmLabel="Yes, take it back"
+              pending={m.manual.isPending}
+              onConfirm={() => m.manual.mutate('not_sent')}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition hover:bg-rail hover:text-ink"
+            />
+            {item.openInXUrl && (
+              <a className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-raised px-3 py-1.5 text-sm font-medium transition-colors hover:border-ink hover:bg-rail" href={withoutText(item.openInXUrl)} target="_blank" rel="noreferrer" aria-label={`Open the chat with @${item.prospect.handle} on X`}>
+                Open chat
+                <XLogo className="size-3.5" />
+              </a>
+            )}
+            <button type="button" className={btnApprove} onClick={onFinished}>
+              Next person
+            </button>
+          </div>
+        </div>
+        {copied && (
+          <p role="status" className="anim-fade-in mt-2 text-right text-xs text-muted">
+            {COPIED_NOTE}
+          </p>
+        )}
+        <ErrorLine error={m.manual.error} />
+      </div>
+    ) : null
   const send =
-    !(pending || handoff) ? null : (
+    sentByHand ??
+    (!(pending || handoff) ? null : (
       <div>
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
           <div className="min-w-0">
@@ -262,6 +302,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
             {deliveryNote(item.prospect.landsIn) && (
               <p role="note" className="mt-0.5 text-xs text-warn" title={LANDS_IN_HINT}>
                 {deliveryNote(item.prospect.landsIn)}
+                {dmsClosed && ' Approve and Open chat stay off: skip it, or search again once they open their DMs.'}
               </p>
             )}
           </div>
@@ -271,14 +312,7 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
               Send from xdm-scout
             </button></span>
           )}
-          {handoff && item.openInXUrl && asked ? (
-            <>
-              <SentCheck pending={m.manual.isPending} onAnswer={(outcome) => m.manual.mutate(outcome)} />
-              <a className={`${btnLink} text-xs`} href={withoutText(item.openInXUrl)} target="_blank" rel="noreferrer" onClick={() => reportOpened(item.draftId)}>
-                open chat
-              </a>
-            </>
-          ) : handoff && item.openInXUrl ? (
+          {handoff && item.openInXUrl && !dmsClosed ? (
             <a className={`${btnApprove} ${xBtn}`} href={item.openInXUrl} target="_blank" rel="noreferrer" onClick={openInX}>
               <XLogo className="size-4" />
               Open chat with @{handle} on X
@@ -289,18 +323,18 @@ export default function ReviewFrame({ item, nav, onFinished, onMove, children }:
               Open chat with @{handle} on X
             </button>
           )}
-          {!handoff && <span className="text-sm text-muted">Available after you approve.</span>}
+          {!handoff && !dmsClosed && <span className="text-sm text-muted">Available after you approve.</span>}
           </div>
         </div>
-        {handoff && byApp && !asked && <p className="mt-2 text-xs text-muted">Connect your X account in Account to send from here.</p>}
+        {handoff && byApp && <p className="mt-2 text-xs text-muted">Connect your X account in Account to send from here.</p>}
         {handoff && copied && (
           <p role="status" className="anim-fade-in mt-2 text-right text-xs text-muted">
             {COPIED_NOTE}
           </p>
         )}
-        <ErrorLine error={m.manual.error} />
+        <ErrorLine error={m.opened.error} />
       </div>
-    )
+    ))
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">

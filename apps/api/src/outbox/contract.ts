@@ -3,7 +3,7 @@ export type OutboxItem = {
   // The draft behind the send, for "I sent it" on a hand-off.
   draftId: number
   handle: string
-  label: 'Waiting to send' | 'Sending' | 'Checking' | 'Sent' | 'Send in X' | 'Check in X' | 'Failed' | 'Cancelled'
+  label: 'Waiting to send' | 'Sending' | 'Checking' | 'Sent' | 'Send in X' | 'Sent by hand' | 'Check in X' | 'Failed' | 'Cancelled'
   route: 'api' | 'manual'
   error: string | null
   at: string

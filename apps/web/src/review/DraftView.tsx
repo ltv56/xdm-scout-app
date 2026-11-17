@@ -196,7 +196,7 @@ export default function DraftView({ item, nav, onFinished, onMove }: { item: Rev
                 {p.name && <span className="ml-3">{handleLink('text-lg font-normal text-muted')}</span>}
               </h2>
               <p className="mt-1 text-sm text-muted">
-                {p.history ?? RELATIONSHIP_LABEL[p.relationship]} · {activeLabel(p.daysSinceActive)} · {item.kind === 'reply' ? 'Reply to their message' : 'First message'}
+                {item.status === 'sent_manually' ? 'First message sent by hand' : (p.history ?? RELATIONSHIP_LABEL[p.relationship])} · {activeLabel(p.daysSinceActive)} · {item.kind === 'reply' ? 'Reply to their message' : 'First message'}
                 {item.editedByReviewer && ' · You edited this draft'}
               </p>
             </header>

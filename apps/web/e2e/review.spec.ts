@@ -50,8 +50,10 @@ test('Review: reading a draft, the source of a sentence, approving it, and Open 
   const [popup] = await Promise.all([context.waitForEvent('page'), link.click()])
   await popup.close()
   await expect.poll(readClipboard).toBe(draft)
-  await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible()
   await expect(page.getByRole('status').filter({ hasText: 'Draft copied' })).toBeVisible()
+  // Opening the chat counts as sent by hand; Not sent is there to take it back.
+  await expect(page.getByText('Sent by hand.', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Not sent' })).toBeVisible()
 })
 
 test('Review: Skip asks for a reason and moves on', async ({ page }) => {

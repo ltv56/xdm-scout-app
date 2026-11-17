@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReviewQueue } from '../../../api/src/review/contract'
 import { getJson } from '../api'
 import EmptyState from '../ui/EmptyState'
@@ -29,6 +29,7 @@ export interface Prospect {
   relationship: 'messaged_us' | 'follower' | 'engaged' | 'adjacent' | 'cold'
   status: 'new' | 'shortlisted' | 'dismissed'
   scoring: boolean
+  drafting: boolean
   // Where this person's send stands in the Outbox ("Send in X", "Sent"...), or null when nothing was sent.
   outbox: string | null
   role: string | null
@@ -123,10 +124,17 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
   const { data, error, isLoading } = useQuery<Prospect[]>({
     queryKey: ['prospects', campaignId],
     queryFn: () => getJson(`/campaigns/${campaignId}/prospects`),
-    refetchInterval: (q) => (q.state.data?.some((p) => p.scoring) ? 4_000 : false),
+    refetchInterval: (q) => (q.state.data?.some((p) => p.scoring || p.drafting) ? 4_000 : false),
     refetchIntervalInBackground: true,
   })
   const queue = useQuery<ReviewQueue>({ queryKey: ['review-queue', campaignId], queryFn: () => getJson(`/review-queue?campaignId=${campaignId}`), retry: false })
+  // Background jobs change who is drafted and who is ready; refresh those as each one lands.
+  const qc = useQueryClient()
+  const progress = `${data?.filter((p) => p.fit !== null).length}|${data?.filter((p) => p.drafting).length}`
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: ['review-queue', campaignId] })
+    void qc.invalidateQueries({ queryKey: ['ready', campaignId] })
+  }, [qc, campaignId, progress])
   const inReview = new Set((queue.data?.items ?? []).map((i) => i.prospect.handle))
 
   if (isLoading) return <p role="status" className="text-sm text-muted">Loading candidates…</p>
@@ -134,7 +142,7 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
   if (!data?.length) return <EmptyState title="No candidates yet" text="Run a search from the Overview." action={{ label: 'Go to Overview', onClick: onOverview }} />
 
   // Ready: could get a draft now. Same rule as the Overview and the Write drafts button.
-  const isReady = (p: Prospect) => p.status !== 'dismissed' && (p.fit === 'strong' || p.fit === 'possible') && !!p.opening && p.opening.freshness !== 'expired' && !inReview.has(p.handle) && p.landsIn !== 'cant_receive'
+  const isReady = (p: Prospect) => !p.drafting && p.status !== 'dismissed' && (p.fit === 'strong' || p.fit === 'possible') && !!p.opening && p.opening.freshness !== 'expired' && !inReview.has(p.handle) && p.landsIn !== 'cant_receive'
   const matches: Record<Filter, (p: Prospect) => boolean> = {
     all: () => true,
     ready: isReady,
@@ -211,7 +219,7 @@ export default function Prospects({ campaignId, onReview, onOverview, initialFil
           {dir === 'desc' ? 'High to low' : 'Low to high'}
         </button>
       </div>
-      <CandidateActions campaignId={campaignId} unscored={data.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length} scoring={data.filter((p) => p.scoring).length} ready={data.filter(isReady).length} />
+      <CandidateActions campaignId={campaignId} unscored={data.filter((p) => p.fit === null && !p.scoring && p.status !== 'dismissed').length} scoring={data.filter((p) => p.scoring).length} drafting={data.filter((p) => p.drafting).length} ready={data.filter(isReady).length} />
       </div>
       <p ref={listTop} className="mt-6 scroll-mt-4 border-b border-rule pb-2 text-sm font-medium text-muted" role="status">
         {shown.length === 1 ? '1 candidate shown' : `${shown.length} candidates shown`}

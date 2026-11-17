@@ -2,13 +2,13 @@ import { z } from 'zod'
 import { REPLY_CLASSES } from './reply-class'
 
 // sent_by_hand: the operator said they sent it, the API can't see it. not_confirmed: an API send X never confirmed.
-export const checkReason = z.enum(['sent_by_hand', 'not_confirmed'])
+export const checkReason = z.enum(['not_confirmed'])
 
 const person = { attemptId: z.number(), handle: z.string(), name: z.string().nullable(), text: z.string(), at: z.string() }
 
 export const checkItem = z.object({ ...person, reason: checkReason, openInX: z.string() })
 // copies: how many identical messages of ours the chat held when the send was verified; 2 or more went out twice.
-export const deliveredItem = z.object({ ...person, verifiedBy: z.enum(['api', 'operator']), replied: z.boolean(), copies: z.number() })
+export const deliveredItem = z.object({ ...person, verifiedBy: z.enum(['api', 'operator', 'hand']), replied: z.boolean(), copies: z.number() })
 // theirText is null when the operator marked a reply they read in an encrypted chat.
 export const replyItem = z.object({
   replyId: z.number(),

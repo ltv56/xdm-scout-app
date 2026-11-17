@@ -34,7 +34,8 @@ export class ProspectsService {
     const contacts = new Map((await this.ds.getRepository(Contact).findBy({ xUserId: In(prospects.map((p) => p.xUserId)) })).map((c) => [c.xUserId, c]))
     const lastPosts = await this.lastPostDates(prospects.map((p) => p.xUserId))
     const outbox = await this.outboxLabels(prospects.map((p) => p.id))
-    const scoring = await this.openScoreJobs(prospects.map((p) => p.id))
+    const scoring = await this.openJobs('score', prospects.map((p) => p.id))
+    const drafting = await this.openJobs('draft', prospects.map((p) => p.id))
 
     const rows = prospects.map((p) => {
       const user = users.get(p.xUserId)
@@ -60,6 +61,7 @@ export class ProspectsService {
         seedCount: p.seedCount,
         status: p.status,
         scoring: scoring.has(p.id),
+        drafting: drafting.has(p.id),
         outbox: outbox.get(p.id) ?? null,
         fit: p.fit,
         role: p.role,
@@ -106,13 +108,13 @@ export class ProspectsService {
   }
 
   // Candidates with a score job waiting for the worker or running.
-  private async openScoreJobs(ids: number[]) {
+  private async openJobs(type: 'score' | 'draft', ids: number[]) {
     if (!ids.length) return new Set<number>()
     const rows = await this.ds
       .getRepository(Job)
       .createQueryBuilder('j')
       .select("JSON_EXTRACT(j.payload, '$.prospectId')", 'pid')
-      .where("j.type = 'score' AND j.status IN ('pending', 'running')")
+      .where("j.type = :type AND j.status IN ('pending', 'running')", { type })
       .getRawMany<{ pid: number | string }>()
     const wanted = new Set(ids)
     return new Set(rows.map((r) => Number(r.pid)).filter((id) => wanted.has(id)))

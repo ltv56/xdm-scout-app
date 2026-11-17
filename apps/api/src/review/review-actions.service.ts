@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common'
+import { ConflictException, Inject, Injectable, Optional } from '@nestjs/common'
 import { DataSource, EntityManager, In } from 'typeorm'
 import { Prospect } from '../discovery/entities'
 import { addDoNotContact } from '../dnc/add-do-not-contact'
@@ -9,6 +9,7 @@ import { StoredSentence } from './checks'
 import { ApproveBody, Language, ReviewItem, SkipBody } from './contract'
 import { DraftService } from './draft.service'
 import { ReviewSignal, SignalAction } from './review-signal.entity'
+import { READS_CHATS } from '../inbox/reads-chats'
 import { ReviewService } from './review.service'
 
 const OPT_OUT = /no worries|no pressure|not interested|ignore this|feel free to ignore|no reply needed/i
@@ -19,6 +20,8 @@ const splitSentences = (text: string) => text.split(/(?<=[.!?])\s+|\s*\n\s*/).ma
 const PULLABLE: SendAttempt['status'][] = ['approved', 'queued', 'manual_pending']
 const SETTLED: SendAttempt['status'][] = ['cancelled', 'failed']
 
+const ABOUT_THE_PERSON: SkipBody['reason'][] = ['not_fit', 'already_in_touch']
+
 @Injectable()
 export class ReviewActionsService {
   constructor(
@@ -27,6 +30,7 @@ export class ReviewActionsService {
     private readonly sending: SendingService,
     private readonly drafts: DraftService,
     private readonly jobs: JobsService,
+    @Optional() @Inject(READS_CHATS) private readonly chats: boolean = true,
   ) {}
 
   async edit(draftId: number, text: string, now = new Date()): Promise<ReviewItem> {
@@ -61,11 +65,13 @@ export class ReviewActionsService {
     return result
   }
 
+  // Reasons about the person, not the draft: they leave the ready list, as with Not a fit on Candidates.
   async skip(draftId: number, body: SkipBody, now = new Date()): Promise<ReviewItem> {
     const draft = await this.ds.transaction(async (em) => {
       const d = await this.live(em, draftId)
       await this.pullBack(em, draftId)
       await em.update(Draft, draftId, { status: 'skipped', approvedHash: null })
+      if (d.prospectId && ABOUT_THE_PERSON.includes(body.reason)) await em.update(Prospect, d.prospectId, { status: 'dismissed' })
       return d
     })
     await this.signal('skip', draft, { reason: body.reason, note: body.note ?? null })
@@ -109,7 +115,9 @@ export class ReviewActionsService {
     await this.ds.transaction(async (em) => {
       const draft = await em.findOne(Draft, { where: { id: draftId } })
       if (!draft || draft.status !== 'approved') throw new ConflictException('Approve the draft first')
-      const attempt = await em.findOne(SendAttempt, { where: { draftId, status: In(['manual_pending', 'approved']) } })
+      // Not sent can also undo an opened chat, which already counts as sent by hand.
+      const statuses: SendAttempt['status'][] = outcome === 'sent' ? ['manual_pending', 'approved'] : ['manual_pending', 'approved', 'manual_unverified']
+      const attempt = await em.findOne(SendAttempt, { where: { draftId, status: In(statuses) } })
       if (!attempt) throw new ConflictException('Already recorded')
       if (outcome === 'sent') {
         await em.update(SendAttempt, attempt.id, { route: 'manual', status: 'manual_unverified' })
@@ -125,10 +133,12 @@ export class ReviewActionsService {
     return outcome === 'not_sent' ? { ...item, status: 'not_sent' } : item
   }
 
-  // The chat was opened in X for a hand-send: watch for the message, starting a minute later.
+  // Opening the chat counts as sent by hand; Not sent undoes it. The watch upgrades it to sent if X shows the message.
   async opened(draftId: number, now = new Date()): Promise<{ watching: boolean }> {
-    const attempt = await this.ds.getRepository(SendAttempt).findOneBy({ draftId, route: 'manual', status: 'manual_pending' })
+    const attempt = await this.ds.getRepository(SendAttempt).findOne({ where: { draftId, route: 'manual', status: In(['manual_pending', 'manual_unverified']) } })
     if (!attempt) return { watching: false }
+    await this.ds.getRepository(SendAttempt).update({ id: attempt.id, status: 'manual_pending' }, { status: 'manual_unverified' })
+    if (!this.chats) return { watching: false }
     if (!(await this.jobs.hasOpen('verify_manual', 'attemptId', attempt.id))) {
       await this.jobs.enqueue('verify_manual', { attemptId: attempt.id, step: 0, fromMs: now.getTime() }, new Date(now.getTime() + WATCH_AT_MS[0]))
     }

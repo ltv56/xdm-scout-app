@@ -39,6 +39,16 @@ export class JobsService {
       .getExists()
   }
 
+  // A job of this type and payload key that failed at or after since.
+  failedSince(type: string, key: string, value: number, since: Date) {
+    return this.ds
+      .getRepository(Job)
+      .createQueryBuilder('j')
+      .where("j.type = :type AND j.status = 'failed' AND j.runAt >= :since", { type, since })
+      .andWhere(`JSON_EXTRACT(j.payload, :path) = :value`, { path: `$.${key}`, value })
+      .getExists()
+  }
+
   // Moves a pending job with this payload key to runAt; false when there is none.
   async moveOpen(type: string, key: string, value: number, runAt: Date, em: EntityManager = this.ds.manager) {
     const res = await em

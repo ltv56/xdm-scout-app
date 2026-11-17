@@ -6,6 +6,11 @@ export const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { 
 // Small model costs keep two significant digits ($0.0004), so a cheap call does not read as $0.00.
 export const usd = (micros: number) => (micros === 0 ? '$0' : `$${Number((micros / 1_000_000).toPrecision(2))}`)
 
+// '17 Nov, 14:05', for sends and replies.
+export const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+export const count = (n: number) => n.toLocaleString('en-US')
+
 export const handle = (item: string) => item.replace(/^@/, '').toLowerCase()
 
 export function ago(iso: string) {

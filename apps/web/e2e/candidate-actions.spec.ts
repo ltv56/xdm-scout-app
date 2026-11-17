@@ -18,8 +18,8 @@ test('People are scored one by one in Candidates or all at once from the Overvie
   const card = page.getByRole('region', { name: 'Next step' })
   await expect(card).toContainText('not scored yet')
   await expect(card.getByRole('button', { name: /^Score \d+ (person|people)$/ })).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Write drafts/ })).toHaveCount(0)
-  await card.getByRole('button', { name: 'See them in Candidates' }).click()
+  await expect(page.getByRole('button', { name: /^Write \d+ drafts?$/ })).toHaveCount(0)
+  await page.getByRole('button', { name: 'View candidates' }).click()
 
   // One person.
   const unscored = page.getByRole('listitem').filter({ has: page.getByRole('button', { name: 'Score', exact: true }) })
@@ -32,10 +32,14 @@ test('People are scored one by one in Candidates or all at once from the Overvie
   await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Overview' }).click()
   await card.getByRole('button', { name: /^Score \d+ (person|people)$/ }).click()
   await expect(card).not.toContainText('not scored yet', { timeout: 30_000 })
+  // Once scored, the Overview offers the drafts without a reload.
+  await expect(card).toContainText(/ready for a draft/, { timeout: 10_000 })
   await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'Candidates' }).click()
   await expect(page.getByRole('button', { name: 'Score', exact: true })).toHaveCount(0)
 
   // Drafts for everyone who is ready.
-  await page.getByRole('button', { name: /^Write drafts/ }).click()
-  await expect(page.getByText(/^Wrote \d+ drafts?\./)).toBeVisible({ timeout: 30_000 })
+  // Drafts are written in the background: the page says so, then shows them as drafted without a reload.
+  await page.getByRole('button', { name: /^Write \d+ drafts?$/ }).click()
+  await expect(page.getByText(/^Writing \d+ drafts?\./)).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Drafted [1-9]/ })).toBeVisible({ timeout: 30_000 })
 })

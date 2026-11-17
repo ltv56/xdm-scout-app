@@ -73,6 +73,22 @@ describe('skip', () => {
     expect(JSON.stringify(signals)).not.toContain('u-mai')
   })
 
+  it('takes the person out of the ready list when the reason says they are not worth a draft, like Not a fit on Candidates', async () => {
+    for (const reason of ['not_fit', 'already_in_touch'] as const) {
+      const d = await seedDraft(`gone-${reason}`)
+      await actions.skip(d.id, { reason }, now)
+      expect(await ds.getRepository(Prospect).findOneByOrFail({ id: d.prospectId! })).toMatchObject({ status: 'dismissed' })
+    }
+  })
+
+  it('leaves the person ready for a new draft when the draft was the problem', async () => {
+    for (const reason of ['weak_opening', 'wrong_tone', 'other'] as const) {
+      const d = await seedDraft(`again-${reason}`)
+      await actions.skip(d.id, { reason }, now)
+      expect((await ds.getRepository(Prospect).findOneByOrFail({ id: d.prospectId! })).status).not.toBe('dismissed')
+    }
+  })
+
   it('cannot skip a draft that is already skipped', async () => {
     const d = await seedDraft()
     await actions.skip(d.id, { reason: 'other' }, now)
@@ -128,26 +144,37 @@ describe('manual outcome', () => {
     await expect(actions.manual(d.id, 'sent', now)).rejects.toBeInstanceOf(ConflictException)
   })
 
-  it('opening the chat starts one watch half a minute later, however often it is opened', async () => {
+  it('opening the chat counts as sent by hand, with one watch half a minute later however often it is opened', async () => {
     const d = await seedDraft()
     const { attemptId } = await actions.approve(d.id, body(d), now)
     expect(await actions.opened(d.id, now)).toEqual({ watching: true })
     await actions.opened(d.id, now)
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'manual_unverified' })
+    expect((await new ReviewService(ds).one(d.id, now)).status).toBe('sent_manually')
     const jobs = await ds.getRepository(Job).findBy({ type: 'verify_manual' })
     expect(jobs).toHaveLength(1)
     expect(jobs[0].payload).toEqual({ attemptId, step: 0, fromMs: now.getTime() })
     expect(jobs[0].runAt.getTime()).toBe(now.getTime() + 30_000)
   })
 
-  it('"I sent it" during a watch checks now instead of starting a second watch', async () => {
+  it('"Not sent" after opening the chat takes it back: attempt cancelled, send right free, draft back in Review', async () => {
     const d = await seedDraft()
-    await actions.approve(d.id, body(d), now)
+    const { attemptId } = await actions.approve(d.id, body(d), now)
     await actions.opened(d.id, now)
-    const later = new Date(now.getTime() + 10_000)
-    await actions.manual(d.id, 'sent', later)
-    const jobs = await ds.getRepository(Job).findBy({ type: 'verify_manual' })
-    expect(jobs).toHaveLength(1)
-    expect(jobs[0].runAt.getTime()).toBe(later.getTime())
+    expect((await actions.manual(d.id, 'not_sent', now)).status).toBe('not_sent')
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'cancelled' })
+    expect((await ds.getRepository(Contact).findOneByOrFail({ id: d.contactId })).activeAttemptId).toBeNull()
+    expect((await ds.getRepository(Draft).findOneByOrFail({ id: d.id })).status).toBe('pending')
+  })
+
+  it('without X Chat keys, opening the chat still counts as sent by hand but starts no watch that could never see it', async () => {
+    const d = await seedDraft()
+    const jobs = new JobsService(ds)
+    const blind = new ReviewActionsService(ds, new ReviewService(ds), sending, new DraftService(ds, new FakeLlmClient(cannedHandler), jobs), jobs, false)
+    const { attemptId } = await blind.approve(d.id, body(d), now)
+    expect(await blind.opened(d.id, now)).toEqual({ watching: false })
+    expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attemptId })).toMatchObject({ status: 'manual_unverified' })
+    expect(await ds.getRepository(Job).countBy({ type: 'verify_manual' })).toBe(0)
   })
 
   it('opening a chat that is not waiting on a hand-send watches nothing', async () => {

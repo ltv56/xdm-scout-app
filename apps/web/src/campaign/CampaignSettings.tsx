@@ -157,7 +157,7 @@ function CampaignForm({ row }: { row: CampaignRow }) {
 
       <div>
         <TagInput label="Keywords" value={keywords} onChange={setKeywords} placeholder="Type a keyword, press Enter" />
-        <p className="mt-1 text-xs text-muted">Topics the people you want write about.</p>
+        <p className="mt-1 text-xs text-muted">Topics the people you want to reach write about.</p>
       </div>
 
       <fieldset className="space-y-5">

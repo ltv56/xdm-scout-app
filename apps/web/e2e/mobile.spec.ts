@@ -34,7 +34,7 @@ test('Phone: the sections sit behind one Menu button, and the menu names where y
 
   await page.getByRole('button', { name: 'Menu' }).click()
   const sections = page.getByRole('navigation', { name: 'Sections' })
-  for (const name of ['Overview', 'Review', 'Messages', 'Candidates']) await expect(sections.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible()
+  for (const name of ['Overview', 'Candidates', 'Review', 'Messages']) await expect(sections.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible()
   for (const name of ['Inbox', 'Outbox']) await expect(sections.getByRole('button', { name })).toHaveCount(0)
   for (const name of ['Profile', 'Settings', 'Activity']) await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
   await page.getByRole('button', { name: campaign, exact: true }).click()

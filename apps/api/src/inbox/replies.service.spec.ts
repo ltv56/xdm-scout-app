@@ -65,12 +65,13 @@ describe('due', () => {
     expect(await replies.due(at(72 * HOUR))).toEqual([])
   })
 
-  it('skips sends that are not delivered and people who already replied', async () => {
+  it('reads chats of hand-sends too, and skips sends that are not delivered and people who already replied', async () => {
     const t0 = new Date('2026-11-14T00:00:00Z')
-    await seedSent('201', t0, 'manual_unverified')
+    const hand = await seedSent('201', t0, 'manual_unverified')
+    await seedSent('203', t0, 'manual_pending')
     const { contactId, attempt } = await seedSent('202', t0)
     await ds.getRepository(Reply).save({ contactId, attemptId: attempt.id, source: 'operator', at: t0 })
-    expect(await replies.due(new Date(t0.getTime() + HOUR))).toEqual([])
+    expect(await replies.due(new Date(t0.getTime() + HOUR))).toEqual([hand.contactId])
   })
 })
 
@@ -91,6 +92,19 @@ describe('scheduleNext', () => {
       ['read_replies', b.contactId],
     ])
   })
+
+  it('leaves a chat alone for 15 minutes after its read failed, instead of failing again every minute', async () => {
+    const t0 = new Date('2026-11-14T00:00:00Z')
+    const a = await seedSent('201', t0)
+    const now = new Date(t0.getTime() + HOUR)
+    await ds.query("INSERT INTO jobs (type, payload, status, runAt, error) VALUES ('read_replies', ?, 'failed', ?, 'X login expired. Reconnect the X account on Profile.')", [JSON.stringify({ contactId: a.contactId }), new Date(now.getTime() - 5 * 60_000)])
+
+    await replies.scheduleNext(now)
+    expect(await ds.query("SELECT id FROM jobs WHERE status = 'pending'")).toHaveLength(0)
+
+    await replies.scheduleNext(new Date(now.getTime() + 11 * 60_000))
+    expect(await ds.query("SELECT id FROM jobs WHERE status = 'pending'")).toHaveLength(1)
+  })
 })
 
 describe('markReplied', () => {
@@ -103,10 +117,24 @@ describe('markReplied', () => {
     await expect(replies.markReplied(attempt.id, new Date())).rejects.toBeInstanceOf(ConflictException)
   })
 
-  it('refuses a send that was not delivered', async () => {
-    const { attempt } = await seedSent('201', new Date(), 'manual_unverified')
+  it('takes a reply to a hand-send, and refuses a send that was not delivered', async () => {
+    const hand = await seedSent('201', new Date(), 'manual_unverified')
+    await replies.markReplied(hand.attempt.id, new Date())
+    expect(await ds.getRepository(Reply).countBy({ contactId: hand.contactId })).toBe(1)
+    const { attempt } = await seedSent('202', new Date(), 'manual_pending')
     await expect(replies.markReplied(attempt.id, new Date())).rejects.toBeInstanceOf(ConflictException)
     await expect(replies.markReplied(9999, new Date())).rejects.toBeInstanceOf(ConflictException)
+  })
+})
+
+describe('without X Chat keys', () => {
+  it('leaves hand-sends alone: typed in X they go through X Chat, which the DM API never shows', async () => {
+    const t0 = new Date('2026-11-14T00:00:00Z')
+    const blind = new RepliesService(ds, x, new JobsService(ds), new FakeLlmClient(() => llmAnswer), false)
+    await seedSent('201', t0, 'manual_unverified')
+    const api = await seedSent('202', t0)
+    expect(await blind.due(new Date(t0.getTime() + HOUR))).toEqual([api.contactId])
+    expect((await blind.checkNow(1, new Date(t0.getTime() + HOUR))).queued).toBe(1)
   })
 })
 

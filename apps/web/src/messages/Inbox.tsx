@@ -11,7 +11,6 @@ import SentCheck from './SentCheck'
 import { btnApprove, btnLink, btnSecondary, card, chip, money, tone, type Tone } from '../ui/ui'
 
 const REASON: Record<CheckItem['reason'], string> = {
-  sent_by_hand: "You marked this as sent in X. X's API can't see messages in encrypted chats, so check it there.",
   not_confirmed: "X didn't confirm this send. Check the chat in X before anything is sent again.",
 }
 
@@ -33,10 +32,10 @@ export default function Inbox({ campaignId, onReview }: { campaignId: number; on
   if (checks.error || !checks.data) return <p role="alert" className="text-sm font-medium text-block">{checks.error?.message ?? 'Inbox not available'}</p>
   const { replies, toCheck, delivered, waiting, readsChats } = checks.data
   const open = replies.filter((r) => !r.handled).length
-  const looking = `Looking for ${plural(waiting, 'message')} you sent by hand in the chat.`
+  const looking = `${plural(waiting, 'approved message')} still to send in X: open the chat from Outbox.`
 
   if (!replies.length && !toCheck.length && !delivered.length) {
-    if (waiting > 0) return <EmptyState title="Waiting for your messages" text={`${looking} Replies show here after that.`} />
+    if (waiting > 0) return <EmptyState title="Nothing sent yet" text={`${looking} Replies show here after that.`} />
     return <EmptyState title="No replies yet" text="The app checks each chat for 3 days after a send." action={{ label: 'Go to Review', onClick: onReview }} />
   }
 
@@ -235,10 +234,12 @@ function DeliveredRow({ item, campaignId, canMark }: { item: DeliveredItem; camp
     onSettled: () => qc.invalidateQueries({ queryKey: ['inbox-checks', campaignId] }),
   })
   const byApi = item.verifiedBy === 'api'
+  const chipText = byApi ? 'Seen by X API' : item.verifiedBy === 'hand' ? 'Sent by hand' : 'Confirmed by you'
+  const chipTitle = byApi ? 'X returned this message through its API' : item.verifiedBy === 'hand' ? 'You opened the chat to send it' : 'You checked the chat in X'
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
       <Person item={item} />
-      <span className="flex flex-wrap items-center gap-2">
+      <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
         {item.replied ? (
           <span className={`${chip} ${tone.ok.chip}`}>Replied</span>
         ) : (
@@ -249,8 +250,8 @@ function DeliveredRow({ item, campaignId, canMark }: { item: DeliveredItem; camp
           )
         )}
         {item.copies > 1 && <span className={`${chip} ${tone.warn.chip}`}>Sent {item.copies} times</span>}
-        <span className={`${chip} ${byApi ? tone.ok.chip : tone.done.chip}`} title={byApi ? 'X returned this message through its API' : 'You checked the chat in X'}>
-          {byApi ? 'Seen by X API' : 'Confirmed by you'}
+        <span className={`${chip} ${byApi ? tone.ok.chip : tone.done.chip}`} title={chipTitle}>
+          {chipText}
         </span>
       </span>
       {replied.error && !/already recorded/i.test(replied.error.message) && (

@@ -102,17 +102,16 @@ describe('AttentionService', () => {
     expect(items[0].goTo).toBe('inbox')
   })
 
-  it('lists sends to check in X and failed sends with their reason', async () => {
+  it('lists sends to check in X and failed sends with their reason; a hand-send needs no check', async () => {
     await seedAttempt('201', 'manual_unverified')
     await seedAttempt('202', 'needs_decision')
     await seedAttempt('203', 'failed', "X says this person doesn't accept DMs from this account.")
     const items = await service.list(1, NOW)
     expect(items.map((i) => [i.kind, i.title])).toEqual([
-      ['check', 'u201'],
       ['check', 'u202'],
       ['failed', 'u203'],
     ])
-    expect(items[2].reason).toBe("X says this person doesn't accept DMs from this account.")
+    expect(items[1].reason).toBe("X says this person doesn't accept DMs from this account.")
   })
 
   it('warns when discovery stopped at the budget', async () => {

@@ -76,7 +76,7 @@ export function verdict(item: ReviewItem): Verdict {
     const by = item.sendPath === 'API_SEND' ? 'Now send it from xdm-scout or yourself in X.' : 'Now send it yourself in X.'
     return { tone: 'ok', chip: 'Approved', headline: 'Approved.', points: [by] }
   }
-  if (item.status === 'sent_manually') return { tone: 'done', chip: 'Sent', headline: 'Marked as sent.', points: [] }
+  if (item.status === 'sent_manually') return { tone: 'ok', chip: 'Sent by hand', headline: 'Sent by hand.', points: [] }
   if (item.status === 'not_sent') return { tone: 'done', chip: 'Not sent', headline: 'Marked as not sent.', points: [] }
   if (item.status === 'skipped') return { tone: 'done', chip: 'Skipped', headline: 'Skipped.', points: [] }
   if (item.status === 'superseded') return { tone: 'done', chip: 'Replaced', headline: 'Replaced by a newer draft.', points: [] }

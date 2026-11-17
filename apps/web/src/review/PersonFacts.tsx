@@ -221,7 +221,7 @@ export function ModelChecks({ decisions, sentences }: { decisions: Decision[]; s
     <section aria-label="Model checks">
       <h3 className="text-sm font-semibold">Model checks</h3>
       <p className="mt-1 text-sm text-muted">
-        Some checks show the chance that the answer is yes. Others show only a band: three blocks, no, unsure and yes from left to right, and the lit one is the AI's answer. Neither replaces the checks above.
+        What the AI thinks of each point. Advice only: the checks above decide.
       </p>
       <p className="mt-1 text-xs text-muted">70% or more counts as yes, 30% or less counts as no, in between is a warning.</p>
       <ul className="mt-3 space-y-1">

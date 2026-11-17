@@ -82,6 +82,16 @@ describe('campaigns API', () => {
     expect(rows.find((r) => r.id === idle.id)?.scoring).toBe(false)
   })
 
+  it('lists whether a draft is being written for each candidate, so the page can wait for it', async () => {
+    const c = await controller.create({ name: 'c', keywords: ['ai'], handles: ['alice'] })
+    const writing = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '500' })
+    const idle = await ds.getRepository(Prospect).save({ campaignId: c.id, xUserId: '501' })
+    await ds.getRepository(Job).save({ type: 'draft', payload: { prospectId: writing.id }, runAt: new Date() })
+    const rows = await controller.list(c.id)
+    expect(rows.find((r) => r.id === writing.id)?.drafting).toBe(true)
+    expect(rows.find((r) => r.id === idle.id)?.drafting).toBe(false)
+  })
+
   it('lists campaigns, newest first, with id and name only', async () => {
     const a = await controller.create({ name: 'a', keywords: ['ai'], handles: ['alice'] })
     const b = await controller.create({ name: 'b', keywords: ['ai'], handles: ['bob'] })

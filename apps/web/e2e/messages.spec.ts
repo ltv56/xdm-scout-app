@@ -15,8 +15,8 @@ test('Inbox and Outbox are one menu item, Messages, with a tab each', async ({ p
 
   await nav.getByRole('button', { name: 'Messages' }).click()
   await expect(nav.getByRole('button', { name: 'Messages' })).toHaveAttribute('aria-current', 'page')
-  await expect(page.getByRole('tablist', { name: 'Messages' }).getByRole('tab')).toHaveText(['Inbox', 'Outbox'])
-  await expect(page.getByRole('tab', { name: 'Inbox' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tablist', { name: 'Messages' }).getByRole('tab')).toHaveText(['Outbox', 'Inbox'])
+  await expect(page.getByRole('tab', { name: 'Outbox' })).toHaveAttribute('aria-selected', 'true')
 
   await page.getByRole('tab', { name: 'Outbox' }).click()
   await expect(page.getByRole('tab', { name: 'Outbox' })).toHaveAttribute('aria-selected', 'true')

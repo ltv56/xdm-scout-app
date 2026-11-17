@@ -147,7 +147,7 @@ export default function NewCampaign({ first, wide = false, onCreated, onCancel }
       <div>
         <TagInput label="Keywords" labelSuffix={first && <Star />} value={keywords} onChange={setKeywords} placeholder="Type a keyword, press Enter" />
         <p className="mt-1 text-xs text-muted">
-          Topics the people you want write about.
+          Topics the people you want to reach write about.
           {first && ' Pre-filled for AI and robotics builders; change them for another audience.'}
         </p>
       </div>

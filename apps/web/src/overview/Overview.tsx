@@ -54,7 +54,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
   const prospects = useQuery<Prospect[]>({
     queryKey: ['prospects', campaignId],
     queryFn: () => getJson(`/campaigns/${campaignId}/prospects`),
-    refetchInterval: (q) => (waiting || q.state.data?.some((p) => p.scoring) ? 4000 : false),
+    refetchInterval: (q) => (waiting || q.state.data?.some((p) => p.scoring || p.drafting) ? 4000 : false),
     refetchIntervalInBackground: true,
   })
   const queue = useQuery<ReviewQueue>({ queryKey: ['review-queue', campaignId], queryFn: () => getJson(`/review-queue?campaignId=${campaignId}`), retry: false })
@@ -80,6 +80,12 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
     void qc.invalidateQueries({ queryKey: ['funnel', campaignId] })
     void qc.invalidateQueries({ queryKey: ['prospects', campaignId] })
   }, [qc, campaignId, searchedAt, peopleCount])
+  // Scoring and drafting finish in the background; the next step card must follow them, not the first load.
+  const progress = `${prospects.data?.filter((p) => p.fit !== null).length}|${prospects.data?.filter((p) => p.drafting).length}`
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: ['ready', campaignId] })
+    void qc.invalidateQueries({ queryKey: ['review-queue', campaignId] })
+  }, [qc, campaignId, progress])
 
   if (campaign.isLoading) return <p role="status" className="text-sm text-muted">Loading…</p>
   if (campaign.error || !campaign.data) return <p role="alert" className="text-sm font-medium text-block">{campaign.error?.message ?? 'Campaign not found'}</p>
@@ -220,9 +226,6 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
             </div>
             <div className="flex flex-col items-start gap-2 sm:items-end">
               {toScore > 0 ? scoreButton(btnPrimary, `Score ${plural(toScore, 'person', 'people')}`) : <Spinner className="size-5" />}
-              <button type="button" className={btnLink} onClick={() => onProspects('all')}>
-                See them in Candidates
-              </button>
             </div>
           </>
         ) : (

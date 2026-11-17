@@ -2,9 +2,10 @@ import { useRef } from 'react'
 import Inbox from './Inbox'
 import Outbox from './Outbox'
 
+// Outbox first: sends come before replies.
 const MESSAGE_TABS = [
-  { id: 'inbox', label: 'Inbox' },
   { id: 'outbox', label: 'Outbox' },
+  { id: 'inbox', label: 'Inbox' },
 ] as const
 export type MessagesTab = (typeof MESSAGE_TABS)[number]['id']
 

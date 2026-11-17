@@ -1,5 +1,5 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common'
-import { DataSource } from 'typeorm'
+import { ConflictException, Inject, Injectable, Optional } from '@nestjs/common'
+import { DataSource, In } from 'typeorm'
 import { ApiUsage, Prospect } from '../discovery/entities'
 import { PRICES } from '../discovery/pricing'
 import { JobsService } from '../jobs/jobs.service'
@@ -9,6 +9,7 @@ import { addDoNotContact } from '../dnc/add-do-not-contact'
 import { Contact, Draft, SendAttempt } from '../sending/entities'
 import { X_CLIENT, XClient } from '../x/x-client'
 import { classifyReply, closesItself, ENDS_CONTACT } from './reply-class'
+import { READS_CHATS } from './reads-chats'
 import { Reply } from './reply.entity'
 
 const MIN = 60_000
@@ -18,6 +19,8 @@ const FAST_FOR = 6 * HOUR
 const FAST_EVERY = 30 * MIN
 const SLOW_EVERY = 3 * HOUR
 const STOP_AFTER = 72 * HOUR
+// After a failed read (an expired X login, say) the chat waits this long, instead of failing again every minute.
+const RETRY_AFTER_FAIL = 15 * 60_000
 
 type Polled = { contactId: number; attemptId: number; xUserId: string; campaignId: number; source: 'search' | 'call'; sentAt: Date; readAt: Date | null }
 
@@ -28,6 +31,7 @@ export class RepliesService {
     @Inject(X_CLIENT) private readonly x: XClient,
     private readonly jobs: JobsService,
     @Inject(LLM_CLIENT) private readonly llm: LlmClient,
+    @Optional() @Inject(READS_CHATS) private readonly chats: boolean = true,
   ) {}
 
   async due(now: Date): Promise<number[]> {
@@ -41,6 +45,7 @@ export class RepliesService {
   async scheduleNext(now: Date): Promise<void> {
     for (const contactId of await this.due(now)) {
       if (await this.jobs.hasOpen('read_replies', 'contactId', contactId)) continue
+      if (await this.jobs.failedSince('read_replies', 'contactId', contactId, new Date(now.getTime() - RETRY_AFTER_FAIL))) continue
       await this.jobs.enqueue('read_replies', { contactId }, now)
       return
     }
@@ -61,7 +66,7 @@ export class RepliesService {
   // They replied in an encrypted chat the API can't read; the operator saw it in X.
   async markReplied(attemptId: number, now: Date): Promise<void> {
     await this.ds.transaction(async (em) => {
-      const attempt = await em.findOne(SendAttempt, { where: { id: attemptId, status: 'sent' }, lock: { mode: 'pessimistic_write' } })
+      const attempt = await em.findOne(SendAttempt, { where: { id: attemptId, status: In(['sent', 'manual_unverified']) }, lock: { mode: 'pessimistic_write' } })
       if (!attempt) throw new ConflictException('This message was not delivered')
       if (await em.existsBy(Reply, { contactId: attempt.contactId })) throw new ConflictException('A reply is already recorded')
       await em.save(Reply, { contactId: attempt.contactId, attemptId, source: 'operator', at: now })
@@ -100,7 +105,7 @@ export class RepliesService {
       .innerJoin(Draft, 'd', 'd.id = a.draftId')
       .innerJoin(Prospect, 'p', 'p.id = d.prospectId')
       .leftJoin(Reply, 'r', 'r.contactId = c.id')
-      .where("a.status = 'sent' AND r.id IS NULL")
+      .where('a.status IN (:...statuses) AND r.id IS NULL', { statuses: this.chats ? ['sent', 'manual_unverified'] : ['sent'] })
       .select(['c.id AS contactId', 'a.id AS attemptId', 'c.xUserId AS xUserId', 'p.campaignId AS campaignId', 'p.source AS source', 'a.updatedAt AS sentAt', 'c.repliesReadAt AS readAt'])
       .orderBy('a.id', 'DESC')
       .getRawMany<Polled>()

@@ -73,7 +73,7 @@ export class AttentionService {
       kind: 'check',
       priority: 2,
       title: c.handle,
-      reason: c.reason === 'sent_by_hand' ? 'You marked this as sent by hand. Check in X that it went out.' : 'X did not confirm this send. Check in X whether it went out.',
+      reason: 'X did not confirm this send. Check in X whether it went out.',
       since: c.at,
       goTo: 'inbox',
     }))

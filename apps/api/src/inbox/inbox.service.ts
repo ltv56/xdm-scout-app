@@ -8,7 +8,9 @@ import { CheckItem, ConfirmBody, DeliveredItem, InboxChecks, ReplyItem } from '.
 import { ClassBy, ENDS_CONTACT, NO_ACTION, ReplyClass } from './reply-class'
 import { Reply } from './reply.entity'
 
-const TO_CHECK: AttemptStatus[] = ['manual_unverified', 'needs_decision']
+const TO_CHECK: AttemptStatus[] = ['needs_decision']
+// A hand-send counts as delivered from the moment the chat is opened.
+const DELIVERED: AttemptStatus[] = ['sent', 'manual_unverified']
 
 type Row = { id: number; status: AttemptStatus; verifiedBy: 'api' | 'operator' | null; copiesSeen: number | null; at: Date; xUserId: string; handle: string | null; name: string | null; text: string; replied: number | string }
 type ReplyRow = {
@@ -41,7 +43,7 @@ export class InboxService {
       .innerJoin(Prospect, 'p', 'p.id = d.prospectId AND p.campaignId = :campaignId', { campaignId })
       .innerJoin(Contact, 'c', 'c.id = a.contactId')
       .leftJoin(XUser, 'u', 'u.xUserId = c.xUserId')
-      .where('a.status IN (:...statuses)', { statuses: [...TO_CHECK, 'sent', 'manual_pending'] })
+      .where('a.status IN (:...statuses)', { statuses: [...TO_CHECK, ...DELIVERED, 'manual_pending'] })
       .select(['a.id AS id', 'a.status AS status', 'a.verifiedBy AS verifiedBy', 'a.copiesSeen AS copiesSeen', 'a.updatedAt AS at', 'c.xUserId AS xUserId', 'u.handle AS handle', 'u.name AS name', 'd.content AS text'])
       .addSelect('EXISTS (SELECT 1 FROM replies r WHERE r.contactId = c.id)', 'replied')
       .orderBy('a.id', 'ASC')
@@ -50,13 +52,13 @@ export class InboxService {
       .filter((r) => TO_CHECK.includes(r.status))
       .map((r) => ({
         ...person(r),
-        reason: r.status === 'manual_unverified' ? 'sent_by_hand' : 'not_confirmed',
+        reason: 'not_confirmed' as const,
         openInX: openInX(r.xUserId),
       }))
     const delivered: DeliveredItem[] = rows
-      .filter((r) => r.status === 'sent')
+      .filter((r) => DELIVERED.includes(r.status))
       .reverse()
-      .map((r) => ({ ...person(r), verifiedBy: r.verifiedBy ?? 'api', replied: Number(r.replied) === 1, copies: r.copiesSeen ?? 1 }))
+      .map((r) => ({ ...person(r), verifiedBy: r.status === 'manual_unverified' ? ('hand' as const) : (r.verifiedBy ?? 'api'), replied: Number(r.replied) === 1, copies: r.copiesSeen ?? 1 }))
     const waiting = rows.filter((r) => r.status === 'manual_pending').length
     const readsChats = !!this.config?.get<string>('XCHAT_KEYS_FILE', '')
     return { replies: await this.replies(campaignId), toCheck, delivered, waiting, readsChats }

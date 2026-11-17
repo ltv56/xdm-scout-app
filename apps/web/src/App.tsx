@@ -25,10 +25,11 @@ interface Health {
 }
 
 const TABS = [
+  // Work order: find people, review drafts, then send and read replies.
   { id: 'overview', label: 'Overview' },
+  { id: 'prospects', label: 'Candidates' },
   { id: 'review', label: 'Review' },
   { id: 'messages', label: 'Messages' },
-  { id: 'prospects', label: 'Candidates' },
   { id: 'profile', label: 'Profile' },
   { id: 'settings', label: 'Settings' },
   { id: 'activity', label: 'Activity' },
@@ -41,7 +42,7 @@ const isMessagesTab = (sub: string | null): sub is MessagesTab => sub === 'inbox
 export default function App() {
   const [start] = useState(readRoute)
   const [tab, setTab] = useState<Tab>(isTab(start.page) ? start.page : 'overview')
-  const [messagesTab, setMessagesTab] = useState<MessagesTab>(isMessagesTab(start.sub) ? start.sub : 'inbox')
+  const [messagesTab, setMessagesTab] = useState<MessagesTab>(isMessagesTab(start.sub) ? start.sub : 'outbox')
   const [candidateFilter, setCandidateFilter] = useState<CandidateFilter>('all')
   const [campaignId, setCampaignId] = useState<number | null>(start.campaignId)
   const [creating, setCreating] = useState(false)
@@ -79,6 +80,8 @@ export default function App() {
 
   const scroll = 'h-full overflow-y-auto px-5 py-8 sm:px-12 sm:py-10'
 
+  // Until the campaigns load we cannot tell the first run from a normal one; showing the menu here made it flash before onboarding.
+  if (campaigns.isPending) return null
   // The first run has no campaign yet: connect, fill the profile and start one before any menu shows.
   if (campaigns.isSuccess && list.length === 0) {
     return <Onboarding onCreated={(id) => { setCampaignId(id); setTab('overview') }} />

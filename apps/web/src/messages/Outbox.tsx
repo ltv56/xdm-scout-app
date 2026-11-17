@@ -1,13 +1,13 @@
+import { when } from '../format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ProfileLink } from '../ui/XLink'
 import { useState } from 'react'
 import type { Outbox as OutboxData, OutboxItem } from '../../../api/src/outbox/contract'
 import { getJson, postJson } from '../api'
+import ConfirmInline from '../ui/ConfirmInline'
 import EmptyState from '../ui/EmptyState'
 import { XLogo } from '../ui/icons'
-import { markOpened, reportOpened, wasOpened, withoutText } from './opened'
-import SentCheck from './SentCheck'
-import { btnApprove, btnLink, chip, COPIED_NOTE, tone, type Tone } from '../ui/ui'
+import { btnApprove, btnToolbar, chip, COPIED_NOTE, tone, type Tone } from '../ui/ui'
 import { useTopBar } from '../useTopBar'
 
 const TONE: Record<OutboxItem['label'], Tone> = {
@@ -16,12 +16,12 @@ const TONE: Record<OutboxItem['label'], Tone> = {
   Checking: 'warn',
   Sent: 'ok',
   'Send in X': 'warn',
+  'Sent by hand': 'ok',
   'Check in X': 'warn',
   Failed: 'stop',
   Cancelled: 'done',
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 // Every send of the campaign. Refreshes every 5 s while something is on its way, every 30 s otherwise.
 export default function Outbox({ campaignId, onReview }: { campaignId: number; onReview: () => void }) {
@@ -32,14 +32,11 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
     retry: false,
   })
   const qc = useQueryClient()
-  // Sent? after opening X: the worker then looks for the message in the chat; not sent puts the draft back in Review.
-  const sentByHand = useMutation({
-    mutationFn: ({ draftId, outcome }: { draftId: number; outcome: 'sent' | 'not_sent' }) => postJson(`/drafts/${draftId}/manual`, { outcome }),
-    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['outbox', campaignId] }), qc.invalidateQueries({ queryKey: ['inbox-checks', campaignId] })]),
-  })
-  // Rows opened in X in this page; wasOpened covers the ones opened before a reload.
-  const [opened, setOpened] = useState<Set<number>>(() => new Set())
-  const isOpened = (draftId: number) => opened.has(draftId) || wasOpened(draftId)
+  const refresh = () => Promise.all(['outbox', 'inbox-checks', 'review-queue', 'top-bar'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
+  // Opening the chat counts as sent by hand.
+  const opened = useMutation({ mutationFn: (draftId: number) => postJson(`/drafts/${draftId}/opened`, {}), onSuccess: refresh })
+  // Not sent takes a hand-send back: the draft returns to Review.
+  const notSent = useMutation({ mutationFn: (draftId: number) => postJson(`/drafts/${draftId}/manual`, { outcome: 'not_sent' }), onSuccess: refresh })
   // The row whose draft was just copied, to say so on screen.
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const copy = (id: number, text: string | null) => {
@@ -67,9 +64,7 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
       </div>
       {items.some((i) => i.route === 'manual') && (
         <p className="mt-1 text-sm text-muted">
-          {topBar?.mode === 'fake'
-            ? 'Messages you send by hand: the sandbox does not read X, so answer Sent? yourself.'
-            : 'Messages you send by hand: after you open the chat we look for your message there during the next day, and mark it sent once it shows. Answer Sent? to settle it sooner.'}
+          Opening the chat counts as sent by hand. If you did not send it, press Not sent and the draft goes back to Review.
         </p>
       )}
       {outbox.error ? (
@@ -87,8 +82,8 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
                 </div>
                 <p className="mt-0.5 text-xs text-muted">{when(i.at)}</p>
                 {i.error && <p className="mt-1 text-sm text-muted">{i.error}</p>}
-                {i.label === 'Check in X' && i.route === 'manual' && !i.error && <p className="anim-fade-in mt-1 text-sm text-muted">Looking for your message in the chat. If it stays here, confirm it in Inbox.</p>}
-                {sentByHand.isError && sentByHand.variables?.draftId === i.draftId && <p role="alert" className="mt-1 text-sm text-block">{sentByHand.error.message}</p>}
+                {i.label === 'Check in X' && !i.error && <p className="anim-fade-in mt-1 text-sm text-muted">X did not confirm this send. Check it under Messages &gt; Inbox.</p>}
+                {[opened, notSent].map((mu) => mu.isError && mu.variables === i.draftId && <p key={mu === opened ? 'o' : 'n'} role="alert" className="mt-1 text-sm text-block">{mu.error.message}</p>)}
                 {copiedId === i.attemptId && (
                   <p role="status" className="anim-fade-in mt-1 text-sm text-ok">
                     {COPIED_NOTE}
@@ -96,15 +91,27 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
                 )}
               </div>
               {i.openInX &&
-                (isOpened(i.draftId) ? (
-                  <div className="flex items-center gap-3">
-                    <a className={`${btnLink} text-xs`} href={withoutText(i.openInX)} target="_blank" rel="noreferrer" onClick={() => reportOpened(i.draftId)}>
-                      open chat
+                (i.label === 'Sent by hand' ? (
+                  <div className="flex items-center gap-2">
+                    <ConfirmInline
+                      label="Not sent"
+                      title="Did not send it in X? This takes the send back and the draft returns to Review."
+                      question="Didn't send it?"
+                      confirmLabel="Yes, take it back"
+                      pending={notSent.isPending && notSent.variables === i.draftId}
+                      onConfirm={() => notSent.mutate(i.draftId)}
+                      className={`${btnToolbar} text-muted hover:text-ink`}
+                    />
+                    <a
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-raised px-3 py-1.5 text-sm font-medium transition-colors hover:border-ink hover:bg-rail"
+                      href={i.openInX}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Open the chat with @${i.handle} on X`}
+                    >
+                      Open chat
+                      <XLogo className="size-3.5" />
                     </a>
-                    <button type="button" className={`${btnLink} text-xs`} onClick={() => copy(i.attemptId, i.text)}>
-                      copy draft
-                    </button>
-                    <SentCheck pending={sentByHand.isPending} onAnswer={(outcome) => sentByHand.mutate({ draftId: i.draftId, outcome })} />
                   </div>
                 ) : (
                   <a
@@ -114,9 +121,7 @@ export default function Outbox({ campaignId, onReview }: { campaignId: number; o
                     rel="noreferrer"
                     aria-label="Open chat on X"
                     onClick={() => {
-                      markOpened(i.draftId)
-                      reportOpened(i.draftId)
-                      setOpened((cur) => new Set(cur).add(i.draftId))
+                      opened.mutate(i.draftId)
                       copy(i.attemptId, i.text)
                     }}
                   >

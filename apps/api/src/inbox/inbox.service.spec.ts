@@ -41,7 +41,7 @@ afterAll(async () => {
 })
 
 describe('checks', () => {
-  it('lists sends to check in X and delivered sends of one campaign, with how each was verified', async () => {
+  it('lists sends to check in X and delivered sends of one campaign, with how each was verified; a hand-send counts as delivered', async () => {
     const hand = await seedAttempt(1, '201', 'manual_unverified')
     const timedOut = await seedAttempt(1, '202', 'needs_decision', 'api')
     await seedAttempt(1, '203', 'sent', 'api')
@@ -50,12 +50,12 @@ describe('checks', () => {
     await seedAttempt(2, '205', 'manual_unverified')
 
     const res = await inbox.checks(1)
-    expect(res.toCheck.map((c) => [c.attemptId, c.reason])).toEqual([
-      [hand.attempt.id, 'sent_by_hand'],
-      [timedOut.attempt.id, 'not_confirmed'],
+    expect(res.toCheck.map((c) => [c.attemptId, c.reason])).toEqual([[timedOut.attempt.id, 'not_confirmed']])
+    expect(res.toCheck[0]).toMatchObject({ handle: 'u202', text: 'Hi 202', openInX: 'https://x.com/messages/compose?recipient_id=202' })
+    expect(res.delivered.map((d) => [d.attemptId, d.handle, d.verifiedBy])).toEqual([
+      [expect.any(Number), 'u203', 'api'],
+      [hand.attempt.id, 'u201', 'hand'],
     ])
-    expect(res.toCheck[0]).toMatchObject({ handle: 'u201', text: 'Hi 201', openInX: 'https://x.com/messages/compose?recipient_id=201' })
-    expect(res.delivered.map((d) => [d.handle, d.verifiedBy])).toEqual([['u203', 'api']])
   })
 
   it('counts the hand-sends still being looked for, so an empty Inbox can say it is waiting', async () => {
@@ -167,7 +167,7 @@ describe('replies', () => {
 
 describe('confirm', () => {
   it('"It was sent" marks the send delivered by the operator and keeps the send right', async () => {
-    const { draft, attempt } = await seedAttempt(1, '201', 'manual_unverified')
+    const { draft, attempt } = await seedAttempt(1, '201', 'needs_decision', 'api')
     await inbox.confirm(attempt.id, 'sent')
     expect(await ds.getRepository(SendAttempt).findOneByOrFail({ id: attempt.id })).toMatchObject({ status: 'sent', verifiedBy: 'operator' })
     expect((await ds.getRepository(Contact).findOneByOrFail({ id: draft.contactId })).activeAttemptId).toBe(attempt.id)
@@ -184,7 +184,7 @@ describe('confirm', () => {
   })
 
   it('refuses a send that is not waiting for a check', async () => {
-    const { attempt } = await seedAttempt(1, '201', 'manual_unverified')
+    const { attempt } = await seedAttempt(1, '201', 'needs_decision', 'api')
     await inbox.confirm(attempt.id, 'sent')
     await expect(inbox.confirm(attempt.id, 'not_sent')).rejects.toBeInstanceOf(ConflictException)
     await expect(inbox.confirm(9999, 'sent')).rejects.toBeInstanceOf(ConflictException)

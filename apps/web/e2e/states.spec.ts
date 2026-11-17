@@ -54,6 +54,7 @@ test('With nothing sent, Inbox, Outbox and Activity share the same empty state',
   const nav = page.getByRole('navigation', { name: 'Sections' })
 
   await nav.getByRole('button', { name: 'Messages' }).click()
+  await page.getByRole('tab', { name: 'Inbox' }).click()
   const inbox = page.getByRole('region', { name: 'No replies yet' })
   await inbox.getByRole('button', { name: 'Go to Review' }).click()
   await expect(nav.getByRole('button', { name: /^Review/ })).toHaveAttribute('aria-current', 'page')

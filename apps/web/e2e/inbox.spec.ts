@@ -11,14 +11,14 @@ async function campaignId(request: APIRequestContext): Promise<number> {
   return list.find((c: { name: string }) => c.name === campaign).id
 }
 
-// Approves drafts and records them as sent by hand, the state X's API often can't confirm.
+// Approves drafts and opens their chats, which counts as sent by hand.
 async function sendByHand(request: APIRequestContext, count: number) {
   const queue = await (await request.get(`/api/review-queue?campaignId=${await campaignId(request)}`)).json()
   const drafts = queue.items.filter((i: { status: string; sendPath: string }) => i.status === 'pending' && i.sendPath === 'HUMAN_HANDOFF').slice(0, count)
   expect(drafts.length).toBe(count)
   for (const d of drafts) {
     expect((await request.post(`/api/drafts/${d.draftId}/approve`, { data: { contentHash: d.contentHash, confirmedUnbacked: true } })).ok()).toBe(true)
-    expect((await request.post(`/api/drafts/${d.draftId}/manual`, { data: { outcome: 'sent' } })).ok()).toBe(true)
+    expect((await request.post(`/api/drafts/${d.draftId}/opened`, { data: {} })).ok()).toBe(true)
   }
 }
 
@@ -40,41 +40,19 @@ test.afterAll(async () => {
   await emptyDatabase()
 })
 
-test('Inbox: messages sent by hand are checked in X, then marked sent or not sent', async ({ page }) => {
+test('Inbox: messages sent by hand count as delivered at once, with nothing to check in X', async ({ page }) => {
   await openInbox(page)
-
-  const toCheck = page.getByRole('region', { name: /^Check in X/ })
+  await expect(page.getByRole('region', { name: /^Check in X/ })).toHaveCount(0)
   const delivered = page.getByRole('region', { name: 'Delivered' })
-  const cards = toCheck.getByRole('listitem')
-  await expect(cards).toHaveCount(2)
-  await expect(cards.first().getByRole('link', { name: /^Open chat with @/ })).toHaveAttribute('href', /x\.com\/messages\/compose\?recipient_id=/)
-
-  // One Sent? button; asking opens a tick and a cross, and Escape closes them.
-  const ask = cards.first().getByRole('button', { name: 'Sent?', exact: true })
-  await expect(cards.first().getByRole('button', { name: 'It was sent' })).toHaveCount(0)
-  await ask.click()
-  const group = cards.first().getByRole('group', { name: 'Was it sent?' })
-  await expect(group.getByRole('button', { name: 'It was sent' })).toBeVisible()
-  await expect(group.getByRole('button', { name: 'It was not sent' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(group).toHaveCount(0)
-  await ask.click()
-
-  await cards.first().getByRole('button', { name: 'It was sent' }).click()
-  await expect(cards).toHaveCount(1)
-  await expect(delivered.getByText('Confirmed by you')).toBeVisible()
-
-  await cards.first().getByRole('button', { name: 'Sent?', exact: true }).click()
-  await cards.first().getByRole('button', { name: 'It was not sent' }).click()
-  await expect(toCheck).toHaveCount(0)
-  await expect(delivered.getByRole('listitem')).toHaveCount(1)
+  await expect(delivered.getByRole('listitem')).toHaveCount(2)
+  await expect(delivered.getByText('Sent by hand')).toHaveCount(2)
 })
 
 // The worker's fake X lives in its own process, so the reply it would store is written to the e2e database directly.
 async function storeReply(text: string, eventId: string, replyClass: string, classBy: string, optOut = false) {
   const db = await createConnection(E2E_DATABASE_URL)
   try {
-    const [rows] = await db.query("SELECT a.id, a.contactId, c.xUserId FROM send_attempts a JOIN contacts c ON c.id = a.contactId WHERE a.status = 'sent' ORDER BY a.id LIMIT 1")
+    const [rows] = await db.query("SELECT a.id, a.contactId, c.xUserId FROM send_attempts a JOIN contacts c ON c.id = a.contactId WHERE a.status IN ('sent', 'manual_unverified') ORDER BY a.id LIMIT 1")
     const [{ id, contactId, xUserId }] = rows as { id: number; contactId: number; xUserId: string }[]
     await db.query(
       "INSERT INTO replies (contactId, attemptId, xEventId, text, source, at, replyClass, classBy, handledAt) VALUES (?, ?, ?, ?, 'api', NOW(3), ?, ?, IF(?, NOW(3), NULL))",
@@ -114,24 +92,21 @@ test('Inbox: a stop reply shows as Opt-out and the person as Do not contact', as
 
 test('Inbox: Check now reads the open chats, and "They replied" records a reply the API cannot see', async ({ page, request }) => {
   await sendByHand(request, 1)
-  const checks = await (await request.get(`/api/inbox/checks?campaignId=${await campaignId(request)}`)).json()
-  expect((await request.post(`/api/send-attempts/${checks.toCheck[0].attemptId}/confirm`, { data: { outcome: 'sent' } })).ok()).toBe(true)
   await openInbox(page)
 
   const replies = page.getByRole('region', { name: /^Replies/ })
   await replies.getByRole('button', { name: 'Check now' }).click()
-  await expect(replies.getByRole('status')).toHaveText('Checking 1 chat, estimated $0.01')
+  // Hand-sends are read too, so every chat without a reply is checked.
+  await expect(replies.getByRole('status')).toHaveText(/^Checking \d+ chats?, estimated \$/)
 
   const delivered = page.getByRole('region', { name: 'Delivered' })
-  await delivered.getByRole('button', { name: 'They replied' }).click()
+  await delivered.getByRole('button', { name: 'They replied' }).first().click()
   await expect(delivered.getByText('Replied', { exact: true })).toHaveCount(2)
   const encrypted = replies.getByRole('listitem').first()
   await expect(encrypted.getByText('You marked that they replied. Read it in X.')).toBeVisible()
   await pick(page, encrypted.getByRole('combobox', { name: /^Class/ }), /^Question/)
   await expect(encrypted.getByTitle('Set by you')).toHaveText('Question')
 
-  await replies.getByRole('button', { name: 'Check now' }).click()
-  await expect(replies.getByRole('status')).toHaveText('No chats to check')
 })
 
 async function clearDoNotContact() {
@@ -158,13 +133,13 @@ test('Inbox: a decline the model decided waits for a person before the sender is
   await expect(reply.getByRole('button', { name: 'Confirm: put on Do not contact' })).toHaveCount(0)
 })
 
-test('Inbox: while hand-sends are looked for it says so, and with chat keys a reply is never marked by hand', async ({ page, request }) => {
+test('Inbox: while approved hand-sends wait to be opened it says so, and with chat keys a reply is never marked by hand', async ({ page, request }) => {
   const id = await campaignId(request)
   const sent = { attemptId: 1, handle: 'tomas_agents', name: 'Tomas', text: 'Hi Tomas', at: '2026-11-16T18:00:00Z', verifiedBy: 'api', replied: false, copies: 1 }
   let body: Record<string, unknown> = { replies: [], toCheck: [], delivered: [], waiting: 2, readsChats: true }
   await page.route('**/api/inbox/checks*', (r) => r.fulfill({ json: { campaignId: id, ...body } }))
   await openInbox(page)
-  await expect(page.getByRole('region', { name: 'Waiting for your messages' })).toContainText('Looking for 2 messages you sent by hand in the chat.')
+  await expect(page.getByRole('region', { name: 'Nothing sent yet' })).toContainText('2 approved messages still to send in X: open the chat from Outbox.')
 
   body = { ...body, delivered: [sent], waiting: 0 }
   await page.reload()
