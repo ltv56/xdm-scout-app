@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Logo from '../ui/Logo'
 import type { CampaignSummary } from '../../../api/src/review/contract'
 import { Check, Close, Menu, Plus } from '../ui/icons'
 import StatusStrip from './StatusStrip'
@@ -45,7 +46,10 @@ export default function MobileMenu({ sections, pages, tab, waiting, list, active
     <header className="relative z-30 sm:hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-3">
         <div className="flex min-w-0 items-baseline gap-3">
-          <span className="text-base font-bold tracking-tight text-ink">xdm-scout</span>
+          <span className="flex items-center gap-2 self-center text-base font-bold tracking-tight text-ink">
+            <Logo className="size-5" />
+            xdm-scout
+          </span>
           <span className="truncate text-sm text-muted">{here}</span>
         </div>
         <div className="flex items-center gap-3">

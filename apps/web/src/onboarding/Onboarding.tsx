@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Logo from '../ui/Logo'
 import { useState } from 'react'
 import type { SenderProfile as Profile } from '../../../api/src/review/contract'
 import { type XStatus } from '../settings/Account'
@@ -97,7 +98,10 @@ export default function Onboarding({ onCreated }: { onCreated: (id: number) => v
   return (
     <div className="flex min-h-screen flex-col">
       <header className="mx-auto w-full max-w-[1280px] px-6 py-5">
-        <span className="text-base font-bold tracking-tight text-ink">xdm-scout</span>
+        <span className="flex items-center gap-2 text-base font-bold tracking-tight text-ink">
+          <Logo />
+          xdm-scout
+        </span>
       </header>
       <main className={`mx-auto w-full max-w-[920px] px-6 ${step === 'connect' && !error && !loading ? 'flex flex-1 items-center justify-center pb-24' : 'pb-8 pt-2'}`}>
         {n > 0 && !error && !loading && (

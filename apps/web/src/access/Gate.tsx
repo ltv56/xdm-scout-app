@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import Logo from '../ui/Logo'
 import { useEffect, useState, type ReactNode } from 'react'
 import { postJson, SIGNED_OUT_EVENT } from '../api'
 import { btnPrimary, field } from '../ui/ui'
@@ -55,7 +56,10 @@ function AccessScreen({ setUp, onDone }: { setUp: boolean; onDone: () => void })
           submit.mutate()
         }}
       >
-        <p className="text-base font-bold tracking-tight">xdm-scout</p>
+        <p className="flex items-center gap-2 text-base font-bold tracking-tight">
+          <Logo />
+          xdm-scout
+        </p>
         <h1 className="mt-4 text-2xl font-bold">{setUp ? 'Sign in' : 'Set up this server'}</h1>
         <p className="mt-2 text-sm text-muted">
           {setUp

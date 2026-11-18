@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import Logo from './ui/Logo'
 import { useEffect, useState } from 'react'
 import type { CampaignSummary, ReviewQueue as Queue, SenderProfile as Profile } from '../../api/src/review/contract'
 import { getJson } from './api'
@@ -125,7 +126,10 @@ export default function App() {
         }}
       />
       <header className="mx-auto hidden w-full max-w-[1280px] shrink-0 flex-wrap items-center gap-x-10 gap-y-2 px-6 py-5 text-sm sm:flex lg:flex-nowrap">
-        <span className="shrink-0 whitespace-nowrap text-base font-bold tracking-tight text-ink">xdm-scout</span>
+        <span className="flex shrink-0 items-center gap-2 whitespace-nowrap text-base font-bold tracking-tight text-ink">
+          <Logo />
+          xdm-scout
+        </span>
         <nav aria-label="Sections" className="flex shrink-0 flex-wrap gap-x-6">
           {TABS.filter((t) => t.id !== 'profile' && t.id !== 'settings' && t.id !== 'activity').map((t) => (
             <button
