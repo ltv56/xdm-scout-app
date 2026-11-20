@@ -53,3 +53,13 @@ test('Settings lists only what the operator can fix', async ({ page }) => {
   await expect(checks).toContainText('Not verified until the first send')
   for (const technical of ['Database', 'Decision model', 'Worker', 'Mode']) await expect(checks).not.toContainText(technical)
 })
+
+test('The message preview follows the intro and greeting as typed, before Save', async ({ page }) => {
+  await page.goto('/')
+  await openPage(page, 'Profile')
+  await page.getByRole('textbox', { name: 'Who you are' }).fill('We back robotics founders in Vietnam.')
+  await page.getByRole('textbox', { name: 'Greeting' }).fill('Chào {name}!')
+  const preview = page.locator('p[aria-live="polite"]')
+  await expect(preview).toContainText('Chào Mai!')
+  await expect(preview).toContainText('We back robotics founders in Vietnam.')
+})

@@ -22,14 +22,16 @@ const MAX_PROGRAMS = 8
 const isLink = (s: string) => /^https?:\/\/\S+$/.test(s)
 
 // The frame filled in by the API on a sample person called Mai, so what you see is what the code builds.
-function FramePreviewBox({ profile, greeting, optOut, contactLine }: { profile: Profile; greeting: string; optOut: string; contactLine: string }) {
+// Intro and the first program name come from the form as typed, so the preview follows every edit before Save.
+function FramePreviewBox({ profile, intro, firstProgram, greeting, optOut, contactLine }: { profile: Profile; intro: string; firstProgram: string; greeting: string; optOut: string; contactLine: string }) {
   const frame = { greeting: greeting || null, optOut: optOut || null, contactLine: contactLine || null }
+  const shown = { ...profile, intro: intro || profile.intro, programs: profile.programs.map((p, i) => (i === 0 && firstProgram ? { ...p, name: firstProgram } : p)), frame }
   const valid = !greeting || greeting.includes('{name}')
   // The preview is built from the saved profile, so before the first save there is nothing to show yet.
   const saved = !!profile.intro && profile.programs.length > 0 && !!profile.signer
   const { data, error } = useQuery<FramePreview>({
-    queryKey: ['frame-preview', frame],
-    queryFn: () => postJson('/sender-profile/preview', { ...profile, frame }),
+    queryKey: ['frame-preview', shown.intro, shown.programs[0]?.name, frame],
+    queryFn: () => postJson('/sender-profile/preview', shown),
     enabled: valid && saved,
     retry: false,
     placeholderData: (previous) => previous,
@@ -173,17 +175,17 @@ function ProfileForm({ profile }: { profile: Profile }) {
         <label htmlFor="frame-greeting" className="mt-3 block text-sm font-medium">
           Greeting
         </label>
-        <input id="frame-greeting" value={greeting} maxLength={80} placeholder="Hi {name}!" onChange={(e) => setGreeting(e.target.value)} className={field} />
+        <input id="frame-greeting" value={greeting} maxLength={80} placeholder="Empty: one of five built-in greetings, e.g. Hi {name}!" onChange={(e) => setGreeting(e.target.value)} className={field} />
         <p className="mt-1 text-xs text-muted">{'{name}'} becomes their first name. Used for English drafts, and only when we have a usable name.</p>
         <label htmlFor="frame-optout" className="mt-3 block text-sm font-medium">
           Line that lets them say no
         </label>
-        <input id="frame-optout" value={optOut} maxLength={160} onChange={(e) => setOptOut(e.target.value)} className={field} />
+        <input id="frame-optout" value={optOut} maxLength={160} placeholder="Empty: the model writes one, e.g. No worries if not." onChange={(e) => setOptOut(e.target.value)} className={field} />
         <label htmlFor="frame-contact" className="mt-3 block text-sm font-medium">
           Contact line, last in the message
         </label>
         <input id="frame-contact" value={contactLine} maxLength={160} placeholder="Write to me at name@example.com" onChange={(e) => setContactLine(e.target.value)} className={field} />
-        <FramePreviewBox profile={profile} greeting={greeting.trim()} optOut={optOut.trim()} contactLine={contactLine.trim()} />
+        <FramePreviewBox profile={profile} intro={intro.trim().slice(0, 400)} firstProgram={programs[0]?.name.trim().slice(0, 80) ?? ''} greeting={greeting.trim()} optOut={optOut.trim()} contactLine={contactLine.trim()} />
       </fieldset>
 
       <fieldset>
