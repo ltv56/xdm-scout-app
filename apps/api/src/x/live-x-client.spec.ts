@@ -256,6 +256,12 @@ describe('LiveXClient discovery reads', () => {
     expect(posts.map((p) => p.lang)).toEqual(['vi', undefined])
     expect(new URL(calls[0].url).searchParams.get('tweet.fields')).toBe('created_at,lang')
   })
+
+  it('reads only posts the person wrote themselves: no reposts, no replies', async () => {
+    const { client, calls } = clientWith(() => json(200, { data: [] }))
+    await client.getRecentPosts('1', 15)
+    expect(new URL(calls[0].url).searchParams.get('exclude')).toBe('retweets,replies')
+  })
 })
 
 describe('LiveXClient.getPostsExist', () => {

@@ -161,7 +161,8 @@ export class LiveXClient implements XClient {
     const query = new URLSearchParams({
       max_results: String(Math.max(5, max)),
       'tweet.fields': 'created_at,lang',
-      exclude: 'retweets',
+      // Replies crowd out their own posts (15 of 15 for some founders), and an opening needs their own work.
+      exclude: 'retweets,replies',
     })
     const parsed = postsResponse.parse(await (await this.call(`/2/users/${userId}/tweets?${query}`, 'GET')).json())
     return (parsed.data ?? []).slice(0, max).map((p) => ({ id: p.id, userId, text: p.text, createdAt: new Date(p.created_at), lang: p.lang }))
