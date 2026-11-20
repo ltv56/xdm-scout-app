@@ -37,7 +37,7 @@ export default function BestMatches({ people }: { people: Prospect[] }) {
             {p.role && p.role !== 'other' && <p className="text-sm text-muted">{p.role}</p>}
             {p.why && <p className="mt-2 line-clamp-2 text-sm">{p.why.text}</p>}
             <p className="mt-2 line-clamp-2 text-sm text-muted">
-              {p.opening ? <>Opening: {p.opening.summary}</> : 'No reason to reach out yet'}
+              {p.opening ? <>Opening: {p.opening.summary}</> : 'No recent post to open with'}
             </p>
             {p.opening && <p className="mt-1 text-xs text-muted">{ago(p.opening.date)}{p.opening.freshness === 'stale' ? ' (stale)' : ''}</p>}
           </li>

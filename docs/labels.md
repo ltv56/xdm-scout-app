@@ -12,7 +12,7 @@ What each label means and what the app does with it. How the models produce them
 | Not a fit | Never drafted |
 | Not scored | Waits for Score; Scoring… while the worker runs |
 
-## Opening and "no reason to reach out yet"
+## Opening and "no recent post to open with"
 
 An opening is the one recent, specific post a draft is about: launch, paper, question, hiring or milestone. Its age comes from the post date:
 
@@ -22,7 +22,7 @@ An opening is the one recent, specific post a draft is about: launch, paper, que
 | 31 to 90 days | stale | Review warns |
 | Over 90 days | expired | Left out of Write drafts |
 
-A scored person with no usable opening shows **No reason to reach out yet**, with the cause: posts not read, no recent post, or expired.
+A scored person with no usable opening shows **No recent post to open with**, with the cause: posts not read, no recent post about their own work, or expired. Draft from their profile writes a draft that opens with their bio instead; it never says they posted anything.
 
 ## Candidates, Review and Overview
 

@@ -12,7 +12,7 @@ export const CLAIM_CHIP: Record<'verified' | 'unsure' | 'inferred', { label: str
 export function noOpeningText(n: NonNullable<Prospect['noOpening']>): string {
   if (n.cause === 'posts_not_read') return 'Their posts were not read: the search reached its budget first.'
   if (n.cause === 'expired') return `The only opening is from ${shortDate(n.date)}, over 90 days ago.`
-  return 'None of the posts read gives a recent, specific reason to write.'
+  return 'The model read their posts and found none from the last 30 days about their own work, so there is no post to mention. A draft can still open with their profile.'
 }
 
 export function landsInWhy(p: Pick<Prospect, 'landsIn' | 'relationship'> & { website?: string | null }): string {

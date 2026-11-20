@@ -416,7 +416,7 @@ export default function CandidateDetail({ campaignId, id, inReview, onReview, on
                   </Row>
                 ) : (
                   <Row icon={<AlertTriangle className="size-4 text-warn" />}>
-                    <p className="font-semibold">No reason to reach out yet</p>
+                    <p className="font-semibold">No recent post to open with</p>
                     {p.noOpening && <p className="mt-0.5 text-muted">{noOpeningText(p.noOpening)}</p>}
                     {p.noOpening?.cause === 'posts_not_read' && <p className="mt-0.5 text-muted">You can read them under Posts read.</p>}
                   </Row>

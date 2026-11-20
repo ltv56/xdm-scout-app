@@ -19,7 +19,7 @@ function daysAgo(iso: string) {
   return days <= 0 ? 'today' : `${days}d ago`
 }
 
-// "Draft a message": one person, on request. It writes the draft and puts it in Review. Anyone but Not a fit, and only with an opening.
+// "Draft a message": one person, on request. It writes the draft and puts it in Review. Anyone but Not a fit; with no opening post it opens with their profile.
 export function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospect; campaignId: number; inReview: boolean; onReview: (handle?: string) => void }) {
   const qc = useQueryClient()
   const make = useMutation({
@@ -27,7 +27,8 @@ export function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospec
       postJson(`/campaigns/${campaignId}/prospects/${p.id}/draft`),
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['review-queue'] }), qc.invalidateQueries({ queryKey: ['ready'] })]),
   })
-  const why = p.fit === null ? 'Not scored yet' : p.fit === 'not_a_fit' ? 'Not a fit' : p.noOpening ? 'No reason to reach out yet' : null
+  const why = p.fit === null ? 'Not scored yet' : p.fit === 'not_a_fit' ? 'Not a fit' : p.noOpening?.cause === 'posts_not_read' ? 'Read their posts first' : null
+  const fromProfile = !why && !!p.noOpening
 
   if (p.outbox) return null
   if (inReview || make.isSuccess) {
@@ -40,7 +41,7 @@ export function DraftControl({ p, campaignId, inReview, onReview }: { p: Prospec
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span title={why ?? undefined} className="inline-flex"><button type="button" className={btnSecondary} disabled={!!why || make.isPending} onClick={() => make.mutate()}>
-        {make.isPending ? 'Writing…' : 'Draft a message'}
+        {make.isPending ? 'Writing…' : fromProfile ? 'Draft from their profile' : 'Draft a message'}
       </button></span>
       {why && <span className="text-sm text-muted">{why}</span>}
       {make.error && (
@@ -213,7 +214,7 @@ interface Props {
 }
 
 // Short form of why there is nothing to write about; the detail says it in full.
-const NO_OPENING_SHORT = { posts_not_read: 'posts not read: the search hit its budget', no_recent_post: 'no recent, specific post', expired: 'the opening is over 90 days old' }
+const NO_OPENING_SHORT = { posts_not_read: 'posts not read: the search hit its budget', no_recent_post: 'no recent post about their own work', expired: 'the opening is over 90 days old' }
 
 export default function CandidateRow({ p, index, campaignId, inReview, onReview, onOpen }: Props) {
   return (
@@ -290,7 +291,7 @@ export default function CandidateRow({ p, index, campaignId, inReview, onReview,
             </>
           ) : (
             <p className="text-sm text-muted">
-              <span className="font-medium text-warn">No reason to reach out yet</span>
+              <span className="font-medium text-warn">No recent post to open with</span>
               {p.noOpening && <> · {NO_OPENING_SHORT[p.noOpening.cause]}</>}
             </p>
           )}

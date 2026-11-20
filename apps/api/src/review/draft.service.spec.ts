@@ -341,6 +341,16 @@ describe('drafting again in the language of the recipient', () => {
   })
 })
 describe('drafting one person on request', () => {
+  it('opens with their profile when no post gives an opening, and tells the model it is not a post', async () => {
+    const p = await seed({ handle: 'b', opening: false })
+    await ds.getRepository(Evidence).save({ id: 'bio:u-b', xUserId: 'u-b', kind: 'bio', url: 'https://x.com/b', excerpt: 'Building an AI law platform for Indonesia', postedAt: null, fetchedAt: now })
+    let prompt = ''
+    const llm = new FakeLlmClient((req) => { if (req.task === 'draft') prompt = req.user; return cannedHandler(req) })
+    const id = await service(llm).draftOne(1, p.id, now)
+    expect(JSON.parse(prompt).opening).toMatchObject({ evidence_id: 'bio:u-b', text: 'Building an AI law platform for Indonesia' })
+    expect((await ds.getRepository(Draft).findOneByOrFail({ id })).sentences![1].source).toEqual({ type: 'evidence', evidenceId: 'bio:u-b' })
+  })
+
   it('drafts any Fit but Not a fit, and marks the person shortlisted', async () => {
     const p = await seed({ fit: 'weak' })
     const id = await service().draftOne(1, p.id, now)
@@ -355,7 +365,7 @@ describe('drafting one person on request', () => {
     const bad = await seed({ handle: 'n', fit: 'not_a_fit' })
     await expect(service().draftOne(1, bad.id, now)).rejects.toThrow('Not a fit')
     const none = await seed({ handle: 'o', opening: false })
-    await expect(service().draftOne(1, none.id, now)).rejects.toThrow('No reason to reach out yet')
+    await expect(service().draftOne(1, none.id, now)).rejects.toThrow('Nothing to open with')
     const twice = await seed({ handle: 't' })
     await service().draftOne(1, twice.id, now)
     await expect(service().draftOne(1, twice.id, now)).rejects.toThrow('already has a draft')
