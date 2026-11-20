@@ -191,7 +191,7 @@ export const writeDraftsBody = z.object({ limit: z.number().int().min(1).max(10)
 export const writeDraftsResult = z.object({ drafted: z.number(), readyToDraft: z.number(), noOpening: z.number(), cantReceive: z.number() })
 
 // People with an opening and a Fit of Strong or Possible who have no draft yet. Nothing is drafted by itself.
-export const readyToDraft = z.object({ ready: z.number() })
+export const readyToDraft = z.object({ ready: z.number(), fromProfile: z.number() })
 
 // What a campaign adds for the first-come lane: the program it offers, and the call post people answer by DM.
 // Both call fields are null when the lane is off. callPostedAt is read-only: the server reads it off the post id.

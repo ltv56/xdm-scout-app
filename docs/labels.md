@@ -6,8 +6,8 @@ What each label means and what the app does with it. How the models produce them
 
 | Label | Effect |
 | --- | --- |
-| Strong fit | Sorted first; drafted in bulk when there is an opening |
-| Possible fit | Drafted in bulk when there is an opening |
+| Strong fit | Sorted first; drafted in bulk |
+| Possible fit | Drafted in bulk |
 | Weak fit | Drafted one at a time only |
 | Not a fit | Never drafted |
 | Not scored | Waits for Score; Scoring… while the worker runs |
@@ -28,7 +28,7 @@ A scored person with no usable opening shows **No recent post to open with**, wi
 
 | Label | Meaning |
 | --- | --- |
-| Ready for a draft | Strong or Possible, a usable opening, no draft, DMs not closed |
+| Ready for a draft | Strong or Possible, a usable opening or posts read with no recent one (drafted from the profile, after the rest), no draft, DMs not closed |
 | Draft written, In Outbox | A draft waits in Review, or was approved |
 | Backed by evidence | Verified: the cited text supports the reason |
 | Check the post | Unsure: open the post and decide |

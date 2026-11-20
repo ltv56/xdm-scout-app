@@ -20,13 +20,13 @@ export function criteriaRank(criteria: CriterionResult[] | null | undefined): nu
 const WARMTH: RelationshipContext[] = ['messaged_us', 'engaged', 'follower', 'adjacent', 'cold']
 
 // cantReceive: prospect ids whose DMs X says they do not take; they are left out of the batch and can still be drafted one by one.
-export function readyToDraft<T extends DraftCandidate>(prospects: T[], draftedIds: Set<number>, now: Date, cantReceive: Set<number> = new Set()): T[] {
+// fromProfile: prospect ids with no opening post whose posts were read and whose bio is stored, so the draft opens with the bio.
+export function readyToDraft<T extends DraftCandidate>(prospects: T[], draftedIds: Set<number>, now: Date, cantReceive: Set<number> = new Set(), fromProfile: Set<number> = new Set()): T[] {
   return prospects.filter(
     (p) =>
       !cantReceive.has(p.id) &&
       (p.fit === 'strong' || p.fit === 'possible') &&
-      p.openingEvidenceId !== null &&
-      !(p.openingDate && openingFreshness(p.openingDate, now) === 'expired') &&
+      ((p.openingEvidenceId !== null && !(p.openingDate && openingFreshness(p.openingDate, now) === 'expired')) || fromProfile.has(p.id)) &&
       !draftedIds.has(p.id) &&
       p.status !== 'dismissed',
   )
@@ -35,6 +35,6 @@ export function readyToDraft<T extends DraftCandidate>(prospects: T[], draftedId
 export function pickForDrafting<T extends DraftCandidate>(ready: T[], limit: number): T[] {
   const time = (p: T) => p.openingDate?.getTime() ?? 0
   return [...ready]
-    .sort((a, b) => Number(b.fit === 'strong') - Number(a.fit === 'strong') || WARMTH.indexOf(a.relationship) - WARMTH.indexOf(b.relationship) || criteriaRank(a.criteria) - criteriaRank(b.criteria) || time(b) - time(a))
+    .sort((a, b) => Number(b.openingEvidenceId !== null) - Number(a.openingEvidenceId !== null) || Number(b.fit === 'strong') - Number(a.fit === 'strong') || WARMTH.indexOf(a.relationship) - WARMTH.indexOf(b.relationship) || criteriaRank(a.criteria) - criteriaRank(b.criteria) || time(b) - time(a))
     .slice(0, limit)
 }

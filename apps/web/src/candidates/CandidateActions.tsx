@@ -34,7 +34,7 @@ export default function CandidateActions({ campaignId, unscored, scoring, drafti
       setNote(
         r.drafted === 0
           ? `Nobody is ready for a draft.${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed.` : ''}`
-          : `${r.readyToDraft ? ` ${plural(r.readyToDraft, 'more person', 'more people')} still waiting.` : ''}${r.noOpening ? ` ${plural(r.noOpening, 'person', 'people')} skipped: no recent post to open with. Draft them one by one from their profile.` : ''}${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed.` : ''}`.trim(),
+          : `${r.readyToDraft ? ` ${plural(r.readyToDraft, 'more person', 'more people')} still waiting.` : ''}${r.noOpening ? ` ${plural(r.noOpening, 'person', 'people')} skipped: their posts were not read, or the post to open with is too old.` : ''}${r.cantReceive ? ` ${plural(r.cantReceive, 'person', 'people')} left out: X says their DMs are closed.` : ''}`.trim(),
       )
       return Promise.all(['review-queue', 'ready', 'prospects'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
     },
@@ -68,7 +68,7 @@ export default function CandidateActions({ campaignId, unscored, scoring, drafti
               {write.isPending ? 'Starting…' : `Write ${plural(batch, 'draft')}`}
             </button>
             <span className="text-xs text-muted">
-              {plural(ready, 'person is', 'people are')} ready.{ready > 10 ? ' Up to 10 at a time, so you can read each one: strong first, then closer ties, then the newest posts.' : ''}
+              {plural(ready, 'person is', 'people are')} ready.{ready > 10 ? ' Up to 10 at a time, so you can read each one: people with a recent post first, then strong, then closer ties, then the newest posts.' : ''}
             </span>
           </>
         )}

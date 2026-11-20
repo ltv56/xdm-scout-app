@@ -14,7 +14,8 @@ export class CampaignDraftsController {
   @Get('ready')
   async ready(@Param('id', ParseIntPipe) id: number): Promise<ReadyToDraft> {
     await this.campaign(id)
-    return { ready: (await this.drafts.ready(id)).length }
+    const ready = await this.drafts.ready(id)
+    return { ready: ready.length, fromProfile: ready.filter((p) => p.openingEvidenceId === null).length }
   }
 
   @Post()

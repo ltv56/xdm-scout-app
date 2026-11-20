@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import { ConflictException, NotFoundException } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { Campaign, Prospect } from '../discovery/entities'
+import { Campaign, Prospect, XPost } from '../discovery/entities'
 import { Claim, Evidence } from '../fit/entities'
 import { Job } from '../jobs/job.entity'
 import { JobsService } from '../jobs/jobs.service'
@@ -274,6 +274,19 @@ describe('writing drafts for a campaign', () => {
     await service().writeDrafts(1, 10, now)
     expect(await service().writeDrafts(1, 10, now)).toEqual({ drafted: 0, readyToDraft: 0, noOpening: 1, cantReceive: 0 })
     expect(await ds.getRepository(Job).count()).toBe(1)
+  })
+
+  it('drafts a person with no recent post from their profile once their posts were read, after the people with a post', async () => {
+    const ok = await seed()
+    const bio = await seed({ handle: 'bio', opening: false })
+    await ds.getRepository(Evidence).save({ id: 'bio:u-bio', xUserId: 'u-bio', kind: 'bio', url: 'https://x.com/bio', excerpt: 'Founder of an eval startup', postedAt: null, fetchedAt: now })
+    await ds.getRepository(XPost).save({ postId: 'p-bio', xUserId: 'u-bio', text: 'Coffee', postedAt: now, lang: 'en', fetchedAt: now })
+    await seed({ handle: 'unread', opening: false })
+    await ds.getRepository(Evidence).save({ id: 'bio:u-unread', xUserId: 'u-unread', kind: 'bio', url: 'https://x.com/unread', excerpt: 'Founder', postedAt: null, fetchedAt: now })
+
+    expect((await service().ready(1, now)).map((p) => p.id).sort()).toEqual([ok.id, bio.id].sort())
+    expect(await service().writeDrafts(1, 1, now)).toEqual({ drafted: 1, readyToDraft: 1, noOpening: 1, cantReceive: 0 })
+    expect((await ds.getRepository(Job).find()).map((j) => j.payload.prospectId)).toEqual([ok.id])
   })
 
   it('stops at the limit and leaves the rest ready', async () => {

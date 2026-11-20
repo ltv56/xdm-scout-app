@@ -2,7 +2,7 @@ import { currentSender } from '../auth/current-sender'
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { DataSource, In, Not } from 'typeorm'
 import { z } from 'zod'
-import { Campaign, Prospect } from '../discovery/entities'
+import { Campaign, Prospect, XPost } from '../discovery/entities'
 import { landsIn } from '../discovery/lands-in'
 import { Claim, Evidence } from '../fit/entities'
 import { JobsService } from '../jobs/jobs.service'
@@ -72,14 +72,14 @@ export class DraftService {
   // People who could get a draft now: see readyToDraft, minus do-not-contact and anyone with a draft job already open.
   async ready(campaignId: number, now = new Date()) {
     const prospects = await this.openProspects(campaignId)
-    return readyToDraft(prospects, await this.draftedIds(prospects), now, await this.cantReceiveIds(prospects))
+    return readyToDraft(prospects, await this.draftedIds(prospects), now, await this.cantReceiveIds(prospects), await this.fromProfileIds(prospects))
   }
 
   async writeDrafts(campaignId: number, limit: number, now = new Date()) {
     const prospects = await this.openProspects(campaignId)
     const drafted = await this.draftedIds(prospects)
     const cantReceive = await this.cantReceiveIds(prospects)
-    const ready = readyToDraft(prospects, drafted, now, cantReceive)
+    const ready = readyToDraft(prospects, drafted, now, cantReceive, await this.fromProfileIds(prospects))
     const chosen = pickForDrafting(ready, limit)
     for (const p of chosen) await this.jobs.enqueue('draft', { prospectId: p.id }, new Date())
     const waiting = prospects.filter((p) => (p.fit === 'strong' || p.fit === 'possible') && !drafted.has(p.id) && !ready.includes(p))
@@ -117,6 +117,16 @@ export class DraftService {
       ...(await this.ds.getRepository(KnownUser).findBy({ xUserId: ids, kind: 'known' })).map((k) => k.xUserId),
     ])
     return prospects.filter((p) => p.status !== 'dismissed' && !blocked.has(p.xUserId))
+  }
+
+  // No opening post, but their posts were read and the bio is still stored: the draft opens with the bio (see generate).
+  private async fromProfileIds(prospects: Prospect[]) {
+    const none = prospects.filter((p) => p.openingEvidenceId === null)
+    if (!none.length) return new Set<number>()
+    const ids = In(none.map((p) => p.xUserId))
+    const bios = new Set((await this.ds.getRepository(Evidence).findBy({ xUserId: ids, kind: 'bio', excerpt: Not('') })).map((e) => e.xUserId))
+    const read = new Set((await this.ds.getRepository(XPost).createQueryBuilder('p').select('DISTINCT p.xUserId', 'xUserId').where({ xUserId: ids }).getRawMany<{ xUserId: string }>()).map((r) => r.xUserId))
+    return new Set(none.filter((p) => bios.has(p.xUserId) && read.has(p.xUserId)).map((p) => p.id))
   }
 
   // Where the message would land is judged like the Candidates label: a follower or an open conversation is never Can't receive.

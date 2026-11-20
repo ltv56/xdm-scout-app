@@ -37,12 +37,21 @@ describe('readyToDraft', () => {
     expect(readyToDraft([p(1), p(2), p(3)], new Set(), now, new Set([2])).map((x) => x.id)).toEqual([1, 3])
   })
 
+  it('keeps a person with no opening when they can be drafted from their profile', () => {
+    expect(readyToDraft([p(1, { openingEvidenceId: null }), p(2, { openingEvidenceId: null })], new Set(), now, new Set(), new Set([2])).map((x) => x.id)).toEqual([2])
+  })
+
   it('treats an opening without a date as not expired', () => {
     expect(readyToDraft([p(1, { openingDate: null })], new Set(), now)).toHaveLength(1)
   })
 })
 
 describe('pickForDrafting', () => {
+  it('puts everyone with a post to open with ahead of profile-only drafts', () => {
+    const ready = [p(1, { openingEvidenceId: null, openingDate: null }), p(2, { fit: 'possible' })]
+    expect(pickForDrafting(ready, 10).map((x) => x.id)).toEqual([2, 1])
+  })
+
   it('puts Strong first, then the warmer relationship, then the newer opening', () => {
     const ready = [
       p(1, { fit: 'possible', relationship: 'messaged_us' }),

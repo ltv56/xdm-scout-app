@@ -113,6 +113,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
     </button>
   )
   const ready = readyQuery.data?.ready ?? 0
+  const fromProfile = readyQuery.data?.fromProfile ?? 0
   const byVerdict = (t: string) => drafts.filter((d) => verdict(d).tone === t).length
   const run = c.lastDiscovery
   const sources = [c.handles.length && plural(c.handles.length, 'handle'), c.seeds?.length && plural(c.seeds.length, 'seed account'), c.followersOf?.length && `followers of ${plural(c.followersOf.length, 'account')}`, c.queries?.length && plural(c.queries.length, 'search')].filter(Boolean).join(' · ')
@@ -267,7 +268,7 @@ export default function Overview({ campaignId, onReview, onProspects, onGo, onSe
               {loadError
                 ? 'Reload the page when the server is back.'
                 : ready > 0
-                ? `Drafts for the best fits first, up to 10 at a time. Nothing is sent until you approve it.`
+                ? `Drafts for the best fits first, up to 10 at a time.${fromProfile ? ` ${plural(fromProfile, 'person has', 'people have')} no recent post, so ${fromProfile === 1 ? 'that draft opens' : 'those drafts open'} with their profile and ${fromProfile === 1 ? 'comes' : 'come'} last.` : ''} Nothing is sent until you approve it.`
                 : people.length
                   ? 'Search again to find more people.'
                   : 'Check the handles and keywords, then search again.'}
